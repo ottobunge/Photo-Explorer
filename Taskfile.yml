@@ -33,6 +33,36 @@ tasks:
       - backend:dev
       - frontend:dev
 
+  dev:local:
+    desc: "Local dev mode: Infrastructure in Docker, app services local with hot-reload (Press Ctrl+C to quit)"
+    deps: [services:up]
+    cmds:
+      - cmd: echo "🚀 Starting Photo Explorer in local development mode..."
+        silent: true
+      - cmd: echo "📦 Infrastructure (Postgres, Qdrant, Redis) running in Docker"
+        silent: true
+      - cmd: echo "💻 Backend, Frontend, Worker running locally with hot-reload"
+        silent: true
+      - cmd: echo ""
+        silent: true
+      - cmd: echo "📊 View logs below (color-coded by service):"
+        silent: true
+      - cmd: echo "   🔵 backend  - API server on http://localhost:8000"
+        silent: true
+      - cmd: echo "   🟢 frontend - Web UI on http://localhost:5173"
+        silent: true
+      - cmd: echo "   🟡 worker   - Background task processor"
+        silent: true
+      - cmd: echo ""
+        silent: true
+      - cmd: echo "⌨️  Press Ctrl+C to stop all services"
+        silent: true
+      - cmd: echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        silent: true
+      - cmd: echo ""
+        silent: true
+      - overmind start -f Procfile.dev
+
   # ===================
   # Infrastructure
   # ===================

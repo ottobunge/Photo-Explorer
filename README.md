@@ -27,40 +27,50 @@ AI-powered photo organization and semantic search application.
 - NixOS or Nix package manager
 - Docker and Docker Compose
 
-### Development with Nix
+### Fastest Way to Start Developing (Recommended) ⭐
 
 ```bash
 # Enter the development shell
 nix-shell
 
-# Install dependencies
+# Install dependencies (first time only)
 task setup
 
-# Start infrastructure services (PostgreSQL, Qdrant, Redis)
-task services:up
-
-# Download AI models
-task models:setup
-
-# Start backend and frontend (in parallel)
-task dev
+# Start local development mode
+# - Infrastructure (Postgres, Qdrant, Redis) runs in Docker
+# - Backend, Frontend, Worker run locally with hot-reload
+# - All logs in one terminal, color-coded
+task dev:local
 ```
 
-### Development with Docker
+**Press Ctrl+C to stop everything**
+
+This is the recommended mode for active development because:
+- ⚡ Instant code changes (no Docker rebuild needed)
+- 🔍 Easy debugging with native tools
+- 📊 All logs visible in one terminal
+- 💾 Low memory usage (~1-2GB)
+
+See [DEV_WORKFLOW.md](./DEV_WORKFLOW.md) for detailed development guide.
+
+### Alternative: Full Docker Mode
 
 ```bash
-# Start all services
+# Start all services in Docker
 task docker:up
 
 # Or in detached mode
 task docker:up:detached
 ```
 
+Use this for testing Docker builds or production-like environment.
+
 ### Access the Application
 
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
+- Qdrant Dashboard: http://localhost:6333/dashboard
 
 ## Project Structure
 
