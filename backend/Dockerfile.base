@@ -1,0 +1,129 @@
+# syntax=docker/dockerfile:1
+# ===================================================================================
+# Base Image for Photo Explorer - All Dependencies Pre-installed
+# ===================================================================================
+#
+# This base image contains ALL dependencies from pyproject.toml:
+# - Heavy ML dependencies (PyTorch, ONNX, InsightFace, OpenCLIP)
+# - Application dependencies (FastAPI, SQLAlchemy, Celery, etc.)
+# - Development dependencies (pytest, ruff, mypy, etc.)
+#
+# When the main Dockerfile runs `poetry install`, it will be nearly instant
+# because all dependencies are already installed in the base image.
+#
+# Build this image separately and push to a registry to speed up CI/CD:
+#   docker build -f Dockerfile.base -t photo-explorer-base:latest .
+#   docker tag photo-explorer-base:latest ghcr.io/ottobunge/photo-explorer-base:latest
+#   docker push ghcr.io/ottobunge/photo-explorer-base:latest
+#
+# Update this base image only when dependencies in pyproject.toml change.
+# ===================================================================================
+
+# Use NVIDIA CUDA base for GPU support
+# For CPU-only, use: FROM python:3.12-slim
+FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
+# Install Python 3.12
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    curl \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-dev \
+    python3.12-venv \
+    python3.12-distutils \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1 \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install system dependencies for ML libraries and PostgreSQL
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libgl1 \
+    libglib2.0-0 \
+    libgomp1 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libfontconfig1 \
+    postgresql-client \
+    wget \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    # CUDA environment
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    # Poetry environment
+    POETRY_VERSION=1.7.1 \
+    POETRY_HOME="/opt/poetry" \
+    POETRY_VIRTUALENVS_IN_PROJECT=false \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_NO_INTERACTION=1
+
+# Add Poetry to PATH
+ENV PATH="$POETRY_HOME/bin:$PATH"
+
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+# Upgrade pip and install build tools
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# ===================================================================================
+# Install ALL Dependencies from pyproject.toml
+# ===================================================================================
+
+# Copy pyproject.toml and poetry.lock (if exists)
+COPY pyproject.toml poetry.lock* ./
+
+# Install all dependencies (including dev dependencies)
+# This includes all the heavy ML libs AND lightweight app libs
+RUN poetry install --no-root --with dev
+
+# ===================================================================================
+# Pre-download common models to speed up first run
+# ===================================================================================
+
+# Create models directory
+RUN mkdir -p /app/models
+
+# Pre-download CLIP model (ViT-B-32)
+RUN python -c "import open_clip; open_clip.create_model_and_transforms('ViT-B-32', pretrained='openai')" || echo "CLIP model download failed, will retry at runtime"
+
+# Pre-download InsightFace model
+RUN python -c "import insightface; app = insightface.app.FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider']); app.prepare(ctx_id=0)" || echo "InsightFace model download failed, will retry at runtime"
+
+# ===================================================================================
+# Metadata
+# ===================================================================================
+
+LABEL maintainer="Photo Explorer Team"
+LABEL description="Base image with all dependencies pre-installed from pyproject.toml"
+LABEL version="1.0.0"
+LABEL python.version="3.12"
+LABEL poetry.version="1.7.1"
+LABEL cuda.version="12.1"
+
+# Health check to verify all major dependencies load
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import torch; import transformers; import open_clip; import insightface; import fastapi; import sqlalchemy; import celery"
+
+# Default command (will be overridden)
+CMD ["python", "--version"]

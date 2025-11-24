@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  DOCKER_COMPOSE: docker-compose
+  DOCKER_COMPOSE: podman-compose
 
 includes:
   backend:

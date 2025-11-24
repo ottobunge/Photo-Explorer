@@ -23,7 +23,8 @@
       "Bash(poetry run python:*)",
       "Bash(poetry run alembic check:*)",
       "Bash(poetry run ruff format:*)",
-      "Bash(md5sum:*)"
+      "Bash(md5sum:*)",
+      "Bash(poetry run pytest:*)"
     ],
     "deny": [],
     "ask": []
