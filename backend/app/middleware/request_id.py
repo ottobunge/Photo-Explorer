@@ -77,11 +77,11 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                 "Request failed",
                 extra={
                     "request_id": request_id,
-                        "path": request.url.path,
-                        "method": request.method,
-                    },
-                )
-                raise exc
+                    "path": request.url.path,
+                    "method": request.method,
+                },
+            )
+            raise exc
 
 
 def get_request_id(request: Request) -> str:
