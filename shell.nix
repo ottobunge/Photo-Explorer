@@ -37,6 +37,10 @@ pkgs.mkShell {
     # Google Cloud CLI
     google-cloud-sdk
 
+    # Required for NumPy/ML libraries in NixOS
+    stdenv.cc.cc.lib
+    zlib
+
     # For ML models (optional, can use Docker instead)
     # cudaPackages.cudatoolkit
   ];
@@ -58,6 +62,9 @@ pkgs.mkShell {
     echo ""
     echo "See DEV_WORKFLOW.md for detailed development guide"
     echo ""
+
+    # Fix for NumPy/ML libraries in NixOS - add standard library paths
+    export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
     # Set up Python virtual environment path
     export VIRTUAL_ENV="$PWD/backend/.venv"

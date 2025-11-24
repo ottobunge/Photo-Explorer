@@ -9,4 +9,4 @@ backend: cd backend && poetry run uvicorn app.main:app --host 0.0.0.0 --port 800
 frontend: cd frontend && pnpm dev --host 0.0.0.0 --port 5173
 
 # ML Worker (Celery for background tasks)
-worker: cd backend && poetry run celery -A app.infrastructure.tasks.worker worker --loglevel=info --concurrency=2
+worker: cd backend && poetry run celery -A app.adapters.inbound.workers.celery_app:celery_app worker --loglevel=info --concurrency=2
