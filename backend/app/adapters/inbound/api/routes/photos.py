@@ -14,8 +14,10 @@ from app.adapters.inbound.api.schemas.photo_schemas import (
     PhotoUploadResponse,
 )
 from app.adapters.inbound.workers.tasks import process_photo_task
+from app.domain.entities.connector import ConnectorType
 from app.dependencies import (
     AlbumRepoDep,
+    ConnectorRepoDep,
     FileStorageDep,
     PhotoRepoDep,
     PhotoServiceDep,
@@ -37,6 +39,7 @@ router = APIRouter()
 async def upload_photos(
     photo_service: PhotoServiceDep,
     album_repo: AlbumRepoDep,
+    connector_repo: ConnectorRepoDep,
     files: Annotated[list[UploadFile], File(description="One or more image files to upload (max 100 at once)")],
     album_id: Annotated[Optional[UUID], Form(description="Optional album ID to add photos to")] = None,
 ) -> PhotoUploadResponse:
@@ -109,6 +112,22 @@ async def upload_photos(
         if not album:
             raise HTTPException(status_code=404, detail=f"Album {album_id} not found")
 
+    # Get default upload connector
+    upload_connector = None
+    upload_connector_id = None
+    try:
+        all_connectors = await connector_repo.find_all()
+        upload_connectors = [c for c in all_connectors if c.type == ConnectorType.UPLOAD]
+        if upload_connectors:
+            upload_connector = upload_connectors[0]
+            upload_connector_id = upload_connector.id.value
+            logger.debug(f"Using upload connector: {upload_connector_id}")
+        else:
+            logger.warning("No upload connector found, photos will be orphaned")
+    except Exception as e:
+        logger.warning(f"Failed to fetch upload connector: {e}", exc_info=True)
+        # Continue without connector - photos will be created with connector_type="local" and no connector_id
+
     # Allowed MIME types for images
     allowed_mime_types = {
         "image/jpeg", "image/jpg", "image/png", "image/gif",
@@ -174,6 +193,8 @@ async def upload_photos(
                 filename=file.filename or "unnamed.jpg",
                 content_type=file.content_type,
                 album_id=album_id,
+                connector_type=ConnectorType.UPLOAD.value if upload_connector else "local",
+                connector_id=upload_connector_id,
             )
 
             # Queue background processing task

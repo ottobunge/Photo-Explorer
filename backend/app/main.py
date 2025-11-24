@@ -106,6 +106,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize Qdrant client (lazy initialization)
     logger.info("Qdrant client will be initialized on first use")
 
+    # Initialize default connectors
+    try:
+        from app.adapters.outbound.persistence.postgres.repositories.connector_repository import (
+            PostgresConnectorRepository,
+        )
+        from app.application.services.connector_initialization import (
+            ensure_default_upload_connector,
+        )
+
+        logger.info("Initializing default connectors...")
+        connector_repo = PostgresConnectorRepository()
+        uploads_path = app_settings.storage_path / "uploads"
+        uploads_path.mkdir(parents=True, exist_ok=True)
+
+        await ensure_default_upload_connector(connector_repo, uploads_path)
+        logger.info("Default connectors initialized")
+    except Exception as e:
+        logger.warning(f"Failed to initialize default connectors: {e}", exc_info=True)
+        # Don't fail startup if connector initialization fails
+        # The app can still function, uploads just won't be associated with a connector
+
     logger.info("Application startup complete")
 
     yield

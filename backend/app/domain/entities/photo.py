@@ -70,8 +70,22 @@ class Photo:
         storage_path: Optional[str] = None,
         original_path: Optional[str] = None,
         album_id: Optional[UUID] = None,
+        connector_type: str = "local",
+        connector_id: Optional[UUID] = None,
     ) -> "Photo":
-        """Factory method to create a new local photo."""
+        """Factory method to create a new local photo.
+
+        Args:
+            filename: The photo's filename
+            storage_path: Path where photo is stored locally
+            original_path: Original source path (deprecated, use source_path)
+            album_id: Optional album to add the photo to
+            connector_type: Type of connector ("local", "upload", "google_photos")
+            connector_id: Optional connector ID to associate this photo with
+
+        Returns:
+            New Photo instance
+        """
         now = datetime.utcnow()
         album_ids = [album_id] if album_id else []
 
@@ -81,7 +95,8 @@ class Photo:
             storage_path=storage_path,
             source_path=original_path or storage_path,
             original_path=original_path,
-            connector_type="local",
+            connector_type=connector_type,
+            connector_id=connector_id,
             created_at=now,
             updated_at=now,
             album_ids=album_ids,

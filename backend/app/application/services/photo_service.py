@@ -38,8 +38,22 @@ class PhotoService(PhotoUseCases):
         filename: str,
         content_type: str,
         album_id: Optional[UUID] = None,
+        connector_type: str = "local",
+        connector_id: Optional[UUID] = None,
     ) -> Photo:
-        """Upload a new photo."""
+        """Upload a new photo.
+
+        Args:
+            file: Binary file data
+            filename: Original filename
+            content_type: MIME type
+            album_id: Optional album to add photo to
+            connector_type: Type of connector ("local", "upload", etc.)
+            connector_id: ID of connector to associate with
+
+        Returns:
+            Created Photo entity
+        """
         # Save file to storage
         storage_path = await self._file_storage.save_photo(file, filename)
 
@@ -48,13 +62,21 @@ class PhotoService(PhotoUseCases):
             filename=filename,
             storage_path=storage_path,
             album_id=album_id,
+            connector_type=connector_type,
+            connector_id=connector_id,
         )
         photo.mime_type = content_type
 
         # Save to database
         photo = await self._photo_repo.save(photo)
 
-        logger.info(f"Uploaded photo {photo.id.value}: {filename}")
+        logger.info(
+            f"Uploaded photo {photo.id.value}: {filename}",
+            extra={
+                "connector_type": connector_type,
+                "connector_id": str(connector_id) if connector_id else None,
+            },
+        )
         return photo
 
     async def get_photo(self, photo_id: UUID) -> Optional[Photo]:
