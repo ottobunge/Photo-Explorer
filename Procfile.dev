@@ -1,8 +1,11 @@
 # Procfile for local development with overmind
 # Infrastructure runs in Docker, app services run locally
 # Usage: overmind start -f Procfile.dev
+#
+# Environment variables are loaded from .env by shell.nix shellHook
 
 # Backend API (FastAPI with uvicorn hot-reload)
+# Loads .env automatically via shell environment
 backend: cd backend && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Frontend (Svelte with Vite hot-reload)

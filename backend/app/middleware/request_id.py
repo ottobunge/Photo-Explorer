@@ -59,22 +59,24 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         # Add to logging context (if using structured logging)
         # This allows all logs within this request to include the request_id
-        with logging.LoggerAdapter(logger, {"request_id": request_id}):
-            try:
-                # Process the request
-                response = await call_next(request)
+        # Note: LoggerAdapter is not a context manager, just use it for logging
+        request_logger = logging.LoggerAdapter(logger, {"request_id": request_id})
 
-                # Add request ID to response headers
-                response.headers["X-Request-ID"] = request_id
+        try:
+            # Process the request
+            response = await call_next(request)
 
-                return response
+            # Add request ID to response headers
+            response.headers["X-Request-ID"] = request_id
 
-            except Exception as exc:
-                # Even on error, include request ID in logs
-                logger.exception(
-                    "Request failed",
-                    extra={
-                        "request_id": request_id,
+            return response
+
+        except Exception as exc:
+            # Even on error, include request ID in logs
+            logger.exception(
+                "Request failed",
+                extra={
+                    "request_id": request_id,
                         "path": request.url.path,
                         "method": request.method,
                     },
