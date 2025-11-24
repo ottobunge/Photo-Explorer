@@ -100,6 +100,11 @@ logs/
 htmlcov/
 .pytest_cache/
 
+# Test fixtures - images (downloaded at test time)
+backend/tests/fixtures/images/
+**/test_images/
+**/fixtures/images/
+
 # Type checking
 .mypy_cache/
 .dmypy.json
