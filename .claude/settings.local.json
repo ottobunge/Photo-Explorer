@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nix-shell:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(gcloud config get-value:*)",
+      "WebSearch",
+      "WebFetch(domain:developers.google.com)",
+      "Bash(docker compose logs:*)",
+      "Bash(curl:*)",
+      "Bash(docker compose:*)",
+      "Bash(python3:*)",
+      "Bash(if [ -d \".venv\" ])",
+      "Bash(then .venv/bin/python -c \"from app.adapters.inbound.api.routes.faces import router; print(''Imports successful'')\")",
+      "Bash(else echo \"No .venv found\")",
+      "Bash(fi)",
+      "Bash(npm install:*)",
+      "Bash(npm run check:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(poetry add:*)",
+      "Bash(poetry run python:*)",
+      "Bash(poetry run alembic check:*)",
+      "Bash(poetry run ruff format:*)",
+      "Bash(md5sum:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

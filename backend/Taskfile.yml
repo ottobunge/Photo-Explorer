@@ -1,0 +1,228 @@
+version: '3'
+
+vars:
+  POETRY: poetry
+  PYTEST: "{{.POETRY}} run pytest"
+  UVICORN: "{{.POETRY}} run uvicorn"
+  PYTHON: "{{.POETRY}} run python"
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # ===================
+  # Development
+  # ===================
+
+  dev:
+    desc: Start development server with hot reload
+    cmds:
+      - "{{.UVICORN}} app.main:app --reload --host 0.0.0.0 --port 8000"
+
+  dev:worker:
+    desc: Start Celery worker for background jobs
+    cmds:
+      - "{{.POETRY}} run celery -A app.adapters.inbound.workers worker --loglevel=info"
+
+  # ===================
+  # Setup
+  # ===================
+
+  setup:
+    desc: Install dependencies and setup environment
+    cmds:
+      - "{{.POETRY}} install"
+      - task: db:migrate
+
+  install:
+    desc: Install dependencies only
+    cmds:
+      - "{{.POETRY}} install"
+
+  install:prod:
+    desc: Install production dependencies only
+    cmds:
+      - "{{.POETRY}} install --without dev"
+
+  lock:
+    desc: Update poetry.lock file
+    cmds:
+      - "{{.POETRY}} lock"
+
+  update:
+    desc: Update dependencies
+    cmds:
+      - "{{.POETRY}} update"
+
+  # ===================
+  # Testing
+  # ===================
+
+  test:
+    desc: Run all tests
+    cmds:
+      - "{{.PYTEST}} tests/ -v"
+
+  test:unit:
+    desc: Run unit tests only
+    cmds:
+      - "{{.PYTEST}} tests/unit/ -v"
+
+  test:integration:
+    desc: Run integration tests only
+    cmds:
+      - "{{.PYTEST}} tests/integration/ -v"
+
+  test:bdd:
+    desc: Run BDD feature tests
+    cmds:
+      - "{{.PYTEST}} tests/features/ -v"
+
+  test:watch:
+    desc: Run tests in watch mode
+    cmds:
+      - "{{.PYTEST}} tests/ -v --watch"
+
+  test:coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - "{{.PYTEST}} tests/ -v --cov=app --cov-report=html --cov-report=term"
+
+  test:coverage:xml:
+    desc: Run tests with XML coverage report (for CI)
+    cmds:
+      - "{{.PYTEST}} tests/ -v --cov=app --cov-report=xml"
+
+  # ===================
+  # Database
+  # ===================
+
+  db:migrate:
+    desc: Run database migrations
+    cmds:
+      - "{{.POETRY}} run alembic upgrade head"
+
+  db:migrate:create:
+    desc: Create a new migration
+    cmds:
+      - "{{.POETRY}} run alembic revision --autogenerate -m \"{{.CLI_ARGS}}\""
+
+  db:rollback:
+    desc: Rollback last migration
+    cmds:
+      - "{{.POETRY}} run alembic downgrade -1"
+
+  db:seed:
+    desc: Seed database with sample data
+    cmds:
+      - "{{.PYTHON}} -m app.scripts.seed"
+
+  db:reset:
+    desc: Reset database (drop all, migrate, seed)
+    cmds:
+      - "{{.POETRY}} run alembic downgrade base"
+      - "{{.POETRY}} run alembic upgrade head"
+      - task: db:seed
+
+  # ===================
+  # Code Quality
+  # ===================
+
+  lint:
+    desc: Run linter
+    cmds:
+      - "{{.POETRY}} run ruff check app/ tests/"
+
+  lint:fix:
+    desc: Fix linting issues
+    cmds:
+      - "{{.POETRY}} run ruff check --fix app/ tests/"
+
+  format:
+    desc: Format code
+    cmds:
+      - "{{.POETRY}} run ruff format app/ tests/"
+
+  format:check:
+    desc: Check code formatting
+    cmds:
+      - "{{.POETRY}} run ruff format --check app/ tests/"
+
+  typecheck:
+    desc: Run type checker
+    cmds:
+      - "{{.POETRY}} run mypy app/"
+
+  check:
+    desc: Run all code quality checks
+    cmds:
+      - task: lint
+      - task: format:check
+      - task: typecheck
+      - task: test
+
+  # ===================
+  # Utilities
+  # ===================
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf .pytest_cache
+      - rm -rf .mypy_cache
+      - rm -rf .ruff_cache
+      - rm -rf htmlcov
+      - rm -rf .coverage
+      - find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+      - find . -type f -name "*.pyc" -delete
+
+  shell:
+    desc: Open Python shell with app context
+    cmds:
+      - "{{.PYTHON}} -i -c \"from app.main import app; print('App loaded. Use app to access FastAPI instance.')\""
+
+  # ===================
+  # Model Management
+  # ===================
+
+  models:setup:
+    desc: Download and setup all required AI models
+    cmds:
+      - "{{.POETRY}} run download-models --all"
+
+  models:status:
+    desc: Check status of downloaded models
+    cmds:
+      - "{{.POETRY}} run download-models --status"
+
+  models:list:
+    desc: List available models for download
+    cmds:
+      - "{{.POETRY}} run download-models --list"
+
+  models:download:
+    desc: Download all configured models
+    cmds:
+      - "{{.POETRY}} run download-models --all"
+
+  models:download:clip:
+    desc: Download CLIP model (default or specify with -- ViT-L-14)
+    cmds:
+      - "{{.POETRY}} run download-models --clip {{.CLI_ARGS | default \"ViT-B-32\"}}"
+
+  models:download:face:
+    desc: Download face detection model (default or specify with -- buffalo_s)
+    cmds:
+      - "{{.POETRY}} run download-models --face {{.CLI_ARGS | default \"buffalo_l\"}}"
+
+  models:search:
+    desc: Search for models on Hugging Face (usage -- "clip image")
+    cmds:
+      - "{{.PYTHON}} -m app.infrastructure.models.huggingface search {{.CLI_ARGS}}"
+
+  models:info:
+    desc: Get info about a Hugging Face model (usage -- openai/clip-vit-base-patch32)
+    cmds:
+      - "{{.PYTHON}} -m app.infrastructure.models.huggingface info {{.CLI_ARGS}}"

@@ -1,0 +1,218 @@
+version: '3'
+
+vars:
+  DOCKER_COMPOSE: docker-compose
+
+includes:
+  backend:
+    taskfile: ./backend/Taskfile.yml
+    dir: ./backend
+  frontend:
+    taskfile: ./frontend/Taskfile.yml
+    dir: ./frontend
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # ===================
+  # Development
+  # ===================
+
+  dev:
+    desc: Start all services in development mode
+    deps: [services:up]
+    cmds:
+      - task: dev:parallel
+
+  dev:parallel:
+    desc: Run backend and frontend in parallel
+    deps:
+      - backend:dev
+      - frontend:dev
+
+  # ===================
+  # Infrastructure
+  # ===================
+
+  services:up:
+    desc: Start infrastructure services (Postgres, Qdrant, Redis)
+    cmds:
+      - "{{.DOCKER_COMPOSE}} up -d postgres qdrant redis"
+
+  services:down:
+    desc: Stop infrastructure services
+    cmds:
+      - "{{.DOCKER_COMPOSE}} down"
+
+  services:logs:
+    desc: View logs from infrastructure services
+    cmds:
+      - "{{.DOCKER_COMPOSE}} logs -f postgres qdrant redis"
+
+  services:clean:
+    desc: Stop services and remove volumes
+    cmds:
+      - "{{.DOCKER_COMPOSE}} down -v"
+
+  # ===================
+  # Docker Development
+  # ===================
+
+  docker:up:
+    desc: Start all services with Docker (full stack)
+    cmds:
+      - "{{.DOCKER_COMPOSE}} up"
+
+  docker:up:detached:
+    desc: Start all services in background
+    cmds:
+      - "{{.DOCKER_COMPOSE}} up -d"
+
+  docker:down:
+    desc: Stop all Docker services
+    cmds:
+      - "{{.DOCKER_COMPOSE}} down"
+
+  docker:logs:
+    desc: View all Docker logs
+    cmds:
+      - "{{.DOCKER_COMPOSE}} logs -f"
+
+  docker:rebuild:
+    desc: Rebuild and restart services
+    cmds:
+      - "{{.DOCKER_COMPOSE}} up -d --build --force-recreate"
+
+  # ===================
+  # Testing
+  # ===================
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: backend:test
+      - task: frontend:test
+
+  test:watch:
+    desc: Run tests in watch mode
+    deps:
+      - backend:test:watch
+      - frontend:test:watch
+
+  test:e2e:
+    desc: Run end-to-end tests
+    deps: [docker:up:detached]
+    cmds:
+      - task: frontend:test:e2e
+
+  test:coverage:
+    desc: Run tests with coverage reports
+    cmds:
+      - task: backend:test:coverage
+      - task: frontend:test:coverage
+
+  # ===================
+  # Setup
+  # ===================
+
+  setup:
+    desc: Initial project setup
+    cmds:
+      - task: backend:setup
+      - task: frontend:setup
+      - echo "Setup complete! Run 'task dev' to start development."
+
+  setup:backend:
+    desc: Setup backend only
+    cmds:
+      - task: backend:setup
+
+  setup:frontend:
+    desc: Setup frontend only
+    cmds:
+      - task: frontend:setup
+
+  # ===================
+  # Database
+  # ===================
+
+  db:migrate:
+    desc: Run database migrations
+    cmds:
+      - task: backend:db:migrate
+
+  db:seed:
+    desc: Seed database with sample data
+    cmds:
+      - task: backend:db:seed
+
+  db:reset:
+    desc: Reset database (drop, create, migrate, seed)
+    cmds:
+      - task: backend:db:reset
+
+  # ===================
+  # Code Quality
+  # ===================
+
+  lint:
+    desc: Run linters for all code
+    cmds:
+      - task: backend:lint
+      - task: frontend:lint
+
+  format:
+    desc: Format all code
+    cmds:
+      - task: backend:format
+      - task: frontend:format
+
+  check:
+    desc: Run all checks (lint, typecheck, test)
+    cmds:
+      - task: lint
+      - task: backend:typecheck
+      - task: frontend:typecheck
+      - task: test
+
+  # ===================
+  # Utilities
+  # ===================
+
+  clean:
+    desc: Clean build artifacts and caches
+    cmds:
+      - task: backend:clean
+      - task: frontend:clean
+
+  logs:
+    desc: View all logs (requires running services)
+    cmds:
+      - "{{.DOCKER_COMPOSE}} logs -f"
+
+  # ===================
+  # AI Models
+  # ===================
+
+  models:setup:
+    desc: Download and setup all required AI models
+    cmds:
+      - task: backend:models:setup
+
+  models:status:
+    desc: Check status of downloaded models
+    cmds:
+      - task: backend:models:status
+
+  models:list:
+    desc: List available models for download
+    cmds:
+      - task: backend:models:list
+
+  models:download:
+    desc: Download all configured models
+    cmds:
+      - task: backend:models:download

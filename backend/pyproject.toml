@@ -1,0 +1,234 @@
+[tool.poetry]
+name = "photo-explorer-backend"
+version = "0.1.0"
+description = "Photo Explorer API - Semantic photo search with AI"
+license = "MIT"
+authors = ["Photo Explorer Team"]
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+# Web framework
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
+python-multipart = "^0.0.6"
+
+# Database
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.25"}
+asyncpg = "^0.29.0"
+alembic = "^1.13.1"
+
+# Vector database
+qdrant-client = "^1.7.0"
+
+# Task queue
+celery = {extras = ["redis"], version = "^5.3.6"}
+
+# ML/AI
+torch = "^2.1.0"
+transformers = "^4.37.0"
+open-clip-torch = "^2.24.0"
+insightface = "^0.7.3"
+onnxruntime = "^1.16.0"
+pillow = "^10.2.0"
+huggingface-hub = "^0.20.0"
+
+# Image processing
+pillow-heif = "^0.14.0"
+exifread = "^3.0.0"
+
+# Validation and serialization
+pydantic = "^2.5.3"
+pydantic-settings = "^2.1.0"
+
+# Utilities
+python-dotenv = "^1.0.0"
+httpx = "^0.26.0"
+aiofiles = "^23.2.1"
+watchdog = "^3.0.0"
+pyyaml = "^6.0.1"
+orjson = "^3.9.0"
+redis = {extras = ["hiredis"], version = "^5.0.0"}
+
+# Security
+cryptography = "^42.0.0"
+
+# Rate limiting
+slowapi = "^0.1.9"
+
+[tool.poetry.group.dev.dependencies]
+# Testing
+pytest = "^7.4.4"
+pytest-asyncio = "^0.23.3"
+pytest-cov = "^4.1.0"
+pytest-bdd = "^7.0.1"
+pytest-watch = "^4.2.0"
+testcontainers = "^3.7.1"
+factory-boy = "^3.3.0"
+faker = "^22.0.0"
+
+# Code quality
+ruff = "^0.1.13"
+mypy = "^1.8.0"
+black = "^24.0.0"
+vulture = "^2.11"
+flake8 = "^7.0.0"
+flake8-docstrings = "^1.7.0"
+flake8-annotations = "^3.0.1"
+
+# Type stubs
+types-aiofiles = "^23.2.0"
+types-pillow = "^10.2.0"
+types-pyyaml = "^6.0.12"
+
+[tool.poetry.scripts]
+download-models = "app.infrastructure.models.downloader:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # Pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "UP",    # pyupgrade
+    "ARG",   # flake8-unused-arguments
+    "SIM",   # flake8-simplify
+    "S",     # flake8-bandit (security)
+    "N",     # pep8-naming
+    "RUF",   # Ruff-specific rules
+    "PTH",   # flake8-use-pathlib
+    "PL",    # pylint
+    "PERF",  # perflint
+    "FBT",   # flake8-boolean-trap
+    "A",     # flake8-builtins
+    "COM",   # flake8-commas
+    "C90",   # mccabe complexity
+    "DTZ",   # flake8-datetimez
+    "T10",   # flake8-debugger
+    "EM",    # flake8-errmsg
+    "EXE",   # flake8-executable
+    "ISC",   # flake8-implicit-str-concat
+    "ICN",   # flake8-import-conventions
+    "G",     # flake8-logging-format
+    "PIE",   # flake8-pie
+    "PYI",   # flake8-pyi
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise
+    "RET",   # flake8-return
+    "SLF",   # flake8-self
+    "SLOT",  # flake8-slots
+    "TCH",   # flake8-type-checking
+    "INT",   # flake8-gettext
+    "TID",   # flake8-tidy-imports
+    "TRY",   # tryceratops
+    "FLY",   # flynt
+    "FURB",  # refurb
+    "LOG",   # flake8-logging
+]
+ignore = [
+    "E501",    # line too long (handled by formatter)
+    "B008",    # do not perform function calls in argument defaults (FastAPI uses this)
+    "S101",    # use of assert (fine for tests)
+    "PLR0913", # too many arguments (sometimes necessary)
+    "PLR2004", # magic value comparison (too noisy)
+    "TRY003",  # long exception messages (sometimes needed)
+    "EM101",   # exception string literals (too strict)
+    "EM102",   # f-string in exception (too strict)
+    "COM812",  # missing trailing comma (conflicts with formatter)
+    "ISC001",  # implicit string concat (conflicts with formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "ARG001", "PLR2004"]
+"**/migrations/**/*.py" = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[tool.vulture]
+min_confidence = 80
+paths = ["app"]
+exclude = ["migrations/", "tests/"]
+sort_by_size = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "celery.*",
+    "qdrant_client.*",
+    "insightface.*",
+    "open_clip.*",
+    "exifread.*",
+    "PIL.*",
+    "huggingface_hub.*",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

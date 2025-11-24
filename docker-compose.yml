@@ -1,0 +1,194 @@
+services:
+  # ===================
+  # Backend API
+  # ===================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend-venv:/app/.venv
+      - photo-storage:/app/storage
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-photo_explorer}
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_PATH=/app/storage
+      - DATA_DIR=/app/storage
+      - TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
+      - DEBUG=true
+      - RELOAD=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    develop:
+      watch:
+        - action: sync
+          path: ./backend/app
+          target: /app/app
+        - action: rebuild
+          path: ./backend/pyproject.toml
+
+  # ===================
+  # Frontend
+  # ===================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    environment:
+      - PUBLIC_API_URL=http://localhost:8000
+      - NODE_ENV=development
+    depends_on:
+      - backend
+    command: ["pnpm", "dev", "--host", "0.0.0.0"]
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+        - action: rebuild
+          path: ./frontend/package.json
+
+  # ===================
+  # ML Worker (Background Processing)
+  # ===================
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - ./backend:/app
+      - backend-venv:/app/.venv
+      - photo-storage:/app/storage
+      - ml-models:/app/models
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-photo_explorer}
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_PATH=/app/storage
+      - DATA_DIR=/app/storage
+      - TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
+      - MODELS_PATH=/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "app.adapters.inbound.workers", "worker", "--loglevel=info", "--concurrency=2"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # ===================
+  # Infrastructure Services
+  # ===================
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-photo_explorer}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===================
+  # Development Tools
+  # ===================
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    profiles:
+      - tools
+
+  qdrant-ui:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6335:6333"
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+    profiles:
+      - tools
+
+volumes:
+  postgres-data:
+  qdrant-data:
+  redis-data:
+  pgadmin-data:
+  photo-storage:
+  ml-models:
+  backend-venv:
+  frontend-node-modules:
+
+networks:
+  default:
+    name: photo-explorer-network

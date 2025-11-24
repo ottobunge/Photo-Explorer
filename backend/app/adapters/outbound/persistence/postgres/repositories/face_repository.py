@@ -1,0 +1,233 @@
+"""PostgreSQL implementation of FaceRepository."""
+
+from typing import Optional
+from uuid import UUID
+
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.adapters.outbound.persistence.postgres.mappers import FaceClusterMapper, FaceMapper
+from app.adapters.outbound.persistence.postgres.models import FaceClusterModel, FaceModel
+from app.application.ports.outbound import FaceRepository
+from app.domain.entities import Face, FaceCluster
+
+
+class FaceRepositoryPostgres(FaceRepository):
+    """PostgreSQL implementation of FaceRepository."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    # Face operations
+
+    async def save_face(self, face: Face) -> Face:
+        """Persist a face entity."""
+        # Check if face already exists
+        existing = await self._session.get(FaceModel, face.id.value)
+
+        if existing:
+            # Update existing face
+            existing.photo_id = face.photo_id
+            existing.cluster_id = face.cluster_id
+            existing.bbox_x = face.bbox.x
+            existing.bbox_y = face.bbox.y
+            existing.bbox_width = face.bbox.width
+            existing.bbox_height = face.bbox.height
+            existing.crop_path = face.crop_path
+            existing.quality_score = face.quality_score
+            existing.detection_confidence = face.detection_confidence
+
+            await self._session.flush()
+            return FaceMapper.to_domain(existing)
+        else:
+            # Create new face
+            model = FaceMapper.to_model(face)
+            self._session.add(model)
+            await self._session.flush()
+            return FaceMapper.to_domain(model)
+
+    async def find_face_by_id(self, face_id: UUID) -> Optional[Face]:
+        """Find a face by its ID."""
+        model = await self._session.get(FaceModel, face_id)
+        if model:
+            return FaceMapper.to_domain(model)
+        return None
+
+    async def find_faces_by_photo(self, photo_id: UUID) -> list[Face]:
+        """Find all faces in a photo."""
+        stmt = select(FaceModel).where(FaceModel.photo_id == photo_id)
+        result = await self._session.execute(stmt)
+        models = result.scalars().all()
+
+        return [FaceMapper.to_domain(model) for model in models]
+
+    async def find_faces_by_cluster(self, cluster_id: UUID) -> list[Face]:
+        """Find all faces in a cluster."""
+        stmt = select(FaceModel).where(FaceModel.cluster_id == cluster_id)
+        result = await self._session.execute(stmt)
+        models = result.scalars().all()
+
+        return [FaceMapper.to_domain(model) for model in models]
+
+    async def delete_face(self, face_id: UUID) -> bool:
+        """Delete a face."""
+        model = await self._session.get(FaceModel, face_id)
+        if model:
+            await self._session.delete(model)
+            await self._session.flush()
+            return True
+        return False
+
+    # Cluster operations
+
+    async def save_cluster(self, cluster: FaceCluster) -> FaceCluster:
+        """Persist a face cluster."""
+        # Check if cluster already exists
+        existing = await self._session.get(FaceClusterModel, cluster.id.value)
+
+        if existing:
+            # Update existing cluster
+            existing.name = cluster.name
+            existing.representative_face_id = cluster.representative_face_id
+            existing.updated_at = cluster.updated_at
+
+            await self._session.flush()
+            await self._session.refresh(existing, ["faces"])
+            return FaceClusterMapper.to_domain(existing)
+        else:
+            # Create new cluster
+            model = FaceClusterMapper.to_model(cluster)
+            self._session.add(model)
+            await self._session.flush()
+            await self._session.refresh(model, ["faces"])
+            return FaceClusterMapper.to_domain(model)
+
+    async def find_cluster_by_id(self, cluster_id: UUID) -> Optional[FaceCluster]:
+        """Find a cluster by its ID."""
+        stmt = (
+            select(FaceClusterModel)
+            .options(selectinload(FaceClusterModel.faces))
+            .where(FaceClusterModel.id == cluster_id)
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+
+        if model:
+            return FaceClusterMapper.to_domain(model)
+        return None
+
+    async def find_all_clusters(
+        self,
+        named_only: bool = False,
+        unnamed_only: bool = False,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[FaceCluster]:
+        """Find clusters with optional filtering."""
+        stmt = (
+            select(FaceClusterModel)
+            .options(selectinload(FaceClusterModel.faces))
+            .order_by(FaceClusterModel.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+
+        if named_only:
+            stmt = stmt.where(
+                and_(
+                    FaceClusterModel.name.isnot(None),
+                    FaceClusterModel.name != "",
+                )
+            )
+        elif unnamed_only:
+            stmt = stmt.where(
+                or_(
+                    FaceClusterModel.name.is_(None),
+                    FaceClusterModel.name == "",
+                )
+            )
+
+        result = await self._session.execute(stmt)
+        models = result.scalars().all()
+
+        return [FaceClusterMapper.to_domain(model) for model in models]
+
+    async def delete_cluster(self, cluster_id: UUID) -> bool:
+        """Delete a cluster."""
+        model = await self._session.get(FaceClusterModel, cluster_id)
+        if model:
+            # Unassign faces from cluster before deleting
+            await self._session.execute(
+                FaceModel.__table__.update()
+                .where(FaceModel.cluster_id == cluster_id)
+                .values(cluster_id=None)
+            )
+            await self._session.delete(model)
+            await self._session.flush()
+            return True
+        return False
+
+    async def count_clusters(self, named_only: bool = False) -> int:
+        """Count clusters."""
+        stmt = select(func.count(FaceClusterModel.id))
+
+        if named_only:
+            stmt = stmt.where(
+                and_(
+                    FaceClusterModel.name.isnot(None),
+                    FaceClusterModel.name != "",
+                )
+            )
+
+        result = await self._session.execute(stmt)
+        return result.scalar_one()
+
+    async def find_photo_ids_by_cluster(
+        self,
+        cluster_id: UUID,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[UUID]:
+        """Find photo IDs containing faces from a cluster."""
+        stmt = (
+            select(FaceModel.photo_id)
+            .distinct()
+            .where(FaceModel.cluster_id == cluster_id)
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_unclustered_faces(self, limit: int = 100) -> list[Face]:
+        """Find faces that haven't been assigned to a cluster yet."""
+        stmt = (
+            select(FaceModel)
+            .where(FaceModel.cluster_id.is_(None))
+            .limit(limit)
+        )
+        result = await self._session.execute(stmt)
+        models = result.scalars().all()
+
+        return [FaceMapper.to_domain(model) for model in models]
+
+    async def count_faces_in_cluster(self, cluster_id: UUID) -> int:
+        """Count faces in a cluster."""
+        stmt = select(func.count(FaceModel.id)).where(FaceModel.cluster_id == cluster_id)
+        result = await self._session.execute(stmt)
+        return result.scalar_one()
+
+    async def batch_update_cluster(self, face_ids: list[UUID], cluster_id: UUID | None) -> int:
+        """Update cluster assignment for multiple faces at once."""
+        if not face_ids:
+            return 0
+
+        stmt = (
+            FaceModel.__table__.update()
+            .where(FaceModel.id.in_(face_ids))
+            .values(cluster_id=cluster_id)
+        )
+        result = await self._session.execute(stmt)
+        await self._session.flush()
+        return result.rowcount
