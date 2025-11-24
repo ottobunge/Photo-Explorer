@@ -45,6 +45,9 @@ tasks:
         silent: true
       - cmd: echo ""
         silent: true
+      - cmd: echo "🔧 Running startup tasks (migrations, Qdrant collections)..."
+        silent: true
+      - cmd: cd backend && ../scripts/startup-local.sh
       - cmd: echo "📊 View logs below (color-coded by service):"
         silent: true
       - cmd: echo "   🔵 backend  - API server on http://localhost:8000"

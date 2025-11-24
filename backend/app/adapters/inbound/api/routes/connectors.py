@@ -392,8 +392,8 @@ async def google_photos_oauth_callback(
 @router.get("/google-photos/callback")
 async def google_photos_oauth_callback_redirect(
     code: Annotated[str, Query(min_length=1, max_length=2048, description="Authorization code from Google")],
-    state: Annotated[Optional[str], Query(max_length=256, description="State parameter")] = None,
     redirect_uri: Annotated[str, Query(min_length=1, max_length=2048, description="The redirect URI used in the auth request")],
+    state: Annotated[Optional[str], Query(max_length=256, description="State parameter")] = None,
 ) -> RedirectResponse:
     """
     Handle OAuth callback redirect from Google (GET request).
