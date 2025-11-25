@@ -37,16 +37,16 @@ TEST_IMAGES = {
     "raccoons": [
         ("raccoon_1.jpg", "https://images.unsplash.com/photo-1497752531616-c3afd9760a11?w=800"),
         ("raccoon_2.jpg", "https://images.unsplash.com/photo-1609621838510-5ad474b7d25d?w=800"),
-        ("raccoon_3.jpg", "https://images.unsplash.com/photo-1606518155919-89a1bcddee3d?w=800"),
-        ("raccoon_4.jpg", "https://images.unsplash.com/photo-1604076947583-5fb7dcb4e486?w=800"),
-        ("raccoon_5.jpg", "https://images.unsplash.com/photo-1612171527719-4372f2eb0340?w=800"),
+        ("raccoon_3.jpg", "https://images.unsplash.com/photo-1551715130-b23fa4c642e3?w=800"),  # Updated
+        ("raccoon_4.jpg", "https://images.unsplash.com/photo-1550852969-a3b893fa0edf?w=800"),  # Updated
+        ("raccoon_5.jpg", "https://images.unsplash.com/photo-1610296009033-f5dd1c9c1c04?w=800"),  # Updated
     ],
     "ferrets": [
-        ("ferret_1.jpg", "https://images.unsplash.com/photo-1601758282760-4c27d2e0f8f9?w=800"),
+        ("ferret_1.jpg", "https://images.unsplash.com/photo-1568393691622-c7ba131d63b4?w=800"),  # Updated
         ("ferret_2.jpg", "https://images.unsplash.com/photo-1589952283406-b53a7d1347e8?w=800"),
-        ("ferret_3.jpg", "https://images.unsplash.com/photo-1568393691622-c7ba131d63b4?w=800"),
-        ("ferret_4.jpg", "https://images.unsplash.com/photo-1545486332-9e0999c535b2?w=800"),
-        ("ferret_5.jpg", "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800"),
+        ("ferret_3.jpg", "https://images.unsplash.com/photo-1545486332-9e0999c535b2?w=800"),    # Updated
+        ("ferret_4.jpg", "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800"),  # Updated
+        ("ferret_5.jpg", "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=800"),    # Updated
     ],
 }
 
@@ -125,15 +125,25 @@ def main():
 
     print()
     print("=" * 60)
-    print(f"✅ Complete! Downloaded {downloaded} images")
+
+    total_available = downloaded + skipped
+
+    print(f"✅ Complete! {total_available} images available")
+    print(f"   Downloaded: {downloaded}")
     print(f"   Skipped (already exist): {skipped}")
+
     if failed > 0:
         print(f"   Failed: {failed}")
         print()
-        print("⚠  Some downloads failed. You may want to retry.")
+
+    # Only fail if we have too few images for a meaningful demo
+    if total_available < 10:
+        print("❌ Too few images available (need at least 10 for demo).")
+        print("   Some Unsplash URLs may have changed. Try updating the URLs.")
         sys.exit(1)
+    elif failed > 0:
+        print("⚠️  Some downloads failed, but we have enough for the demo.")
     else:
-        print()
         print("🎉 All test images ready for semantic search testing!")
 
     # Create a README
