@@ -97,7 +97,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["celery", "-A", "app.adapters.inbound.workers", "worker", "--loglevel=info", "--concurrency=2"]
+    command: ["watchfiles", "--filter", "python", "celery -A app.adapters.inbound.workers worker --loglevel=info --concurrency=2 --pool=solo", "app"]
+    develop:
+      watch:
+        - action: sync
+          path: ./backend/app
+          target: /app/app
+        - action: rebuild
+          path: ./backend/pyproject.toml
     deploy:
       resources:
         reservations:
