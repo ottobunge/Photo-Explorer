@@ -349,7 +349,7 @@
 
 		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
 			{#each photos as photo (photo.id)}
-				<a href="/photos/{photo.id}" class="photo-card group cursor-pointer block">
+				<a href="/photos/{photo.id}" class="photo-card group cursor-pointer block" data-testid="photo-card">
 					{#if photo.thumbnail_url}
 						<img
 							src="{API_HOST}{photo.thumbnail_url}"

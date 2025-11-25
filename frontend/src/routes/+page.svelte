@@ -139,7 +139,7 @@
 		{:else}
 			<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
 				{#each recentPhotos as photo (photo.id)}
-					<div class="photo-card">
+					<a href="/photos/{photo.id}" class="photo-card group cursor-pointer block" data-testid="photo-card">
 						{#if photo.thumbnail_url}
 							<img
 								src="{API_HOST}{photo.thumbnail_url}"
@@ -163,7 +163,7 @@
 							</div>
 						{/if}
 						<p class="mt-1 truncate text-xs text-gray-500">{photo.filename}</p>
-					</div>
+					</a>
 				{/each}
 			</div>
 		{/if}
