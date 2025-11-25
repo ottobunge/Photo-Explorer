@@ -130,7 +130,7 @@ tasks:
     internal: true
     cmds:
       - |
-        if {{.DOCKER}} images photo-explorer-base:latest --format "{{{{.Repository}}}" | grep -q "photo-explorer-base"; then
+        if {{.DOCKER}} images photo-explorer-base:latest | grep -q "photo-explorer-base"; then
           echo "✓ Base image exists, skipping base rebuild"
         else
           echo "⚠️  Base image not found, building it first..."
