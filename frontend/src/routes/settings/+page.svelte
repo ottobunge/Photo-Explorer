@@ -2,17 +2,12 @@
 	import { onMount } from 'svelte';
 	import {
 		settingsStore,
-		GooglePhotosSection,
-		LocalFoldersSection,
 		AppSettingsSection,
 		ModelsSection
 	} from '$lib/features/settings';
 
 	onMount(async () => {
-		await Promise.all([
-			settingsStore.loadConnectors(),
-			settingsStore.loadSettings()
-		]);
+		await settingsStore.loadSettings();
 	});
 </script>
 
@@ -24,22 +19,11 @@
 	<header class="page-header">
 		<h1 class="page-title">Settings</h1>
 		<p class="page-description">
-			Configure your photo sources and application preferences.
+			Configure AI models and application preferences.
 		</p>
 	</header>
 
 	<div class="settings-content">
-		<section class="settings-category">
-			<h2 class="category-title">Photo Sources</h2>
-			<p class="category-description">
-				Connect photo sources to index and search your photos. Photos are never copied -
-				only metadata and AI embeddings are stored locally.
-			</p>
-
-			<GooglePhotosSection />
-			<LocalFoldersSection />
-		</section>
-
 		<section class="settings-category">
 			<h2 class="category-title">AI Models</h2>
 			<p class="category-description">

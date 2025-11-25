@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { client, API_HOST } from '$lib/api/client';
+	import { settingsStore } from '$lib/features/settings';
+	import type { PickerSession } from '$lib/features/settings/types';
 
 	interface Connector {
 		id: string;
@@ -38,8 +40,37 @@
 	let selectedPhotos = $state<Set<string>>(new Set());
 	let selectMode = $state(false);
 
+	// Action states
+	let syncing = $state(false);
+	let reprocessing = $state(false);
+	let reprocessMessage = $state<string | null>(null);
+	let reprocessMessageTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	// Google Photos picker state
+	let pickerSession: PickerSession | null = null;
+	let pickerWindow: Window | null = null;
+	let pickerPolling = false;
+	let pickerStatus = $state<'idle' | 'selecting' | 'importing' | 'done' | 'error'>('idle');
+	let pickerMessage = $state<string | null>(null);
+	let pickerResetTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	const connectorId = $derived($page.params.id);
 	const totalPages = $derived(Math.ceil(total / perPage));
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		if (reprocessMessageTimeout !== null) {
+			clearTimeout(reprocessMessageTimeout);
+		}
+		if (pickerResetTimeout !== null) {
+			clearTimeout(pickerResetTimeout);
+		}
+		if (pickerWindow && !pickerWindow.closed) {
+			pickerWindow.close();
+		}
+		pickerWindow = null;
+		pickerPolling = false;
+	});
 
 	onMount(() => {
 		void loadData();
@@ -131,6 +162,152 @@
 	function viewPhoto(photoId: string): void {
 		void goto(`/photos/${photoId}`);
 	}
+
+	async function handleSync(): Promise<void> {
+		if (!connectorId) return;
+
+		syncing = true;
+		try {
+			await settingsStore.triggerSync(connectorId);
+			// Reload to show updated status
+			await loadData();
+		} catch (err) {
+			console.error('Sync failed:', err);
+		} finally {
+			syncing = false;
+		}
+	}
+
+	async function handleReprocess(): Promise<void> {
+		if (!connectorId) return;
+
+		reprocessing = true;
+		reprocessMessage = 'Starting reprocess...';
+		try {
+			const result = await settingsStore.reprocessConnector(connectorId);
+			reprocessMessage = result.message;
+			// Clear message after 5 seconds
+			if (reprocessMessageTimeout !== null) {
+				clearTimeout(reprocessMessageTimeout);
+			}
+			reprocessMessageTimeout = setTimeout(() => {
+				reprocessMessage = null;
+				reprocessMessageTimeout = null;
+			}, 5000);
+		} catch (err) {
+			reprocessMessage = err instanceof Error ? err.message : 'Reprocess failed';
+		} finally {
+			reprocessing = false;
+		}
+	}
+
+	async function handleImportPhotos(): Promise<void> {
+		if (connector?.type !== 'google_photos' || !connectorId) return;
+
+		pickerStatus = 'selecting';
+		pickerMessage = 'Opening photo picker...';
+
+		try {
+			// Create picker session
+			pickerSession = await settingsStore.createPickerSession(connectorId);
+
+			// Open picker in popup
+			const width = 900;
+			const height = 700;
+			const left = window.screenX + (window.outerWidth - width) / 2;
+			const top = window.screenY + (window.outerHeight - height) / 2;
+
+			pickerWindow = window.open(
+				pickerSession.pickerUri,
+				'GooglePhotosPicker',
+				`width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+			);
+
+			if (!pickerWindow) {
+				throw new Error('Failed to open picker window. Please allow popups.');
+			}
+
+			// Start polling for status
+			pickerPolling = true;
+			pollPickerStatus();
+		} catch (err) {
+			pickerStatus = 'error';
+			pickerMessage = err instanceof Error ? err.message : 'Failed to open photo picker';
+			console.error('Import photos error:', err);
+		}
+	}
+
+	async function pollPickerStatus(): Promise<void> {
+		if (!pickerSession || !pickerPolling || !connectorId) return;
+
+		try {
+			const status = await settingsStore.getPickerSessionStatus(
+				connectorId,
+				pickerSession.sessionId
+			);
+
+			if (status.mediaItemsSet) {
+				pickerStatus = 'importing';
+				pickerMessage = 'Importing selected photos...';
+				pickerPolling = false;
+
+				// Close picker window
+				if (pickerWindow && !pickerWindow.closed) {
+					pickerWindow.close();
+				}
+
+				// Trigger import
+				const result = await settingsStore.importPickerPhotos(
+					connectorId,
+					pickerSession.sessionId
+				);
+
+				pickerStatus = 'done';
+				pickerMessage = `Import started! ${result.message || 'Processing photos...'}`;
+
+				// Reset after 5 seconds and reload photos
+				if (pickerResetTimeout !== null) {
+					clearTimeout(pickerResetTimeout);
+				}
+				pickerResetTimeout = setTimeout(() => {
+					pickerStatus = 'idle';
+					pickerMessage = null;
+					pickerSession = null;
+					pickerResetTimeout = null;
+					// Reload photos
+					void loadPhotos();
+				}, 5000);
+			} else if (pickerWindow && pickerWindow.closed) {
+				// Window was closed without selection
+				pickerStatus = 'error';
+				pickerMessage = 'Photo selection cancelled';
+				pickerPolling = false;
+
+				// Reset after 3 seconds
+				if (pickerResetTimeout !== null) {
+					clearTimeout(pickerResetTimeout);
+				}
+				pickerResetTimeout = setTimeout(() => {
+					pickerStatus = 'idle';
+					pickerMessage = null;
+					pickerSession = null;
+					pickerResetTimeout = null;
+				}, 3000);
+			} else {
+				// Still selecting, poll again in 2 seconds
+				setTimeout(() => {
+					if (pickerPolling) {
+						void pollPickerStatus();
+					}
+				}, 2000);
+			}
+		} catch (err) {
+			console.error('Picker polling error:', err);
+			pickerStatus = 'error';
+			pickerMessage = 'Failed to check picker status';
+			pickerPolling = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -154,11 +331,69 @@
 		<!-- Connector Header -->
 		<div class="mb-8 flex items-center gap-4">
 			<div class="text-4xl">{getConnectorIcon(connector.type)}</div>
-			<div>
+			<div class="flex-1">
 				<h1 class="text-3xl font-bold text-gray-900">{connector.name}</h1>
 				<p class="text-gray-500">{total} photos</p>
 			</div>
+
+			<!-- Connector Actions -->
+			<div class="flex gap-2">
+				{#if connector.type !== 'upload'}
+					<button
+						onclick={handleSync}
+						disabled={syncing}
+						class="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+					>
+						{syncing ? 'Syncing...' : 'Sync'}
+					</button>
+				{/if}
+
+				<button
+					onclick={handleReprocess}
+					disabled={reprocessing}
+					class="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+				>
+					{reprocessing ? 'Reprocessing...' : 'Reprocess'}
+				</button>
+
+				{#if connector.type === 'google_photos'}
+					<button
+						onclick={handleImportPhotos}
+						disabled={pickerStatus !== 'idle'}
+						class="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600 disabled:opacity-50"
+					>
+						{#if pickerStatus === 'selecting'}
+							Selecting...
+						{:else if pickerStatus === 'importing'}
+							Importing...
+						{:else}
+							Import Photos
+						{/if}
+					</button>
+				{/if}
+			</div>
 		</div>
+
+		<!-- Status Messages -->
+		{#if reprocessMessage}
+			<div class="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+				{reprocessMessage}
+			</div>
+		{/if}
+
+		{#if pickerMessage}
+			<div
+				class="mb-4 rounded-lg p-3 text-sm"
+				class:bg-blue-50={pickerStatus === 'selecting' || pickerStatus === 'importing'}
+				class:text-blue-700={pickerStatus === 'selecting' || pickerStatus === 'importing'}
+				class:bg-green-50={pickerStatus === 'done'}
+				class:text-green-700={pickerStatus === 'done'}
+				class:bg-red-50={pickerStatus === 'error'}
+				class:text-red-700={pickerStatus === 'error'}
+			>
+				{pickerMessage}
+			</div>
+		{/if}
 
 		<!-- Actions Bar -->
 		<div class="mb-6 flex items-center gap-4">

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { client, API_HOST } from '$lib/api/client';
+	import { client } from '$lib/api/client';
+	import { AddConnectorModal } from '$lib/features/connectors';
 
 	interface Connector {
 		id: string;
@@ -23,6 +24,7 @@
 	let connectors = $state<Connector[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let showAddModal = $state(false);
 
 	onMount(() => {
 		void loadConnectors();
@@ -42,6 +44,12 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	function handleModalClose() {
+		showAddModal = false;
+		// Reload connectors to show newly added one
+		void loadConnectors();
 	}
 
 	function getConnectorIcon(type: string): string {
@@ -103,12 +111,12 @@
 			<h1 class="text-3xl font-bold text-gray-900">Connectors</h1>
 			<p class="mt-2 text-gray-600">Manage photo sources and browse imported photos</p>
 		</div>
-		<a
-			href="/settings"
+		<button
+			onclick={() => (showAddModal = true)}
 			class="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
 		>
 			+ Add Connector
-		</a>
+		</button>
 	</header>
 
 	{#if error}
@@ -124,12 +132,12 @@
 			<p class="mt-2 text-sm text-gray-400">
 				Add a connector to start importing photos from Google Photos or local folders.
 			</p>
-			<a
-				href="/settings"
+			<button
+				onclick={() => (showAddModal = true)}
 				class="mt-4 inline-block rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
 			>
-				Go to Settings
-			</a>
+				Add Connector
+			</button>
 		</div>
 	{:else}
 		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -167,3 +175,7 @@
 		</div>
 	{/if}
 </div>
+
+{#if showAddModal}
+	<AddConnectorModal on:close={handleModalClose} />
+{/if}
