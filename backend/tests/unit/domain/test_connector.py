@@ -8,8 +8,8 @@ from app.domain.entities.connector import (
     Connector,
     ConnectorStatus,
     ConnectorType,
-    SyncStats,
 )
+from app.domain.value_objects import SyncStats
 
 
 class TestSyncStats:
@@ -28,8 +28,7 @@ class TestSyncStats:
 
     def test_is_complete_when_completed_at_set(self):
         """When completed_at is set, is_complete should be True."""
-        stats = SyncStats()
-        stats.completed_at = datetime.utcnow()
+        stats = SyncStats(completed_at=datetime.utcnow())
 
         assert stats.is_complete is True
 
@@ -41,9 +40,10 @@ class TestSyncStats:
 
     def test_duration_seconds_with_both_timestamps(self):
         """When both timestamps set, duration_seconds should be computed."""
-        stats = SyncStats()
-        stats.started_at = datetime(2023, 1, 1, 12, 0, 0)
-        stats.completed_at = datetime(2023, 1, 1, 12, 5, 30)
+        stats = SyncStats(
+            started_at=datetime(2023, 1, 1, 12, 0, 0),
+            completed_at=datetime(2023, 1, 1, 12, 5, 30),
+        )
 
         assert stats.duration_seconds == 330.0  # 5 minutes 30 seconds
 
@@ -55,8 +55,7 @@ class TestSyncStats:
 
     def test_duration_seconds_with_only_started_at(self):
         """When only started_at set, duration_seconds should be None."""
-        stats = SyncStats()
-        stats.started_at = datetime.utcnow()
+        stats = SyncStats(started_at=datetime.utcnow())
 
         assert stats.duration_seconds is None
 

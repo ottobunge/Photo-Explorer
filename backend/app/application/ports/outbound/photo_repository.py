@@ -99,3 +99,29 @@ class PhotoRepository(ABC):
             The Photo entity or None if not found
         """
         pass
+
+    @abstractmethod
+    async def delete_many(self, photo_ids: list[UUID]) -> int:
+        """
+        Delete multiple photos in a single operation.
+
+        Args:
+            photo_ids: List of photo IDs to delete
+
+        Returns:
+            Number of photos actually deleted
+        """
+        pass
+
+    @abstractmethod
+    async def delete_bulk_by_connector(self, connector_id: UUID) -> int:
+        """
+        Delete all photos associated with a connector in a single bulk operation.
+
+        Args:
+            connector_id: The connector's unique identifier
+
+        Returns:
+            Number of photos deleted
+        """
+        pass

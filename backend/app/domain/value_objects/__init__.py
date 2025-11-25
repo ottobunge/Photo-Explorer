@@ -5,6 +5,7 @@ from app.domain.value_objects.embedding import Embedding
 from app.domain.value_objects.exif_data import ExifData, GpsCoordinates
 from app.domain.value_objects.ids import AlbumId, ConnectorId, FaceClusterId, FaceId, PhotoId
 from app.domain.value_objects.scene_classification import SceneClassification
+from app.domain.value_objects.sync_stats import SyncStats
 
 __all__ = [
     "PhotoId",
@@ -17,4 +18,5 @@ __all__ = [
     "ExifData",
     "GpsCoordinates",
     "SceneClassification",
+    "SyncStats",
 ]

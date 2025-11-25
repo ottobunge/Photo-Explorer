@@ -10,7 +10,7 @@ from app.adapters.outbound.persistence.postgres.models import (
     PhotoModel,
 )
 from app.domain.entities.album import Album
-from app.domain.entities.connector import Connector, ConnectorStatus, ConnectorType, SyncStats
+from app.domain.entities.connector import Connector, ConnectorStatus, ConnectorType
 from app.domain.entities.face import Face
 from app.domain.entities.face_cluster import FaceCluster
 from app.domain.entities.photo import Photo
@@ -24,6 +24,7 @@ from app.domain.value_objects import (
     GpsCoordinates,
     PhotoId,
     SceneClassification,
+    SyncStats,
 )
 
 
@@ -287,24 +288,19 @@ class ConnectorMapper:
     @staticmethod
     def to_model(entity: Connector) -> ConnectorModel:
         """Convert domain entity to ORM model."""
-        # Serialize sync stats
+        # Serialize sync stats using to_dict method
+        # Note: We only store the basic fields in DB, not computed properties
         sync_stats_data = None
         if entity.last_sync_stats:
+            full_dict = entity.last_sync_stats.to_dict()
+            # Store only the core data fields, not computed properties
             sync_stats_data = {
-                "total_items": entity.last_sync_stats.total_items,
-                "indexed": entity.last_sync_stats.indexed,
-                "skipped": entity.last_sync_stats.skipped,
-                "failed": entity.last_sync_stats.failed,
-                "started_at": (
-                    entity.last_sync_stats.started_at.isoformat()
-                    if entity.last_sync_stats.started_at
-                    else None
-                ),
-                "completed_at": (
-                    entity.last_sync_stats.completed_at.isoformat()
-                    if entity.last_sync_stats.completed_at
-                    else None
-                ),
+                "total_items": full_dict["total_items"],
+                "indexed": full_dict["indexed"],
+                "skipped": full_dict["skipped"],
+                "failed": full_dict["failed"],
+                "started_at": full_dict["started_at"],
+                "completed_at": full_dict["completed_at"],
             }
 
         return ConnectorModel(

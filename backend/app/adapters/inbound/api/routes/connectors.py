@@ -568,6 +568,7 @@ async def disconnect_google_photos(
 @router.get("/google-photos/status", response_model=GooglePhotosStatusResponse)
 async def get_google_photos_status(
     connector_repo: ConnectorRepoDep,
+    photo_repo: PhotoRepoDep,
 ) -> GooglePhotosStatusResponse:
     """Get the current Google Photos connection status."""
     from app.domain.entities.connector import ConnectorType
@@ -581,12 +582,15 @@ async def get_google_photos_status(
     connector = connectors[0] if connectors else None
 
     if connector and has_tokens:
+        # Count photos indexed for this connector
+        photos_indexed = await photo_repo.count_by_connector(connector.id.value)
+
         return GooglePhotosStatusResponse(
             success=True,
             data={
                 "connected": True,
                 "connector_id": str(connector.id.value),
-                "photos_indexed": 0,  # TODO: count from photo_repo
+                "photos_indexed": photos_indexed,
                 "last_sync": connector.last_sync.isoformat() if connector.last_sync else None,
             },
         )
@@ -801,7 +805,95 @@ async def delete_picker_session(
 # ===================
 
 
-@router.post("/local", response_model=ConnectorResponse, status_code=201)
+@router.post(
+    "/local",
+    response_model=ConnectorResponse,
+    status_code=201,
+    summary="Create local folder connector",
+    description="""
+    Create a connector for indexing photos from a local folder.
+
+    Local folder connectors allow the application to import photos from
+    directories on the server's filesystem.
+
+    **Security**: Paths are validated against allowed directories configured
+    in the server settings to prevent path traversal attacks. Only directories
+    within allowed paths can be added.
+
+    Configuration options:
+    - **path** (required): Absolute or relative path to the folder
+    - **name** (optional): Friendly name (defaults to folder name)
+    - **recursive** (default: true): Whether to scan subdirectories
+    - **watch** (default: false): Watch for filesystem changes and auto-import
+    - **auto_album** (default: false): Automatically create albums based on folder structure
+
+    The connector is created but not immediately synced. Call the sync endpoint
+    to start importing photos.
+    """,
+    responses={
+        201: {
+            "description": "Connector created successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "data": {
+                            "id": "123e4567-e89b-12d3-a456-426614174000",
+                            "name": "Family Photos",
+                            "type": "local",
+                            "enabled": True,
+                            "status": "connected",
+                            "config": {
+                                "path": "/photos/family",
+                                "recursive": True,
+                                "watch": False,
+                                "auto_album": False
+                            },
+                            "last_sync": None,
+                            "error_message": None,
+                            "created_at": "2024-01-20T10:00:00Z",
+                            "updated_at": None
+                        }
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "Invalid request (path doesn't exist, not a directory, etc.)",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "not_exists": {
+                            "summary": "Path doesn't exist",
+                            "value": {"detail": "Path does not exist: /nonexistent"}
+                        },
+                        "not_directory": {
+                            "summary": "Path is not a directory",
+                            "value": {"detail": "Path is not a directory: /file.txt"}
+                        }
+                    }
+                }
+            }
+        },
+        403: {
+            "description": "Path not allowed (security restriction)",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Path not allowed: /etc"}
+                }
+            }
+        },
+        409: {
+            "description": "Connector already exists for this path",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Connector already exists for path: /photos"}
+                }
+            }
+        }
+    },
+    tags=["Connectors"]
+)
 async def create_local_folder_connector(
     request: LocalFolderCreateRequest,
     connector_repo: ConnectorRepoDep,

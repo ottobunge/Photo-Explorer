@@ -3,7 +3,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -60,11 +60,20 @@ class PhotoRepositoryPostgres(PhotoRepository):
             delete(photo_album_association).where(photo_album_association.c.photo_id == model.id)
         )
 
-        # Add new associations
-        for album_id in album_ids:
-            album = await self._session.get(AlbumModel, album_id)
-            if album:
-                model.albums.append(album)
+        # Add new associations using batch query to avoid N+1
+        if album_ids:
+            # First verify that the albums exist with a single query
+            stmt = select(AlbumModel.id).where(AlbumModel.id.in_(album_ids))
+            result = await self._session.execute(stmt)
+            existing_album_ids = [row[0] for row in result.all()]
+
+            # Insert associations directly into the association table (batch operation)
+            if existing_album_ids:
+                values = [
+                    {"photo_id": model.id, "album_id": album_id}
+                    for album_id in existing_album_ids
+                ]
+                await self._session.execute(insert(photo_album_association).values(values))
 
     async def find_by_id(self, photo_id: UUID) -> Optional[Photo]:
         """Find a photo by its ID."""
@@ -232,3 +241,20 @@ class PhotoRepositoryPostgres(PhotoRepository):
         stmt = select(func.count(PhotoModel.id)).where(PhotoModel.connector_id == connector_id)
         result = await self._session.execute(stmt)
         return result.scalar_one()
+
+    async def delete_many(self, photo_ids: list[UUID]) -> int:
+        """Delete multiple photos in a single query."""
+        if not photo_ids:
+            return 0
+
+        stmt = delete(PhotoModel).where(PhotoModel.id.in_(photo_ids))
+        result = await self._session.execute(stmt)
+        await self._session.flush()
+        return result.rowcount
+
+    async def delete_bulk_by_connector(self, connector_id: UUID) -> int:
+        """Delete all photos for a connector in a single bulk operation."""
+        stmt = delete(PhotoModel).where(PhotoModel.connector_id == connector_id)
+        result = await self._session.execute(stmt)
+        await self._session.flush()
+        return result.rowcount

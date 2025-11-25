@@ -1,4 +1,15 @@
-"""Folder API routes."""
+"""Folder API routes.
+
+NOTE: This API is deprecated and superseded by the Connectors API (/api/v1/connectors/local).
+Local folder functionality should use the connector endpoints instead:
+- POST /api/v1/connectors/local - Create local folder connector
+- GET /api/v1/connectors - List all connectors (including local folders)
+- GET /api/v1/connectors/{connector_id} - Get connector details
+- POST /api/v1/connectors/{connector_id}/sync - Trigger folder scan
+- DELETE /api/v1/connectors/{connector_id} - Remove connector
+
+This router is kept for backward compatibility but may be removed in a future version.
+"""
 
 from typing import Annotated
 from uuid import UUID
@@ -20,19 +31,15 @@ async def register_folder(
     request: FolderCreateRequest,
     connector_repo: ConnectorRepoDep,
 ) -> FolderResponse:
-    """Register a folder for scanning."""
-    # TODO: Implement folder registration logic
-    return FolderResponse(
-        success=True,
-        data={
-            "id": "placeholder-uuid",
-            "path": request.path,
-            "name": request.name,
-            "recursive": request.recursive,
-            "auto_album": request.auto_album,
-            "last_scanned_at": None,
-            "created_at": "2024-01-01T00:00:00Z",
-        },
+    """Register a folder for scanning.
+
+    DEPRECATED: Use POST /api/v1/connectors/local instead.
+    """
+    # GitHub Issue: Implement folder registration or remove deprecated API
+    # For now, return a deprecation message
+    raise HTTPException(
+        status_code=410,
+        detail="This endpoint is deprecated. Use POST /api/v1/connectors/local instead."
     )
 
 
@@ -40,11 +47,14 @@ async def register_folder(
 async def list_folders(
     connector_repo: ConnectorRepoDep,
 ) -> FolderListResponse:
-    """List all watched folders."""
-    # TODO: Implement folder listing logic
-    return FolderListResponse(
-        success=True,
-        data={"folders": []},
+    """List all watched folders.
+
+    DEPRECATED: Use GET /api/v1/connectors instead.
+    """
+    # GitHub Issue: Implement folder listing or remove deprecated API
+    raise HTTPException(
+        status_code=410,
+        detail="This endpoint is deprecated. Use GET /api/v1/connectors instead."
     )
 
 
@@ -53,9 +63,15 @@ async def get_folder(
     folder_id: UUID,
     connector_repo: ConnectorRepoDep,
 ) -> FolderResponse:
-    """Get a watched folder by ID with stats."""
-    # TODO: Implement folder retrieval logic
-    raise HTTPException(status_code=404, detail="Folder not found")
+    """Get a watched folder by ID with stats.
+
+    DEPRECATED: Use GET /api/v1/connectors/{connector_id} instead.
+    """
+    # GitHub Issue: Implement folder retrieval or remove deprecated API
+    raise HTTPException(
+        status_code=410,
+        detail="This endpoint is deprecated. Use GET /api/v1/connectors/{connector_id} instead."
+    )
 
 
 @router.post("/{folder_id}/scan")
@@ -63,9 +79,15 @@ async def trigger_scan(
     folder_id: UUID,
     connector_repo: ConnectorRepoDep,
 ) -> dict:
-    """Trigger a scan of the folder."""
-    # TODO: Implement folder scan logic
-    return {"success": True, "data": {"scan_triggered": True}}
+    """Trigger a scan of the folder.
+
+    DEPRECATED: Use POST /api/v1/connectors/{connector_id}/sync instead.
+    """
+    # GitHub Issue: Implement folder scan or remove deprecated API
+    raise HTTPException(
+        status_code=410,
+        detail="This endpoint is deprecated. Use POST /api/v1/connectors/{connector_id}/sync instead."
+    )
 
 
 @router.delete("/{folder_id}")
@@ -74,6 +96,12 @@ async def remove_folder(
     connector_repo: ConnectorRepoDep,
     delete_photos: Annotated[bool, Query(description="Also delete indexed photos")] = False,
 ) -> dict:
-    """Remove a watched folder."""
-    # TODO: Implement folder removal logic
-    return {"success": True, "data": {"deleted": True}}
+    """Remove a watched folder.
+
+    DEPRECATED: Use DELETE /api/v1/connectors/{connector_id} instead.
+    """
+    # GitHub Issue: Implement folder removal or remove deprecated API
+    raise HTTPException(
+        status_code=410,
+        detail="This endpoint is deprecated. Use DELETE /api/v1/connectors/{connector_id} instead."
+    )

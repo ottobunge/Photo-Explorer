@@ -38,7 +38,7 @@ class PhotoFactory:
     ) -> Photo:
         """Create a Photo entity with sensible defaults."""
         photo_id = id or uuid4()
-        now = created_at or datetime.now(timezone.utc)
+        now = created_at or datetime.utcnow()
 
         return Photo(
             id=PhotoId(photo_id),
@@ -57,12 +57,10 @@ class PhotoFactory:
             processing_status=processing_status,
             album_ids=kwargs.get("album_ids", []),
             face_ids=kwargs.get("face_ids", []),
-            exif_data=kwargs.get("exif_data"),
+            exif=kwargs.get("exif"),
             description=kwargs.get("description"),
-            scene_type=kwargs.get("scene_type"),
-            scene_confidence=kwargs.get("scene_confidence"),
-            is_indoor=kwargs.get("is_indoor"),
-            detected_objects=kwargs.get("detected_objects"),
+            scene_classification=kwargs.get("scene_classification"),
+            detected_objects=kwargs.get("detected_objects", []),
             source_path=kwargs.get("source_path"),
             source_deleted=kwargs.get("source_deleted", False),
             last_synced=kwargs.get("last_synced"),
@@ -94,7 +92,7 @@ class AlbumFactory:
     ) -> Album:
         """Create an Album entity with sensible defaults."""
         album_id = id or uuid4()
-        now = created_at or datetime.now(timezone.utc)
+        now = created_at or datetime.utcnow()
 
         return Album(
             id=AlbumId(album_id),
@@ -130,7 +128,7 @@ class FaceFactory:
     ) -> Face:
         """Create a Face entity with sensible defaults."""
         face_id = id or uuid4()
-        now = created_at or datetime.now(timezone.utc)
+        now = created_at or datetime.utcnow()
 
         # Default bounding box
         if bounding_box is None:
@@ -163,60 +161,50 @@ class ConnectorFactory:
     """Factory for creating Connector test instances."""
 
     @staticmethod
-    def create(
-        id: Optional[UUID] = None,
-        name: str = "Test Connector",
-        connector_type: ConnectorType = ConnectorType.LOCAL,
-        status: ConnectorStatus = ConnectorStatus.CONNECTED,
-        config: Optional[dict] = None,
-        created_at: Optional[datetime] = None,
-        last_sync: Optional[datetime] = None,
-    ) -> Connector:
-        """Create a Connector entity with sensible defaults."""
-        connector_id = id or uuid4()
-        now = created_at or datetime.now(timezone.utc)
-
-        return Connector(
-            id=ConnectorId(connector_id),
-            name=name,
-            connector_type=connector_type,
-            status=status,
-            config=config or {},
-            created_at=now,
-            updated_at=now,
-            last_sync=last_sync,
-        )
-
-    @staticmethod
     def create_local_folder(
         id: Optional[UUID] = None,
         name: str = "Test Local Folder",
         path: str = "/test/photos",
-        **kwargs,
+        recursive: bool = True,
+        watch: bool = False,
+        auto_album: bool = False,
     ) -> Connector:
         """Create a local folder connector."""
-        config = {"path": path, "watch_for_changes": False}
-        return ConnectorFactory.create(
-            id=id,
+        connector = Connector.create_local(
+            path=path,
             name=name,
-            connector_type=ConnectorType.LOCAL,
-            config=config,
-            **kwargs,
+            recursive=recursive,
+            watch=watch,
+            auto_album=auto_album,
         )
+        if id:
+            connector.id = ConnectorId(id)
+        return connector
 
     @staticmethod
     def create_google_photos(
         id: Optional[UUID] = None,
         name: str = "Test Google Photos",
-        **kwargs,
     ) -> Connector:
         """Create a Google Photos connector."""
-        return ConnectorFactory.create(
-            id=id,
-            name=name,
-            connector_type=ConnectorType.GOOGLE_PHOTOS,
-            **kwargs,
-        )
+        connector = Connector.create_google_photos(name=name)
+        if id:
+            connector.id = ConnectorId(id)
+        return connector
+
+    @staticmethod
+    def create_upload(
+        id: Optional[UUID] = None,
+        name: str = "Test Upload",
+        upload_path: str = "/uploads",
+    ) -> Connector:
+        """Create an upload connector."""
+        connector = Connector.create_upload(upload_path=upload_path)
+        if id and name != "Test Upload":
+            connector.name = name
+        if id:
+            connector.id = ConnectorId(id)
+        return connector
 
 
 class EmbeddingFactory:

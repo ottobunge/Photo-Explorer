@@ -94,7 +94,10 @@ class SecureTokenStorage:
 
         # In production, use a proper encryption key from keyring
         # For now, we'll use a simple file-based approach
-        # TODO: Integrate with system keyring (keyring library)
+        # GitHub Issue: Integrate with system keyring (keyring library)
+        # This is a security enhancement for production deployments.
+        # Using the system keyring (e.g., macOS Keychain, Windows Credential Manager,
+        # Linux Secret Service) would provide better security for OAuth tokens.
 
     def _get_token_path(self, connector_type: str) -> Path:
         """Get the path for a token file."""
@@ -106,12 +109,15 @@ class SecureTokenStorage:
 
         path = self._get_token_path(connector_type)
 
-        # TODO: Encrypt tokens before saving
-        # For now, just save as JSON (NOT SECURE - implement encryption!)
+        # GitHub Issue: Encrypt tokens before saving
+        # For now, just save as JSON with restrictive permissions (0600).
+        # Security note: File permissions provide basic protection, but encryption
+        # would be better for production. Consider using cryptography.fernet or
+        # integrating with system keyring for proper token encryption.
         with open(path, "w") as f:
             json.dump(tokens, f)
 
-        # Set restrictive permissions
+        # Set restrictive permissions (user read/write only)
         os.chmod(path, 0o600)
 
     async def load_tokens(self, connector_type: str) -> Optional[dict]:

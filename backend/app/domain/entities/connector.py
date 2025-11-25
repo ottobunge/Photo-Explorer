@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
 
-from app.domain.value_objects import ConnectorId
+from app.domain.value_objects import ConnectorId, SyncStats
 
 
 class ConnectorType(str, Enum):
@@ -24,28 +24,6 @@ class ConnectorStatus(str, Enum):
     CONNECTED = "connected"
     SYNCING = "syncing"
     ERROR = "error"
-
-
-@dataclass
-class SyncStats:
-    """Statistics for a sync operation."""
-
-    total_items: int = 0
-    indexed: int = 0
-    skipped: int = 0
-    failed: int = 0
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-
-    @property
-    def is_complete(self) -> bool:
-        return self.completed_at is not None
-
-    @property
-    def duration_seconds(self) -> Optional[float]:
-        if self.started_at and self.completed_at:
-            return (self.completed_at - self.started_at).total_seconds()
-        return None
 
 
 @dataclass

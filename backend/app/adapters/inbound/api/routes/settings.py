@@ -15,8 +15,13 @@ router = APIRouter()
 
 @router.get("", response_model=AppSettingsResponse)
 async def get_settings() -> AppSettingsResponse:
-    """Get current application settings."""
-    # TODO: Inject SettingsUseCases
+    """Get current application settings.
+
+    NOTE: This is a placeholder endpoint returning hardcoded values.
+    GitHub Issue: Implement SettingsUseCases for persistent configuration management.
+    For now, settings are managed through environment variables and config files.
+    """
+    # GitHub Issue: Inject SettingsUseCases for real configuration management
     return AppSettingsResponse(
         success=True,
         data={
@@ -37,8 +42,12 @@ async def get_settings() -> AppSettingsResponse:
 
 @router.patch("", response_model=AppSettingsResponse)
 async def update_settings(request: AppSettingsUpdate) -> AppSettingsResponse:
-    """Update application settings."""
-    # TODO: Inject SettingsUseCases
+    """Update application settings.
+
+    NOTE: This is a placeholder endpoint that doesn't persist changes.
+    GitHub Issue: Implement SettingsUseCases for persistent configuration.
+    """
+    # GitHub Issue: Inject SettingsUseCases for real configuration management
     return AppSettingsResponse(
         success=True,
         data={
@@ -59,8 +68,13 @@ async def update_settings(request: AppSettingsUpdate) -> AppSettingsResponse:
 
 @router.get("/storage", response_model=StorageStatsResponse)
 async def get_storage_stats() -> StorageStatsResponse:
-    """Get storage usage statistics."""
-    # TODO: Inject SettingsUseCases
+    """Get storage usage statistics.
+
+    NOTE: This is a placeholder endpoint returning zeros.
+    GitHub Issue: Implement actual storage statistics calculation.
+    Should query database for photo counts and filesystem for storage usage.
+    """
+    # GitHub Issue: Inject SettingsUseCases for real storage stats
     return StorageStatsResponse(
         success=True,
         data={

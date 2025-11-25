@@ -292,8 +292,23 @@ async def get_active_models() -> ActiveModelsResponse:
 
 @router.post("/active")
 async def set_active_model(request: SetActiveModelRequest) -> dict:
-    """Set the active model for a task."""
-    # TODO: Implement model switching
+    """Set the active model for a task.
+
+    NOTE: This is a placeholder endpoint. Model switching is future work.
+    GitHub Issue: Implement dynamic model switching and configuration persistence.
+
+    Current behavior:
+    - Models are configured at startup via environment variables
+    - Changing models requires application restart
+    - No persistence of model preferences
+
+    Future implementation should:
+    - Update configuration file/database with new model selection
+    - Provide hot-reload capability for model switching
+    - Validate model availability before switching
+    - Handle graceful fallback if model loading fails
+    """
+    # GitHub Issue: Implement model switching and persistence
     # This would update the config and potentially reload the model
     return {
         "success": True,

@@ -143,7 +143,11 @@ class SyncStatsData(BaseModel):
     indexed: int
     skipped: int
     failed: int
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
     duration_seconds: Optional[float] = None
+    is_complete: bool = False
+    success_rate: float = 1.0
 
 
 class SyncStatusData(BaseModel):

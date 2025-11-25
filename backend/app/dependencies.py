@@ -27,7 +27,7 @@ from app.application.ports.outbound import (
     PhotoRepository,
     VectorStore,
 )
-from app.application.services import FaceService, PhotoService, SearchService
+from app.application.services import ConnectorService, FaceService, PhotoService, SearchService
 
 
 # Database session dependency
@@ -162,7 +162,16 @@ def get_face_service(deps: ServicesDep) -> FaceUseCases:
     )
 
 
+def get_connector_service(deps: ServicesDep) -> ConnectorService:
+    """Get ConnectorService with injected dependencies."""
+    return ConnectorService(
+        connector_repo=deps.connector_repo,
+        photo_repo=deps.photo_repo,
+    )
+
+
 # Type aliases for service injection
 PhotoServiceDep = Annotated[PhotoUseCases, Depends(get_photo_service)]
 SearchServiceDep = Annotated[SearchUseCases, Depends(get_search_service)]
 FaceServiceDep = Annotated[FaceUseCases, Depends(get_face_service)]
+ConnectorServiceDep = Annotated[ConnectorService, Depends(get_connector_service)]

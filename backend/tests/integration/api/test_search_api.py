@@ -11,7 +11,7 @@ Following TDD approach - comprehensive API tests for search functionality.
 
 import pytest
 from uuid import uuid4
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 
 from httpx import AsyncClient
 
@@ -72,7 +72,7 @@ class TestSearchPostEndpoint:
 
     @pytest.mark.asyncio
     async def test_post_search_returns_photo_metadata(
-        self, client: AsyncClient, photo_repo, test_vector_store
+        self, client: AsyncClient, photo_repo, test_vector_store, base_embedding, setup_search_mocks
     ):
         """Should return complete photo metadata in results."""
         # Given: indexed photo with full metadata
@@ -85,10 +85,10 @@ class TestSearchPostEndpoint:
         )
         saved_photo = await photo_repo.save(photo)
 
-        embedding = EmbeddingFactory.create_clip_embedding()
+        # Use a similar embedding to base_embedding so search will find it
         await test_vector_store.store_photo_embedding(
             saved_photo.id.value,
-            embedding,
+            EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.01),
         )
 
         # When
@@ -187,19 +187,17 @@ class TestSearchPostEndpoint:
 
     @pytest.mark.asyncio
     async def test_post_search_with_pagination(
-        self, client: AsyncClient, photo_repo, test_vector_store
+        self, client: AsyncClient, photo_repo, test_vector_store, base_embedding, setup_search_mocks
     ):
         """Should respect limit and offset parameters."""
-        # Given: 10 indexed photos
-        base_embedding = EmbeddingFactory.create_clip_embedding()
-
+        # Given: 10 indexed photos with similar embeddings
         for i in range(10):
             photo = PhotoFactory.create(filename=f"photo_{i}.jpg")
             saved = await photo_repo.save(photo)
 
             await test_vector_store.store_photo_embedding(
                 saved.id.value,
-                EmbeddingFactory.create_similar_embedding(base_embedding),
+                EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.01),
             )
 
         # When: page 1 (limit=5, offset=0)
@@ -385,19 +383,17 @@ class TestSearchGetEndpoint:
 
     @pytest.mark.asyncio
     async def test_get_search_pagination(
-        self, client: AsyncClient, photo_repo, test_vector_store
+        self, client: AsyncClient, photo_repo, test_vector_store, base_embedding, setup_search_mocks
     ):
         """Should handle pagination correctly via GET."""
-        # Given: 10 indexed photos
-        base_embedding = EmbeddingFactory.create_clip_embedding()
-
+        # Given: 10 indexed photos with similar embeddings
         for i in range(10):
             photo = PhotoFactory.create(filename=f"photo_{i}.jpg")
             saved = await photo_repo.save(photo)
 
             await test_vector_store.store_photo_embedding(
                 saved.id.value,
-                EmbeddingFactory.create_similar_embedding(base_embedding),
+                EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.01),
             )
 
         # When: page 1
@@ -423,19 +419,17 @@ class TestSearchGetEndpoint:
 
     @pytest.mark.asyncio
     async def test_get_search_default_parameters(
-        self, client: AsyncClient, photo_repo, test_vector_store
+        self, client: AsyncClient, photo_repo, test_vector_store, base_embedding, setup_search_mocks
     ):
         """Should use default limit and offset when not specified."""
-        # Given: indexed photos
-        base_embedding = EmbeddingFactory.create_clip_embedding()
-
+        # Given: indexed photos with similar embeddings
         for i in range(25):
             photo = PhotoFactory.create(filename=f"photo_{i}.jpg")
             saved = await photo_repo.save(photo)
 
             await test_vector_store.store_photo_embedding(
                 saved.id.value,
-                EmbeddingFactory.create_similar_embedding(base_embedding),
+                EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.01),
             )
 
         # When: no limit/offset specified
@@ -640,8 +634,9 @@ class TestSearchErrorHandling:
         self, client: AsyncClient, photo_repo, test_vector_store
     ):
         """Should handle vector store errors gracefully."""
-        # When: vector store fails
-        with patch.object(test_vector_store, "search_photos") as mock_search:
+        # Patch the vector store's search_photos method to raise an exception
+        # We need to patch it at the module level where it's used
+        with patch("app.adapters.outbound.persistence.qdrant.QdrantVectorStore.search_photos") as mock_search:
             mock_search.side_effect = Exception("Vector store unavailable")
 
             response = await client.post(
@@ -706,3 +701,44 @@ async def test_vector_store():
         await vector_store._client.delete_collection(faces_collection)
     except Exception:
         pass
+
+
+@pytest.fixture
+def base_embedding():
+    """
+    Provide a consistent base embedding for tests.
+
+    This embedding is used both for storing test photo embeddings
+    and for mocking the ML service's encode_text method.
+    """
+    return EmbeddingFactory.create_clip_embedding()
+
+
+@pytest.fixture
+async def setup_search_mocks(test_vector_store, base_embedding):
+    """
+    Set up mocks for search tests to ensure embeddings match.
+
+    Overrides both the ML service to return predictable embeddings
+    and the vector store to use the test instance.
+    """
+    from app.dependencies import get_ml_services, get_vector_store
+    from app.main import app
+
+    # Create mock ML service that returns base_embedding
+    mock_ml_service = MagicMock()
+    async def mock_encode_text(text: str):
+        return base_embedding
+    mock_ml_service.encode_text = mock_encode_text
+
+    # Override dependencies
+    app.dependency_overrides[get_ml_services] = lambda: mock_ml_service
+    app.dependency_overrides[get_vector_store] = lambda: test_vector_store
+
+    yield
+
+    # Cleanup
+    if get_ml_services in app.dependency_overrides:
+        del app.dependency_overrides[get_ml_services]
+    if get_vector_store in app.dependency_overrides:
+        del app.dependency_overrides[get_vector_store]

@@ -502,14 +502,131 @@ async def delete_photo(
     return {"success": True, "data": {"deleted": True}}
 
 
-@router.get("/{photo_id}/file")
-async def get_photo_file(photo_id: UUID) -> Response:
+@router.get(
+    "/{photo_id}/file",
+    summary="Get original photo file",
+    description="""
+    Download the original, full-resolution photo file.
+
+    This endpoint serves the original photo file as uploaded or imported.
+    Unlike the thumbnail endpoint, this returns the full-resolution image
+    with original quality and dimensions.
+
+    The response includes appropriate caching headers for efficient delivery.
+    Content-Type is set based on the original file's MIME type.
+
+    Supported for:
+    - Uploaded photos (stored locally)
+    - Local folder photos (served from original path)
+    - Google Photos (may require fetching from remote)
+    """,
+    responses={
+        200: {
+            "description": "Original photo file",
+            "content": {
+                "image/jpeg": {"schema": {"type": "string", "format": "binary"}},
+                "image/png": {"schema": {"type": "string", "format": "binary"}},
+                "image/webp": {"schema": {"type": "string", "format": "binary"}},
+            }
+        },
+        404: {
+            "description": "Photo not found or file not available",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Photo not found or file not available"}
+                }
+            }
+        }
+    },
+    tags=["Photos"]
+)
+async def get_photo_file(
+    photo_id: UUID,
+    photo_service: PhotoServiceDep,
+) -> Response:
     """Get the original photo file."""
-    # TODO: Inject PhotoUseCases and call get_photo_file()
-    raise HTTPException(status_code=404, detail="Photo not found")
+    result = await photo_service.get_photo_file(photo_id)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Photo not found or file not available")
+
+    file_bytes, content_type = result
+
+    return Response(
+        content=file_bytes,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "Content-Disposition": "inline",
+        },
+    )
 
 
-@router.get("/{photo_id}/thumbnail")
+@router.get(
+    "/{photo_id}/thumbnail",
+    summary="Get photo thumbnail",
+    description="""
+    Get a thumbnail (preview) image for a photo.
+
+    Thumbnails are automatically generated during photo processing and are
+    optimized for fast loading in galleries and lists. Typical dimensions
+    are 300x300 pixels with JPEG compression.
+
+    The response includes caching headers (24 hours) for optimal performance.
+    Thumbnails are served as JPEG regardless of original format.
+
+    Use cases:
+    - Photo galleries and grids
+    - Search results
+    - Album previews
+    - Face cluster representatives
+
+    If the thumbnail hasn't been generated yet (photo still processing),
+    this endpoint will return 404. Check the processing_status field in
+    the photo metadata.
+    """,
+    responses={
+        200: {
+            "description": "Thumbnail image (JPEG)",
+            "content": {
+                "image/jpeg": {
+                    "schema": {
+                        "type": "string",
+                        "format": "binary"
+                    }
+                }
+            },
+            "headers": {
+                "Cache-Control": {
+                    "description": "Caching directive",
+                    "schema": {"type": "string", "example": "public, max-age=86400"}
+                }
+            }
+        },
+        404: {
+            "description": "Photo or thumbnail not found",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "photo_not_found": {
+                            "summary": "Photo doesn't exist",
+                            "value": {"detail": "Photo not found"}
+                        },
+                        "thumbnail_not_ready": {
+                            "summary": "Thumbnail not generated yet",
+                            "value": {"detail": "Thumbnail not available"}
+                        },
+                        "file_missing": {
+                            "summary": "Thumbnail file missing",
+                            "value": {"detail": "Thumbnail file not found"}
+                        }
+                    }
+                }
+            }
+        }
+    },
+    tags=["Photos"]
+)
 async def get_photo_thumbnail(
     photo_id: UUID,
     photo_repo: PhotoRepoDep,

@@ -17,7 +17,99 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("", response_model=SearchResponse)
+@router.post(
+    "",
+    response_model=SearchResponse,
+    summary="Semantic photo search",
+    description="""
+    Search photos using natural language queries powered by AI.
+
+    This endpoint uses CLIP (Contrastive Language-Image Pre-training) to understand
+    your search query and find photos that match the semantic meaning, not just
+    keywords or tags.
+
+    **How it works:**
+    1. Your text query is converted to a vector embedding using CLIP
+    2. The embedding is compared against all photo embeddings in the vector database (Qdrant)
+    3. Photos are ranked by semantic similarity score
+    4. Results can be filtered by connector or album
+
+    **Example queries:**
+    - "sunset over the ocean"
+    - "people smiling at a party"
+    - "mountain landscape with snow"
+    - "cat sleeping on a couch"
+    - "birthday cake with candles"
+
+    **Features:**
+    - Understands concepts, not just keywords
+    - Works across languages
+    - Finds visually similar content
+    - Supports pagination with offset/limit
+    - Optional filtering by connector or album
+
+    **Performance:**
+    The response includes timing information:
+    - query_embedding_time_ms: Time to convert text to embedding
+    - search_time_ms: Time to search the vector database
+
+    **Note:** Only photos that have been processed (have embeddings) will appear
+    in search results. Check processing_status in photo metadata.
+    """,
+    responses={
+        200: {
+            "description": "Search results with timing information",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "data": {
+                            "results": [
+                                {
+                                    "photo": {
+                                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                                        "filename": "IMG_1234.jpg",
+                                        "thumbnail_url": "/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/thumbnail",
+                                        "taken_at": "2024-01-15T14:30:00Z",
+                                        "description": "A beautiful sunset over the ocean",
+                                        "connector_type": "google_photos"
+                                    },
+                                    "score": 0.89,
+                                    "highlights": []
+                                }
+                            ],
+                            "query_embedding_time_ms": 45.2,
+                            "search_time_ms": 12.8
+                        },
+                        "meta": {
+                            "total": 25,
+                            "limit": 20,
+                            "offset": 0
+                        }
+                    }
+                }
+            }
+        },
+        500: {
+            "description": "Search failed (ML service unavailable, etc.)",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": False,
+                        "data": {
+                            "results": [],
+                            "query_embedding_time_ms": 0,
+                            "search_time_ms": 0
+                        },
+                        "meta": {"total": 0, "limit": 20, "offset": 0},
+                        "error": {"message": "ML service unavailable"}
+                    }
+                }
+            }
+        }
+    },
+    tags=["Search"]
+)
 async def semantic_search(
     request: SearchRequest,
     ml_services: MLServicesDep,
@@ -118,16 +210,74 @@ async def semantic_search(
         )
 
 
-@router.get("")
+@router.get(
+    "",
+    summary="Semantic search (GET)",
+    description="""
+    Search photos using natural language queries - GET version for easy browser testing.
+
+    This is a convenience endpoint that provides the same semantic search functionality
+    as the POST endpoint, but using query parameters instead of a request body.
+
+    **Use this endpoint for:**
+    - Quick testing in a browser
+    - Simple URL-based searches
+    - Direct linking to search results
+
+    **For production use**, prefer the POST endpoint which:
+    - Supports more complex filter combinations
+    - Handles special characters better
+    - Follows REST conventions
+
+    See the POST /search endpoint documentation for detailed information about
+    how semantic search works, example queries, and performance characteristics.
+    """,
+    responses={
+        200: {
+            "description": "Search results",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "data": {
+                            "results": [
+                                {
+                                    "photo": {
+                                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                                        "filename": "IMG_1234.jpg",
+                                        "thumbnail_url": "/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/thumbnail"
+                                    },
+                                    "score": 0.89
+                                }
+                            ],
+                            "query_embedding_time_ms": 45.2,
+                            "search_time_ms": 12.8
+                        },
+                        "meta": {"total": 25, "limit": 20, "offset": 0}
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "Invalid query parameters",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Query string is required"}
+                }
+            }
+        }
+    },
+    tags=["Search"]
+)
 async def search_photos_get(
-    q: Annotated[str, Query(min_length=1, max_length=500, description="Search query")],
+    q: Annotated[str, Query(min_length=1, max_length=500, description="Search query text")],
     ml_services: MLServicesDep,
     vector_store: VectorStoreDep,
     photo_repo: PhotoRepoDep,
     limit: Annotated[int, Query(ge=1, le=100, description="Maximum results (1-100)")] = 20,
     offset: Annotated[int, Query(ge=0, le=10000, description="Results to skip")] = 0,
-    connector_id: Annotated[Optional[str], Query(description="Filter by connector ID")] = None,
-    album_id: Annotated[Optional[str], Query(description="Filter by album ID")] = None,
+    connector_id: Annotated[Optional[str], Query(description="Filter by connector ID (UUID)")] = None,
+    album_id: Annotated[Optional[str], Query(description="Filter by album ID (UUID)")] = None,
 ) -> SearchResponse:
     """
     GET endpoint for semantic search (convenience for browser testing).

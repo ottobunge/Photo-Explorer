@@ -35,23 +35,17 @@ class ConnectorRepositoryPostgres(ConnectorRepository):
             existing.error_message = connector.error_message
             existing.updated_at = connector.updated_at
 
-            # Handle sync stats serialization
+            # Handle sync stats serialization using to_dict method
             if connector.last_sync_stats:
+                full_dict = connector.last_sync_stats.to_dict()
+                # Store only the core data fields, not computed properties
                 existing.last_sync_stats = {
-                    "total_items": connector.last_sync_stats.total_items,
-                    "indexed": connector.last_sync_stats.indexed,
-                    "skipped": connector.last_sync_stats.skipped,
-                    "failed": connector.last_sync_stats.failed,
-                    "started_at": (
-                        connector.last_sync_stats.started_at.isoformat()
-                        if connector.last_sync_stats.started_at
-                        else None
-                    ),
-                    "completed_at": (
-                        connector.last_sync_stats.completed_at.isoformat()
-                        if connector.last_sync_stats.completed_at
-                        else None
-                    ),
+                    "total_items": full_dict["total_items"],
+                    "indexed": full_dict["indexed"],
+                    "skipped": full_dict["skipped"],
+                    "failed": full_dict["failed"],
+                    "started_at": full_dict["started_at"],
+                    "completed_at": full_dict["completed_at"],
                 }
             else:
                 existing.last_sync_stats = None

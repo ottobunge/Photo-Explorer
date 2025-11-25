@@ -163,20 +163,190 @@ def create_app() -> FastAPI:
 
     # OpenAPI tags for organizing endpoints
     tags_metadata = [
-        {"name": "Health", "description": "Health check endpoints for monitoring application status"},
-        {"name": "Photos", "description": "Photo management: upload, retrieve, delete. AI processing includes scene classification, object detection, and face recognition."},
-        {"name": "Albums", "description": "Album management: create albums, add/remove photos, set cover photos"},
-        {"name": "Search", "description": "Semantic search using natural language queries powered by CLIP embeddings"},
-        {"name": "Faces", "description": "Face detection and recognition: view clusters, assign names, search by person"},
-        {"name": "Connectors", "description": "Photo source connectors: Google Photos, local folders, and other sources"},
-        {"name": "Folders", "description": "Local folder management: watch folders and auto-import photos"},
-        {"name": "Settings", "description": "Application settings and configuration management"},
-        {"name": "Models", "description": "ML model management: check status and download AI models"},
+        {
+            "name": "Health",
+            "description": "Health check endpoints for monitoring application status and readiness"
+        },
+        {
+            "name": "Photos",
+            "description": """
+Photo management operations including upload, retrieval, and deletion.
+
+**Features:**
+- Upload photos individually or in batches
+- Automatic AI processing: thumbnails, EXIF extraction, scene classification, object detection
+- Face detection and recognition
+- Semantic embeddings for search
+- Photo metadata and analysis
+- Original file and thumbnail delivery
+- Visual similarity search
+            """
+        },
+        {
+            "name": "Albums",
+            "description": """
+Album management for organizing photos into collections.
+
+**Features:**
+- Create and manage albums
+- Add/remove photos from albums
+- Set album cover photos
+- View album contents
+- Manual and automatic organization
+            """
+        },
+        {
+            "name": "Search",
+            "description": """
+Semantic search powered by CLIP (Contrastive Language-Image Pre-training).
+
+**Features:**
+- Natural language photo search
+- Concept-based matching (not just keywords)
+- Vector similarity search using Qdrant
+- Filter by connector or album
+- Performance metrics included
+- Multi-language support
+            """
+        },
+        {
+            "name": "Faces",
+            "description": """
+Face detection, recognition, and clustering.
+
+**Features:**
+- Automatic face detection in photos
+- Face clustering (grouping same person)
+- Name assignment for identification
+- Face crop thumbnails
+- Search photos by person
+- Cluster management (merge, split, move)
+            """
+        },
+        {
+            "name": "Connectors",
+            "description": """
+Photo source connectors for importing from multiple sources.
+
+**Supported Sources:**
+- **Local folders**: Import from server filesystem
+- **Google Photos**: OAuth-based sync with Google Photos API
+- **Upload**: Manual web upload connector
+
+**Features:**
+- Multiple connector instances per type
+- Automatic sync scheduling
+- Manual sync triggering
+- Photo reprocessing
+- Sync status and statistics
+- Secure token storage
+            """
+        },
+        {
+            "name": "Folders",
+            "description": """
+Local folder management with filesystem watching.
+
+**Features:**
+- Watch folders for changes
+- Automatic photo import on detection
+- Recursive directory scanning
+- Auto-album creation from folder structure
+            """
+        },
+        {
+            "name": "Settings",
+            "description": """
+Application settings and configuration management.
+
+**Features:**
+- View and update application settings
+- Configure allowed directories
+- ML model settings
+- Storage configuration
+            """
+        },
+        {
+            "name": "Models",
+            "description": """
+ML model management and status.
+
+**Features:**
+- Check model download status
+- View model information
+- Download AI models on demand
+- Model version management
+            """
+        },
     ]
 
     app = FastAPI(
         title=app_settings.app_name,
-        description="AI-powered photo organization and semantic search. Features include semantic search, face recognition, scene classification, multi-source photo sync, and album management. See /docs for interactive API documentation.",
+        description="""
+# Photo Explorer API
+
+AI-powered photo management and semantic search platform.
+
+## Overview
+
+Photo Explorer helps you organize, search, and analyze your photo library using state-of-the-art
+machine learning models. Import photos from multiple sources, search using natural language,
+and automatically identify people in your photos.
+
+## Key Features
+
+### Semantic Search
+Search your photos using natural language queries like "sunset over mountains" or "people at a beach".
+Powered by OpenAI's CLIP model for understanding visual concepts.
+
+### Face Recognition
+Automatically detect and cluster faces, then assign names to identify people across your library.
+
+### Multi-Source Import
+Connect multiple photo sources:
+- Local folders on your server
+- Google Photos accounts (OAuth)
+- Manual web uploads
+
+### AI Analysis
+Every photo is automatically analyzed:
+- Scene classification (indoor/outdoor, type)
+- Object detection
+- Face detection and recognition
+- EXIF metadata extraction
+- Vector embeddings for semantic search
+
+### Album Organization
+Organize photos into albums manually or automatically based on folder structure.
+
+## Getting Started
+
+1. **Set up a connector** to import photos (`/api/v1/connectors`)
+2. **Trigger a sync** to import photos (`POST /api/v1/connectors/{id}/sync`)
+3. **Wait for processing** - photos are analyzed in the background
+4. **Search your photos** using natural language (`/api/v1/search`)
+5. **Identify people** by naming face clusters (`/api/v1/faces/clusters`)
+
+## Technical Stack
+
+- **Vector Database**: Qdrant for semantic search
+- **ML Models**: CLIP (OpenAI), RetinaFace, ArcFace
+- **Database**: PostgreSQL
+- **Background Tasks**: Celery with Redis
+- **Storage**: Local filesystem or cloud storage
+
+## Authentication
+
+Currently no authentication required (single-user mode). Multi-user support planned.
+
+## Rate Limiting
+
+Default rate limit: 100 requests per minute per IP address.
+
+## Support
+
+For issues, questions, or contributions, visit our GitHub repository.
+        """,
         version="1.0.0",
         terms_of_service="https://github.com/example/photo-explorer/blob/main/TERMS.md",
         contact={

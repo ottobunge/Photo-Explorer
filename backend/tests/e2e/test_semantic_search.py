@@ -7,7 +7,8 @@ from pathlib import Path
 from app.adapters.outbound.ml import MLServicesAdapter, get_ml_services
 from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
 from app.adapters.outbound.persistence.postgres import PhotoRepositoryPostgres
-from app.domain.entities import Photo, PhotoID, ConnectorType
+from app.domain.entities import Photo, ConnectorType
+from app.domain.value_objects import PhotoID
 from tests.fixtures.conftest import (
     test_images_dir,
     cat_images,

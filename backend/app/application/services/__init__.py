@@ -1,6 +1,7 @@
 # Application services
+from app.application.services.connector_service import ConnectorService
 from app.application.services.photo_service import PhotoService
 from app.application.services.search_service import SearchService
 from app.application.services.face_service import FaceService
 
-__all__ = ["PhotoService", "SearchService", "FaceService"]
+__all__ = ["ConnectorService", "PhotoService", "SearchService", "FaceService"]
