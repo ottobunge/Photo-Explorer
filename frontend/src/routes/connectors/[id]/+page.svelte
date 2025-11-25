@@ -205,7 +205,7 @@
 		if (connector?.type !== 'google_photos' || !connectorId) return;
 
 		pickerStatus = 'selecting';
-		pickerMessage = 'Opening photo picker...';
+		pickerMessage = 'Opening photo picker... After selecting photos, click the "ADD" button to import them.';
 
 		try {
 			// Create picker session
@@ -280,7 +280,7 @@
 			} else if (pickerWindow && pickerWindow.closed) {
 				// Window was closed without selection
 				pickerStatus = 'error';
-				pickerMessage = 'Photo selection cancelled';
+				pickerMessage = 'Photo selection cancelled. Make sure to click the "ADD" button in the picker before closing the window.';
 				pickerPolling = false;
 
 				// Reset after 3 seconds
