@@ -106,6 +106,7 @@ htmlcov/
 
 # Test fixtures - images (downloaded at test time)
 backend/tests/fixtures/images/
+backend/tests/fixtures/face-images/
 **/test_images/
 **/fixtures/images/
 
