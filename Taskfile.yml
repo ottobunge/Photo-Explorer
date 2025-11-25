@@ -433,13 +433,8 @@ tasks:
     cmds:
       - task: backend:db:migrate
 
-  db:seed:
-    desc: Seed database with sample data
-    cmds:
-      - task: backend:db:seed
-
   db:reset:
-    desc: Reset database (drop, create, migrate, seed)
+    desc: Reset database (drop, create, migrate)
     cmds:
       - task: backend:db:reset
 

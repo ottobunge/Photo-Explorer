@@ -114,17 +114,11 @@ tasks:
     cmds:
       - "{{.POETRY}} run alembic downgrade -1"
 
-  db:seed:
-    desc: Seed database with sample data
-    cmds:
-      - "{{.PYTHON}} -m app.scripts.seed"
-
   db:reset:
-    desc: Reset database (drop all, migrate, seed)
+    desc: Reset database (drop all, migrate)
     cmds:
       - "{{.POETRY}} run alembic downgrade base"
       - "{{.POETRY}} run alembic upgrade head"
-      - task: db:seed
 
   # ===================
   # Code Quality
