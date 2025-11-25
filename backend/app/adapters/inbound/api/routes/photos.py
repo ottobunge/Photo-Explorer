@@ -13,7 +13,7 @@ from app.adapters.inbound.api.schemas.photo_schemas import (
     PhotoResponse,
     PhotoUploadResponse,
 )
-from app.adapters.inbound.workers.tasks import process_photo_task
+from app.adapters.inbound.workers.tasks import process_photo_task, detect_faces_task
 from app.domain.entities.connector import ConnectorType
 from app.dependencies import (
     AlbumRepoDep,
@@ -197,8 +197,9 @@ async def upload_photos(
                 connector_id=upload_connector_id,
             )
 
-            # Queue background processing task
+            # Queue background processing tasks
             process_photo_task.delay(str(photo.id.value))
+            detect_faces_task.delay(str(photo.id.value))
 
             logger.info(
                 f"Photo uploaded and queued for processing",
