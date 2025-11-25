@@ -86,16 +86,31 @@ Use this for testing Docker builds or production-like environment.
 
 Want to try out the app immediately with sample photos?
 
+**Option 1: Docker Mode (Full Stack)**
 ```bash
-nix-shell -p go-task --run "task setup:example"
+nix-shell -p go-task --run "task setup:example:docker"
 ```
-
-This one-command setup:
-- ✨ Starts all services in Docker
+- ✨ Starts all services in Docker (backend, frontend, worker, databases)
 - 📸 Downloads 20 example animal photos from Unsplash
-- 🔌 Creates an "Example Photos" connector
+- 🔌 Creates "Example Photos" connector with Docker container path
 - 🔍 Indexes photos for semantic search
 - ⚡ Takes 2-3 minutes total
+- Perfect for: Quick testing, demos, CI/CD
+
+**Option 2: Local Dev Mode (Hybrid)**
+```bash
+# First, start local development (in a separate terminal)
+task dev:local
+
+# Then run the setup (in another terminal)
+nix-shell -p go-task --run "task setup:example:local"
+```
+- 🚀 Uses local dev services (faster iteration, hot reload)
+- 📸 Downloads 20 example animal photos
+- 🔌 Creates connector with local filesystem path
+- 🔍 Indexes photos via local worker
+- ⚡ Takes 1-2 minutes (infrastructure already running)
+- Perfect for: Active development, debugging, testing local changes
 
 After completion, visit the frontend and try searching for:
 - "cute cat"

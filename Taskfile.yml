@@ -206,17 +206,35 @@ tasks:
     cmds:
       - task: frontend:setup
 
-  setup:example:
-    desc: Setup with example photos for demo/testing
+  setup:example:docker:
+    desc: Setup with example photos (Docker mode - starts all services)
     cmds:
-      - cmd: echo "🎬 Setting up Photo Explorer with example photos..."
+      - cmd: echo "🎬 Starting Docker services with example photos..."
         silent: true
       - task: docker:up:detached
-      - task: setup:example:wait
-      - task: setup:example:migrate
+      - task: setup:example:wait:docker
+      - task: setup:example:migrate:docker
       - task: setup:example:download
-      - task: setup:example:connector
+      - task: setup:example:connector:docker
       - task: setup:example:index
+      - task: setup:example:success
+
+  setup:example:local:
+    desc: Setup with example photos (local mode - requires running services)
+    cmds:
+      - cmd: echo "🎬 Setting up example photos (local dev mode)..."
+        silent: true
+      - task: setup:example:wait:local
+      - task: setup:example:migrate:local
+      - task: setup:example:download
+      - task: setup:example:connector:local
+      - task: setup:example:index
+      - task: setup:example:success
+
+  setup:example:success:
+    desc: Display success message
+    internal: true
+    cmds:
       - cmd: echo ""
         silent: true
       - cmd: echo "✅ Setup complete!"
@@ -234,11 +252,11 @@ tasks:
       - cmd: 'echo "💡 Try searching for: cute cat, dog playing, raccoon"'
         silent: true
 
-  setup:example:wait:
-    desc: Wait for services to be healthy
+  setup:example:wait:docker:
+    desc: Wait for Docker services to be healthy
     internal: true
     cmds:
-      - cmd: echo "⏳ Waiting for services to be ready..."
+      - cmd: echo "⏳ Waiting for Docker services to be ready..."
         silent: true
       - |
         max_retries=30
@@ -250,21 +268,54 @@ tasks:
             sleep $retry_delay
             i=$((i+1))
           else
-            echo "✓ Services ready"
+            echo "✓ Docker services ready"
             exit 0
           fi
         done
-        echo "❌ Services failed to become healthy"
+        echo "❌ Docker services failed to become healthy"
         {{.DOCKER_COMPOSE}} ps
         exit 1
 
-  setup:example:migrate:
-    desc: Run database migrations
+  setup:example:wait:local:
+    desc: Wait for local services to be ready
     internal: true
     cmds:
-      - cmd: echo "📊 Running database migrations..."
+      - cmd: echo "⏳ Waiting for local services to be ready..."
+        silent: true
+      - |
+        max_retries=30
+        retry_delay=2
+        i=0
+        while [ $i -lt $max_retries ]; do
+          if curl -s http://localhost:8000/health >/dev/null 2>&1; then
+            echo "✓ Backend is ready"
+            exit 0
+          else
+            echo "  Waiting for backend... ($((i+1))/$max_retries)"
+            sleep $retry_delay
+            i=$((i+1))
+          fi
+        done
+        echo "❌ Backend failed to start. Is 'task dev:local' running?"
+        exit 1
+
+  setup:example:migrate:docker:
+    desc: Run database migrations (Docker)
+    internal: true
+    cmds:
+      - cmd: echo "📊 Running database migrations (Docker)..."
         silent: true
       - "{{.DOCKER_COMPOSE}} exec -T backend alembic upgrade head"
+      - cmd: echo "✓ Migrations complete"
+        silent: true
+
+  setup:example:migrate:local:
+    desc: Run database migrations (local)
+    internal: true
+    cmds:
+      - cmd: echo "📊 Running database migrations (local)..."
+        silent: true
+      - cd backend && poetry run alembic upgrade head
       - cmd: echo "✓ Migrations complete"
         silent: true
 
@@ -283,11 +334,11 @@ tasks:
       - cmd: echo "✓ Example photos ready (20 images)"
         silent: true
 
-  setup:example:connector:
-    desc: Create example connector
+  setup:example:connector:docker:
+    desc: Create example connector (Docker path)
     internal: true
     cmds:
-      - cmd: echo "🔌 Creating example connector..."
+      - cmd: echo "🔌 Creating example connector (Docker)..."
         silent: true
       - |
         connector_id=$(curl -s -X POST http://localhost:8000/connectors/local \
@@ -299,6 +350,38 @@ tasks:
             "watch": false,
             "auto_album": false
           }' | jq -r '.data.id' 2>/dev/null)
+
+        if [ -z "$connector_id" ] || [ "$connector_id" = "null" ]; then
+          echo "⚠️  Connector may already exist, continuing..."
+        else
+          echo "✓ Connector created: $connector_id"
+          echo "$connector_id" > .example-connector-id
+        fi
+
+  setup:example:connector:local:
+    desc: Create example connector (local path)
+    internal: true
+    cmds:
+      - cmd: echo "🔌 Creating example connector (local)..."
+        silent: true
+      - |
+        # Get absolute path to images directory
+        images_path=$(cd backend/tests/fixtures/images 2>/dev/null && pwd || echo "")
+
+        if [ -z "$images_path" ]; then
+          echo "❌ Images directory not found. Run download task first."
+          exit 1
+        fi
+
+        connector_id=$(curl -s -X POST http://localhost:8000/connectors/local \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"path\": \"$images_path\",
+            \"name\": \"Example Photos\",
+            \"recursive\": true,
+            \"watch\": false,
+            \"auto_album\": false
+          }" | jq -r '.data.id' 2>/dev/null)
 
         if [ -z "$connector_id" ] || [ "$connector_id" = "null" ]; then
           echo "⚠️  Connector may already exist, continuing..."
