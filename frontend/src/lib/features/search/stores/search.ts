@@ -1,6 +1,7 @@
 // Search store
 
 import { writable } from 'svelte/store';
+import { client, ApiError } from '$lib/api/client';
 import type { SearchState, SearchFilters } from '../types';
 
 function createSearchStore() {
@@ -27,25 +28,17 @@ function createSearchStore() {
 			update((state) => ({ ...state, query, loading: true, error: null }));
 
 			try {
-				// TODO: Call search API
-				const response = await fetch('/api/v1/search', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ query, filters })
-				});
-
-				if (!response.ok) throw new Error('Search failed');
-
-				const data = await response.json();
+				const result = await client.post<{ results: any[] }>('/search', { query, filters });
 				update((state) => ({
 					...state,
-					results: data.data.results,
+					results: result.data.results,
 					loading: false
 				}));
 			} catch (error) {
+				const message = error instanceof ApiError ? error.message : 'Search failed';
 				update((state) => ({
 					...state,
-					error: error instanceof Error ? error.message : 'Search failed',
+					error: message,
 					loading: false
 				}));
 			}

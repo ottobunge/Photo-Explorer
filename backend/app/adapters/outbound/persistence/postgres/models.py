@@ -276,3 +276,39 @@ class OAuthTokenModel(Base):
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class TaskExecutionModel(Base):
+    """SQLAlchemy model for task execution tracking (idempotency)."""
+
+    __tablename__ = "task_executions"
+
+    # Primary key - Celery task ID
+    task_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+
+    # Task info
+    task_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="pending", index=True
+    )
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+
+    # Retry tracking
+    retries: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Error and result
+    error_message: Mapped[str | None] = mapped_column(String, nullable=True)
+    result: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Context (JSON)
+    context: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Indexes for performance
+    __table_args__ = (
+        Index("ix_task_executions_name_status", "task_name", "status"),
+        {"comment": "Task execution tracking for idempotency"},
+    )

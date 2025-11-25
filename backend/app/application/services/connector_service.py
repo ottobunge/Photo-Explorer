@@ -72,17 +72,24 @@ class ConnectorService:
         # Persist and return
         return await self._connector_repo.save(connector)
 
-    async def create_google_photos_connector(self, name: str = "Google Photos") -> Connector:
+    async def create_google_photos_connector(
+        self, name: str = "Google Photos", email: Optional[str] = None
+    ) -> Connector:
         """
         Create a Google Photos connector.
 
         Args:
             name: Connector name
+            email: Optional email to store in config
 
         Returns:
             Created connector entity
         """
         connector = Connector.create_google_photos(name=name)
+        # Set connected status and email config if provided
+        connector.set_connected()
+        if email:
+            connector.config["email"] = email
         return await self._connector_repo.save(connector)
 
     async def update_connector(
@@ -189,14 +196,87 @@ class ConnectorService:
         """
         return await self._connector_repo.find_by_id(connector_id)
 
-    async def list_connectors(self) -> list[Connector]:
+    async def list_connectors(
+        self,
+        connector_type: Optional[ConnectorType] = None,
+        status: Optional["ConnectorStatus"] = None,
+    ) -> list[Connector]:
         """
-        List all connectors.
+        List all connectors with optional filtering.
+
+        Args:
+            connector_type: Optional filter by connector type
+            status: Optional filter by connector status
 
         Returns:
-            List of all connector entities
+            List of connector entities matching filters
         """
-        return await self._connector_repo.find_all()
+        connectors = await self._connector_repo.find_all()
+
+        # Apply filters if provided
+        if connector_type is not None:
+            connectors = [c for c in connectors if c.type == connector_type]
+
+        if status is not None:
+            from app.domain.entities.connector import ConnectorStatus as StatusEnum
+
+            connectors = [c for c in connectors if c.status == status]
+
+        return connectors
+
+    async def get_connector_photos(
+        self,
+        connector_id: UUID,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> tuple[list, int]:
+        """
+        Get paginated photos for a connector.
+
+        Args:
+            connector_id: Connector unique identifier
+            page: Page number (1-indexed)
+            per_page: Number of photos per page
+
+        Returns:
+            Tuple of (photos list, total count)
+
+        Raises:
+            ValueError: If connector not found
+        """
+        # Verify connector exists
+        connector = await self._connector_repo.find_by_id(connector_id)
+        if not connector:
+            raise ValueError(f"Connector not found: {connector_id}")
+
+        # Calculate pagination offset
+        offset = (page - 1) * per_page
+
+        # Fetch paginated photos and total count
+        photos = await self._photo_repo.find_by_connector(connector_id, limit=per_page, offset=offset)
+        total = await self._photo_repo.count_by_connector(connector_id)
+
+        return photos, total
+
+    async def disconnect_google_photos_connectors(self) -> int:
+        """
+        Disconnect all Google Photos connectors using domain methods.
+
+        Returns:
+            Number of connectors disconnected
+
+        Note:
+            This does NOT delete stored tokens - caller must handle token cleanup
+        """
+        connectors = await self._connector_repo.find_all()
+        google_photos_connectors = [c for c in connectors if c.type == ConnectorType.GOOGLE_PHOTOS]
+
+        for connector in google_photos_connectors:
+            # Use domain method instead of direct mutation
+            connector.set_disconnected()
+            await self._connector_repo.save(connector)
+
+        return len(google_photos_connectors)
 
     def _validate_local_path(self, path: str) -> Path:
         """

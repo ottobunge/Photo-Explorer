@@ -21,7 +21,7 @@ from app.adapters.inbound.api.schemas.connector_schemas import (
 )
 from app.adapters.outbound.connectors import GooglePhotosPickerClient
 from app.adapters.outbound.storage import SecureTokenStorage
-from app.dependencies import ConnectorRepoDep, DbSession, PhotoRepoDep
+from app.dependencies import ConnectorRepoDep, ConnectorServiceDep, DbSession, PhotoRepoDep
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -57,10 +57,11 @@ class PickerSessionStatusResponse(BaseModel):
 
 @router.get("", response_model=ConnectorListResponse)
 async def list_connectors(
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> ConnectorListResponse:
     """List all configured connectors."""
-    connectors = await connector_repo.find_all()
+    # Use service layer instead of direct repository access
+    connectors = await connector_service.list_connectors()
 
     connector_data = [
         {
@@ -87,10 +88,11 @@ async def list_connectors(
 @router.get("/{connector_id}", response_model=ConnectorResponse)
 async def get_connector(
     connector_id: UUID,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> ConnectorResponse:
     """Get a specific connector."""
-    connector = await connector_repo.find_by_id(connector_id)
+    # Use service layer instead of direct repository access
+    connector = await connector_service.get_connector(connector_id)
     if not connector:
         raise HTTPException(status_code=404, detail="Connector not found")
 
@@ -114,20 +116,20 @@ async def get_connector(
 @router.get("/{connector_id}/photos")
 async def get_connector_photos(
     connector_id: UUID,
-    connector_repo: ConnectorRepoDep,
-    photo_repo: PhotoRepoDep,
+    connector_service: ConnectorServiceDep,
     page: Annotated[int, Query(ge=1, le=1000, description="Page number (1-1000)")] = 1,
     per_page: Annotated[int, Query(ge=1, le=100, description="Items per page (1-100)")] = 20,
 ) -> dict:
     """Get all photos from a specific connector."""
-    connector = await connector_repo.find_by_id(connector_id)
-    if not connector:
-        raise HTTPException(status_code=404, detail="Connector not found")
-
-    # Get photos for this connector
-    offset = (page - 1) * per_page
-    photos = await photo_repo.find_by_connector(connector_id, limit=per_page, offset=offset)
-    total = await photo_repo.count_by_connector(connector_id)
+    # Use service layer for business logic
+    try:
+        photos, total = await connector_service.get_connector_photos(
+            connector_id=connector_id,
+            page=page,
+            per_page=per_page,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     photo_list = [
         {
@@ -161,31 +163,19 @@ async def get_connector_photos(
 async def update_connector(
     connector_id: UUID,
     request: ConnectorUpdateRequest,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> ConnectorResponse:
     """Update a connector's configuration."""
-    connector = await connector_repo.find_by_id(connector_id)
-    if not connector:
-        raise HTTPException(status_code=404, detail="Connector not found")
-
-    # Update fields using domain methods
-    if request.name is not None:
-        connector.name = request.name
-        connector._touch()  # Update timestamp
-
-    if request.enabled is not None:
-        # Use domain methods instead of direct mutation
-        if request.enabled:
-            connector.enable()
-        else:
-            connector.disable()
-
-    if request.config is not None:
-        # Use domain method for config updates
-        connector.update_config(request.config)
-
-    # Save updated connector (timestamp already updated by domain methods)
-    updated = await connector_repo.save(connector)
+    # Use service layer which handles domain method calls correctly
+    try:
+        updated = await connector_service.update_connector(
+            connector_id=connector_id,
+            name=request.name,
+            enabled=request.enabled,
+            config=request.config,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return ConnectorResponse(
         success=True,
@@ -207,8 +197,7 @@ async def update_connector(
 @router.delete("/{connector_id}")
 async def delete_connector(
     connector_id: UUID,
-    connector_repo: ConnectorRepoDep,
-    photo_repo: PhotoRepoDep,
+    connector_service: ConnectorServiceDep,
     db_session: DbSession,
     delete_photos: Annotated[bool, Query(description="Also delete indexed photos")] = False,
 ) -> dict:
@@ -221,7 +210,8 @@ async def delete_connector(
     from app.domain.entities.connector import ConnectorType
 
     try:
-        connector = await connector_repo.find_by_id(connector_id)
+        # Get connector details for logging before deletion
+        connector = await connector_service.get_connector(connector_id)
         if not connector:
             raise HTTPException(status_code=404, detail="Connector not found")
 
@@ -242,18 +232,11 @@ async def delete_connector(
             token_storage = SecureTokenStorage()
             await token_storage.delete_tokens(f"google_photos_{connector_id}")
 
-        # All database operations within transaction
-        # Delete associated photos if requested
-        photo_count = 0
-        if delete_photos:
-            # Get all photos from this connector
-            photos = await photo_repo.find_by_connector(connector_id, limit=10000, offset=0)
-            photo_count = len(photos)
-            for photo in photos:
-                await photo_repo.delete(photo.id.value)
-
-        # Delete the connector (photos will be orphaned if delete_photos=False)
-        deleted = await connector_repo.delete(connector_id)
+        # Use service layer for business logic - handles bulk delete efficiently
+        photo_count = await connector_service.delete_connector(
+            connector_id=connector_id,
+            delete_photos=delete_photos,
+        )
 
         # Commit transaction - all operations succeed atomically
         await db_session.commit()
@@ -273,6 +256,9 @@ async def delete_connector(
     except HTTPException:
         # Re-raise HTTP exceptions (like 404)
         raise
+    except ValueError as e:
+        # Handle service-level validation errors
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         # Rollback transaction on any error
         await db_session.rollback()
@@ -291,12 +277,13 @@ async def delete_connector(
 @router.post("/{connector_id}/sync")
 async def trigger_sync(
     connector_id: UUID,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> dict:
     """Trigger a manual sync for a connector."""
     from app.domain.entities.connector import ConnectorType
 
-    connector = await connector_repo.find_by_id(connector_id)
+    # Use service layer to get connector
+    connector = await connector_service.get_connector(connector_id)
     if not connector:
         raise HTTPException(status_code=404, detail="Connector not found")
 
@@ -331,14 +318,15 @@ async def trigger_sync(
 @router.post("/{connector_id}/reprocess")
 async def trigger_reprocess(
     connector_id: UUID,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> dict:
     """
     Reprocess all photos from a connector (regenerate embeddings from thumbnails).
 
     This is useful for photos that were imported before embedding generation was enabled.
     """
-    connector = await connector_repo.find_by_id(connector_id)
+    # Use service layer to get connector
+    connector = await connector_service.get_connector(connector_id)
     if not connector:
         raise HTTPException(status_code=404, detail="Connector not found")
 
@@ -360,12 +348,13 @@ async def trigger_reprocess(
 @router.get("/{connector_id}/sync/status", response_model=SyncStatusResponse)
 async def get_sync_status(
     connector_id: UUID,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> SyncStatusResponse:
     """Get the current sync status for a connector."""
     from app.domain.entities.connector import ConnectorStatus
 
-    connector = await connector_repo.find_by_id(connector_id)
+    # Use service layer to get connector
+    connector = await connector_service.get_connector(connector_id)
     if not connector:
         raise HTTPException(status_code=404, detail="Connector not found")
 
@@ -429,7 +418,7 @@ async def get_google_photos_auth_url(
 @router.post("/google-photos/callback")
 async def google_photos_oauth_callback(
     request: GooglePhotosCallbackRequest,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> dict:
     """
     Exchange authorization code for tokens (using Picker API).
@@ -456,9 +445,6 @@ async def google_photos_oauth_callback(
             redirect_uri=request.redirect_uri,
         )
 
-        # Create new Google Photos connector (supports multiple accounts)
-        from app.domain.entities.connector import Connector
-
         # Try to get the user's email from Google to name the connector
         connector_name = "Google Photos"
         email = None
@@ -473,12 +459,10 @@ async def google_photos_oauth_callback(
         except Exception:
             pass  # Fall back to default name
 
-        new_connector = Connector.create_google_photos(name=connector_name)
-        new_connector.set_connected()
-        # Store email in config for reference
-        if email:
-            new_connector.config["email"] = email
-        connector = await connector_repo.save(new_connector)
+        # Create connector using service layer (handles domain methods properly)
+        connector = await connector_service.create_google_photos_connector(
+            name=connector_name, email=email
+        )
 
         # Store tokens with connector-specific key
         token_storage = SecureTokenStorage()
@@ -550,28 +534,22 @@ async def google_photos_oauth_callback_redirect(
 
 @router.post("/google-photos/disconnect")
 async def disconnect_google_photos(
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> dict:
     """Disconnect from Google Photos and delete tokens."""
-    from app.domain.entities.connector import ConnectorStatus, ConnectorType
-
     # Delete stored tokens
     token_storage = SecureTokenStorage()
     await token_storage.delete_tokens("google_photos_default")
 
-    # Update connector status
-    connectors = await connector_repo.find_by_type(ConnectorType.GOOGLE_PHOTOS)
-    for connector in connectors:
-        connector.status = ConnectorStatus.DISCONNECTED
-        await connector_repo.save(connector)
+    # Use service layer which properly uses domain methods
+    num_disconnected = await connector_service.disconnect_google_photos_connectors()
 
-    return {"success": True, "data": {"disconnected": True}}
+    return {"success": True, "data": {"disconnected": True, "count": num_disconnected}}
 
 
 @router.get("/google-photos/status", response_model=GooglePhotosStatusResponse)
 async def get_google_photos_status(
-    connector_repo: ConnectorRepoDep,
-    photo_repo: PhotoRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> GooglePhotosStatusResponse:
     """Get the current Google Photos connection status."""
     from app.domain.entities.connector import ConnectorType
@@ -580,13 +558,17 @@ async def get_google_photos_status(
     token_storage = SecureTokenStorage()
     has_tokens = await token_storage.has_tokens("google_photos_default")
 
-    # Get connector info
-    connectors = await connector_repo.find_by_type(ConnectorType.GOOGLE_PHOTOS)
+    # Get connector info using service layer
+    connectors = await connector_service.list_connectors(connector_type=ConnectorType.GOOGLE_PHOTOS)
     connector = connectors[0] if connectors else None
 
     if connector and has_tokens:
-        # Count photos indexed for this connector
-        photos_indexed = await photo_repo.count_by_connector(connector.id.value)
+        # Count photos indexed for this connector using service layer
+        _, photos_indexed = await connector_service.get_connector_photos(
+            connector_id=connector.id.value,
+            page=1,
+            per_page=1,  # We only need the count
+        )
 
         return GooglePhotosStatusResponse(
             success=True,
@@ -617,7 +599,7 @@ async def get_google_photos_status(
 @router.post("/{connector_id}/picker/session", response_model=PickerSessionResponse)
 async def create_picker_session(
     connector_id: UUID,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> PickerSessionResponse:
     """
     Create a new photo picker session.
@@ -627,7 +609,8 @@ async def create_picker_session(
     """
     from app.domain.entities.connector import ConnectorType
 
-    connector = await connector_repo.find_by_id(connector_id)
+    # Use service layer to get connector
+    connector = await connector_service.get_connector(connector_id)
     if not connector:
         raise HTTPException(status_code=404, detail="Connector not found")
 
@@ -674,7 +657,7 @@ async def create_picker_session(
 async def get_picker_session_status(
     connector_id: UUID,
     session_id: str,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> PickerSessionStatusResponse:
     """
     Get the status of a photo picker session.
@@ -684,7 +667,8 @@ async def get_picker_session_status(
     """
     from app.domain.entities.connector import ConnectorType
 
-    connector = await connector_repo.find_by_id(connector_id)
+    # Use service layer to get connector
+    connector = await connector_service.get_connector(connector_id)
     if not connector:
         raise HTTPException(status_code=404, detail="Connector not found")
 
@@ -724,7 +708,7 @@ async def get_picker_session_status(
 async def import_picker_photos(
     connector_id: UUID,
     session_id: str,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> dict:
     """
     Import photos selected in the picker session.
@@ -734,7 +718,8 @@ async def import_picker_photos(
     """
     from app.domain.entities.connector import ConnectorType
 
-    connector = await connector_repo.find_by_id(connector_id)
+    # Use service layer to get connector
+    connector = await connector_service.get_connector(connector_id)
     if not connector:
         raise HTTPException(status_code=404, detail="Connector not found")
 
@@ -766,7 +751,7 @@ async def import_picker_photos(
 async def delete_picker_session(
     connector_id: UUID,
     session_id: str,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> dict:
     """
     Delete a picker session.
@@ -775,7 +760,8 @@ async def delete_picker_session(
     """
     from app.domain.entities.connector import ConnectorType
 
-    connector = await connector_repo.find_by_id(connector_id)
+    # Use service layer to get connector
+    connector = await connector_service.get_connector(connector_id)
     if not connector:
         raise HTTPException(status_code=404, detail="Connector not found")
 
@@ -895,51 +881,27 @@ async def delete_picker_session(
 )
 async def create_local_folder_connector(
     request: LocalFolderCreateRequest,
-    connector_repo: ConnectorRepoDep,
+    connector_service: ConnectorServiceDep,
 ) -> ConnectorResponse:
     """Add a local folder for indexing."""
-    from pathlib import Path
-
-    from app.config import get_settings
-    from app.domain.entities.connector import Connector
-
-    settings = get_settings()
-
-    # Security: Validate path is within allowed directories
-    is_allowed, error_msg = settings.is_path_allowed(request.path)
-    if not is_allowed:
-        raise HTTPException(status_code=403, detail=error_msg or "Path not allowed")
-
-    # Validate path exists
-    path = Path(request.path).resolve()
-    if not path.exists():
-        raise HTTPException(status_code=400, detail=f"Path does not exist: {request.path}")
-
-    # Validate path is a directory
-    if not path.is_dir():
-        raise HTTPException(status_code=400, detail=f"Path is not a directory: {request.path}")
-
-    # Check for duplicate connector with same path
-    existing = await connector_repo.find_by_path(str(path.absolute()))
-    if existing:
-        raise HTTPException(
-            status_code=409, detail=f"Connector already exists for path: {request.path}"
+    # Use service layer which handles all validation and security checks
+    try:
+        saved = await connector_service.create_local_connector(
+            path=request.path,
+            name=request.name,
+            recursive=request.recursive if request.recursive is not None else True,
+            watch=request.watch if request.watch is not None else False,
+            auto_album=request.auto_album if request.auto_album is not None else False,
         )
-
-    # Generate default name if not provided
-    connector_name = request.name or path.name or "Local Folder"
-
-    # Create connector
-    connector = Connector.create_local(
-        path=str(path.absolute()),
-        name=connector_name,
-        recursive=request.recursive if request.recursive is not None else True,
-        watch=request.watch if request.watch is not None else False,
-        auto_album=request.auto_album if request.auto_album is not None else False,
-    )
-
-    # Save connector
-    saved = await connector_repo.save(connector)
+    except ValueError as e:
+        error_msg = str(e)
+        # Map to appropriate HTTP status codes
+        if "already exists" in error_msg:
+            raise HTTPException(status_code=409, detail=error_msg)
+        elif "not within allowed directories" in error_msg or "Path not allowed" in error_msg:
+            raise HTTPException(status_code=403, detail=error_msg)
+        else:
+            raise HTTPException(status_code=400, detail=error_msg)
 
     return ConnectorResponse(
         success=True,

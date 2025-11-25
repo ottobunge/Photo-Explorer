@@ -1,10 +1,11 @@
 // Folders store
 
 import { writable } from 'svelte/store';
-import type { FoldersState, WatchedFolder } from '../types';
+import { client, ApiError } from '$lib/api/client';
+import type { FoldersState } from '../types';
 
 function createFoldersStore() {
-	const { subscribe, set, update } = writable<FoldersState>({
+	const { subscribe, update } = writable<FoldersState>({
 		folders: [],
 		loading: false,
 		error: null
@@ -17,62 +18,44 @@ function createFoldersStore() {
 			update((state) => ({ ...state, loading: true, error: null }));
 
 			try {
-				const response = await fetch('/api/v1/folders');
-				if (!response.ok) throw new Error('Failed to load folders');
-
-				const data = await response.json();
+				const result = await client.get<{ folders: any[] }>('/folders');
 				update((state) => ({
 					...state,
-					folders: data.data.folders,
+					folders: result.data.folders,
 					loading: false
 				}));
 			} catch (error) {
+				const message = error instanceof ApiError ? error.message : 'Failed to load folders';
 				update((state) => ({
 					...state,
-					error: error instanceof Error ? error.message : 'Failed to load folders',
+					error: message,
 					loading: false
 				}));
 			}
 		},
 
 		async add(path: string, options?: { name?: string; recursive?: boolean; autoAlbum?: boolean }) {
-			const response = await fetch('/api/v1/folders', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					path,
-					name: options?.name,
-					recursive: options?.recursive ?? true,
-					auto_album: options?.autoAlbum ?? false
-				})
+			const result = await client.post<any>('/folders', {
+				path,
+				name: options?.name,
+				recursive: options?.recursive ?? true,
+				auto_album: options?.autoAlbum ?? false
 			});
 
-			if (!response.ok) throw new Error('Failed to add folder');
-
-			const data = await response.json();
 			update((state) => ({
 				...state,
-				folders: [...state.folders, data.data]
+				folders: [...state.folders, result.data]
 			}));
 
-			return data.data;
+			return result.data;
 		},
 
 		async triggerScan(folderId: string) {
-			const response = await fetch(`/api/v1/folders/${folderId}/scan`, {
-				method: 'POST'
-			});
-
-			if (!response.ok) throw new Error('Failed to trigger scan');
+			await client.post(`/folders/${folderId}/scan`);
 		},
 
 		async remove(folderId: string, deletePhotos = false) {
-			const response = await fetch(`/api/v1/folders/${folderId}?delete_photos=${deletePhotos}`, {
-				method: 'DELETE'
-			});
-
-			if (!response.ok) throw new Error('Failed to remove folder');
-
+			await client.delete(`/folders/${folderId}?delete_photos=${deletePhotos}`);
 			update((state) => ({
 				...state,
 				folders: state.folders.filter((f) => f.id !== folderId)

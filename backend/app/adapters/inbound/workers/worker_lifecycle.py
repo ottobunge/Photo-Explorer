@@ -43,9 +43,19 @@ def cleanup_worker_resources() -> None:
 
     try:
         # Cleanup vector store (needs async context)
-        # Note: Celery workers are sync by default, so we can't use async cleanup
-        # The connections will be cleaned up when the process exits
-        logger.info("Vector store connections will be cleaned up on process exit")
+        import asyncio
+
+        from app.adapters.outbound.persistence.qdrant.vector_store import (
+            cleanup_vector_store,
+        )
+
+        logger.info("Cleaning up vector store...")
+        # Create a new event loop for cleanup since workers are sync
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(cleanup_vector_store())
+        finally:
+            loop.close()
 
     except Exception as e:
         logger.error(f"Error cleaning up vector store: {e}", exc_info=True)

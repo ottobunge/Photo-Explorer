@@ -1,4 +1,5 @@
 # Celery tasks
+from app.adapters.inbound.workers.tasks.batch_operations import cleanup_orphans_task
 from app.adapters.inbound.workers.tasks.connector_sync import (
     handle_file_deleted_task,
     handle_file_moved_task,
@@ -30,6 +31,8 @@ from app.adapters.inbound.workers.tasks.photo_processing import (
 )
 
 __all__ = [
+    # Batch operations
+    "cleanup_orphans_task",
     # Photo processing
     "process_photo_task",
     "detect_faces_task",

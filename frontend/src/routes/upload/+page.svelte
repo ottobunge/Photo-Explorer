@@ -1,7 +1,12 @@
 <script lang="ts">
-	import { UploadZone, UploadProgress } from '$features/upload';
+	import { UploadZone } from '$features/upload';
 	import { client } from '$lib/api/client';
 	import { goto } from '$app/navigation';
+
+	interface UploadResult {
+		uploaded: Array<{ id: string; filename: string }>;
+		failed: Array<{ filename: string; error: string }>;
+	}
 
 	let files: File[] = [];
 	let uploading = false;
@@ -35,18 +40,8 @@
 				formData.append('files', file);
 			}
 
-			// Upload to API
-			const response = await fetch('http://localhost:8000/api/v1/photos/upload', {
-				method: 'POST',
-				body: formData,
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.detail || 'Upload failed');
-			}
-
-			const result = await response.json();
+			// Upload to API using centralized client
+			const result = await client.postForm<UploadResult>('/photos/upload', formData);
 
 			if (result.success && result.data) {
 				uploadedCount = result.data.uploaded?.length || 0;

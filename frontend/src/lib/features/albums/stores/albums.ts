@@ -1,6 +1,7 @@
 // Albums store
 
 import { writable } from 'svelte/store';
+import { client, ApiError } from '$lib/api/client';
 import type { AlbumsState } from '../types';
 
 function createAlbumsStore() {
@@ -17,49 +18,33 @@ function createAlbumsStore() {
 			update((state) => ({ ...state, loading: true, error: null }));
 
 			try {
-				const response = await fetch('/api/v1/albums');
-				if (!response.ok) throw new Error('Failed to load albums');
-
-				const data = await response.json();
+				const result = await client.get<{ albums: any[] }>('/albums');
 				update((state) => ({
 					...state,
-					albums: data.data.albums,
+					albums: result.data.albums,
 					loading: false
 				}));
 			} catch (error) {
+				const message = error instanceof ApiError ? error.message : 'Failed to load albums';
 				update((state) => ({
 					...state,
-					error: error instanceof Error ? error.message : 'Failed to load albums',
+					error: message,
 					loading: false
 				}));
 			}
 		},
 
 		async create(name: string, description?: string) {
-			const response = await fetch('/api/v1/albums', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name, description })
-			});
-
-			if (!response.ok) throw new Error('Failed to create album');
-
-			const data = await response.json();
+			const result = await client.post<any>('/albums', { name, description });
 			update((state) => ({
 				...state,
-				albums: [...state.albums, data.data]
+				albums: [...state.albums, result.data]
 			}));
-
-			return data.data;
+			return result.data;
 		},
 
 		async delete(albumId: string) {
-			const response = await fetch(`/api/v1/albums/${albumId}`, {
-				method: 'DELETE'
-			});
-
-			if (!response.ok) throw new Error('Failed to delete album');
-
+			await client.delete(`/albums/${albumId}`);
 			update((state) => ({
 				...state,
 				albums: state.albums.filter((a) => a.id !== albumId)

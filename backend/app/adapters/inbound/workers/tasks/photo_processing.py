@@ -56,7 +56,9 @@ def process_photo_task(self, photo_id: str) -> dict:
     Process a photo: extract metadata, generate thumbnail, create CLIP embedding.
 
     This task automatically retries on transient errors (network issues, temporary
-    database failures) with exponential backoff.
+    database failures) with exponential backoff. Uses task execution tracking for
+    idempotency - if the task completes successfully and is retried, it will detect
+    the previous completion and skip processing.
 
     Args:
         photo_id: UUID of the photo to process
@@ -69,7 +71,9 @@ def process_photo_task(self, photo_id: str) -> dict:
         TransientError: For temporary errors that will trigger retry
     """
     try:
-        return run_async(_process_photo_async(photo_id))
+        # Get task_id for idempotency tracking
+        task_id = self.request.id
+        return run_async(_process_photo_async(photo_id, task_id=task_id))
     except PermanentError:
         logger.error(
             f"Permanent error processing photo {photo_id}, will not retry",
@@ -93,7 +97,7 @@ def process_photo_task(self, photo_id: str) -> dict:
         raise PermanentError(f"Unexpected error: {e!s}", {"photo_id": photo_id})
 
 
-async def _process_photo_async(photo_id: str) -> dict:
+async def _process_photo_async(photo_id: str, task_id: Optional[str] = None) -> dict:
     """Async implementation of photo processing."""
     try:
         photo_uuid = UUID(photo_id)
@@ -111,6 +115,28 @@ async def _process_photo_async(photo_id: str) -> dict:
 
     try:
         async with get_worker_session_context() as session:
+            # Import idempotency helpers
+            from app.adapters.inbound.workers.idempotency import (
+                check_task_completed,
+                mark_task_completed,
+                mark_task_running,
+            )
+
+            # Check idempotency if task_id provided
+            if task_id:
+                if await check_task_completed(session, task_id):
+                    logger.info(f"Task {task_id} already completed, skipping")
+                    return {"status": "already_completed", "photo_id": photo_id}
+
+                # Mark task as running
+                await mark_task_running(
+                    session,
+                    task_id,
+                    "process_photo_task",
+                    context={"photo_id": photo_id},
+                )
+                await session.commit()
+
             photo_repo = PhotoRepositoryPostgres(session)
 
             # Get photo from database
@@ -203,6 +229,16 @@ async def _process_photo_async(photo_id: str) -> dict:
                 # Mark as completed
                 photo.set_processing_status("completed")
                 await photo_repo.save(photo)
+
+                # Mark task as completed for idempotency
+                if task_id:
+                    await mark_task_completed(
+                        session,
+                        task_id,
+                        result={"photo_id": photo_id, "thumbnail_path": thumbnail_path},
+                    )
+
+                await session.commit()
 
                 logger.info(f"Successfully processed photo {photo_id}")
                 return {

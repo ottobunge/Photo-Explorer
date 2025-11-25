@@ -10,6 +10,7 @@ from app.domain.entities.connector import (
 from app.domain.entities.face import Face
 from app.domain.entities.face_cluster import FaceCluster
 from app.domain.entities.photo import Photo
+from app.domain.entities.task_execution import TaskExecution, TaskExecutionStatus
 
 __all__ = [
     "Photo",
@@ -20,4 +21,6 @@ __all__ = [
     "ConnectorType",
     "ConnectorStatus",
     "SyncStats",
+    "TaskExecution",
+    "TaskExecutionStatus",
 ]
