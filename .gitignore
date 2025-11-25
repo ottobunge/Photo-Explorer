@@ -125,6 +125,7 @@ celerybeat.pid
 *.tmp
 *.temp
 .cache/
+.example-connector-id
 
 # Storage (photos and thumbnails - don't commit user data)
 storage/

@@ -74,6 +74,28 @@ Use this for testing Docker builds or production-like environment.
 - API Docs: http://localhost:8000/docs
 - Qdrant Dashboard: http://localhost:6333/dashboard
 
+### Quick Demo with Example Photos 🎬
+
+Want to try out the app immediately with sample photos?
+
+```bash
+nix-shell -p go-task --run "task setup:example"
+```
+
+This one-command setup:
+- ✨ Starts all services in Docker
+- 📸 Downloads 20 example animal photos from Unsplash
+- 🔌 Creates an "Example Photos" connector
+- 🔍 Indexes photos for semantic search
+- ⚡ Takes 2-3 minutes total
+
+After completion, visit the frontend and try searching for:
+- "cute cat"
+- "dog playing"
+- "raccoon"
+
+The photos will be indexed and ready for semantic search, face detection, and other AI features.
+
 ## Project Structure
 
 ```

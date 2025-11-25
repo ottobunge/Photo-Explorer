@@ -168,6 +168,137 @@ tasks:
     cmds:
       - task: frontend:setup
 
+  setup:example:
+    desc: Setup with example photos for demo/testing
+    cmds:
+      - cmd: echo "🎬 Setting up Photo Explorer with example photos..."
+        silent: true
+      - task: docker:up:detached
+      - task: setup:example:wait
+      - task: setup:example:migrate
+      - task: setup:example:download
+      - task: setup:example:connector
+      - task: setup:example:index
+      - cmd: echo ""
+        silent: true
+      - cmd: echo "✅ Setup complete!"
+        silent: true
+      - cmd: echo ""
+        silent: true
+      - cmd: 'echo "📱 Frontend: http://localhost:5173"'
+        silent: true
+      - cmd: 'echo "🔌 Backend:  http://localhost:8000"'
+        silent: true
+      - cmd: 'echo "📚 API Docs: http://localhost:8000/docs"'
+        silent: true
+      - cmd: echo ""
+        silent: true
+      - cmd: 'echo "💡 Try searching for: cute cat, dog playing, raccoon"'
+        silent: true
+
+  setup:example:wait:
+    desc: Wait for services to be healthy
+    internal: true
+    cmds:
+      - cmd: echo "⏳ Waiting for services to be ready..."
+        silent: true
+      - |
+        max_retries=30
+        retry_delay=2
+        i=0
+        while [ $i -lt $max_retries ]; do
+          if {{.DOCKER_COMPOSE}} ps | grep -q "unhealthy\|starting"; then
+            echo "  Waiting... ($((i+1))/$max_retries)"
+            sleep $retry_delay
+            i=$((i+1))
+          else
+            echo "✓ Services ready"
+            exit 0
+          fi
+        done
+        echo "❌ Services failed to become healthy"
+        {{.DOCKER_COMPOSE}} ps
+        exit 1
+
+  setup:example:migrate:
+    desc: Run database migrations
+    internal: true
+    cmds:
+      - cmd: echo "📊 Running database migrations..."
+        silent: true
+      - "{{.DOCKER_COMPOSE}} exec -T backend alembic upgrade head"
+      - cmd: echo "✓ Migrations complete"
+        silent: true
+
+  setup:example:download:
+    desc: Download example photos
+    internal: true
+    cmds:
+      - cmd: echo "📸 Downloading example photos..."
+        silent: true
+      - |
+        if [ -d "backend/tests/fixtures/images" ] && [ -n "$(ls -A backend/tests/fixtures/images 2>/dev/null)" ]; then
+          echo "  Example photos already exist, skipping download"
+        else
+          cd backend && python tests/fixtures/download_test_images.py
+        fi
+      - cmd: echo "✓ Example photos ready (20 images)"
+        silent: true
+
+  setup:example:connector:
+    desc: Create example connector
+    internal: true
+    cmds:
+      - cmd: echo "🔌 Creating example connector..."
+        silent: true
+      - |
+        connector_id=$(curl -s -X POST http://localhost:8000/connectors/local \
+          -H "Content-Type: application/json" \
+          -d '{
+            "path": "/app/tests/fixtures/images",
+            "name": "Example Photos",
+            "recursive": true,
+            "watch": false,
+            "auto_album": false
+          }' | jq -r '.data.id' 2>/dev/null)
+
+        if [ -z "$connector_id" ] || [ "$connector_id" = "null" ]; then
+          echo "⚠️  Connector may already exist, continuing..."
+        else
+          echo "✓ Connector created: $connector_id"
+          echo "$connector_id" > .example-connector-id
+        fi
+
+  setup:example:index:
+    desc: Index example photos
+    internal: true
+    cmds:
+      - cmd: echo "🔍 Indexing photos..."
+        silent: true
+      - |
+        if [ -f .example-connector-id ]; then
+          connector_id=$(cat .example-connector-id)
+        else
+          # Try to find existing example connector
+          connector_id=$(curl -s http://localhost:8000/connectors | jq -r '.data.connectors[] | select(.name == "Example Photos") | .id' | head -1)
+        fi
+
+        if [ -z "$connector_id" ] || [ "$connector_id" = "null" ]; then
+          echo "❌ No connector found. Please check API logs."
+          exit 1
+        fi
+
+        response=$(curl -s -X POST http://localhost:8000/connectors/$connector_id/sync)
+        if echo "$response" | jq -e '.success' >/dev/null 2>&1; then
+          task_id=$(echo "$response" | jq -r '.data.task_id')
+          echo "✓ Indexing started (task: $task_id)"
+          echo "  Photos are being processed in the background..."
+        else
+          echo "❌ Failed to trigger indexing"
+          echo "$response"
+          exit 1
+        fi
+
   # ===================
   # Database
   # ===================
