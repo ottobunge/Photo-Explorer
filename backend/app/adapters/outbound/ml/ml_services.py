@@ -278,7 +278,7 @@ class MLServicesAdapter(MLServices):
                         width=x2 - x1,
                         height=y2 - y1,
                     ),
-                    embedding=Embedding(vector=face.embedding.tolist()),
+                    embedding=Embedding.from_list(face.embedding.tolist()),
                     quality_score=face.confidence,  # Use confidence as quality score
                     detection_confidence=face.confidence,
                 )
