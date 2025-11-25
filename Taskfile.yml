@@ -335,7 +335,7 @@ tasks:
           # Download to data/example-photos (relative to backend directory)
           cd backend && python tests/fixtures/download_test_images.py data/example-photos
         fi
-      - cmd: echo "✓ Example photos ready (20 images)"
+      - cmd: echo "✓ Example photos ready (50 images)"
         silent: true
 
   setup:example:connector:docker:

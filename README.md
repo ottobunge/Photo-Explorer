@@ -91,10 +91,10 @@ Want to try out the app immediately with sample photos?
 nix-shell -p go-task --run "task setup:example:docker"
 ```
 - ✨ Starts all services in Docker (backend, frontend, worker, databases)
-- 📸 Downloads 20 example animal photos to `backend/data/example-photos/`
+- 📸 Downloads 50 diverse example photos to `backend/data/example-photos/`
 - 🔌 Creates "Example Photos" connector pointing to `/app/data/example-photos` (mounted from host)
 - 🔍 Indexes photos for semantic search
-- ⚡ Takes 2-3 minutes total
+- ⚡ Takes 3-5 minutes total (including AI processing)
 - Perfect for: Quick testing, demos, CI/CD
 
 **Option 2: Local Dev Mode (Hybrid)**
@@ -106,16 +106,17 @@ task dev:local
 nix-shell -p go-task --run "task setup:example:local"
 ```
 - 🚀 Uses local dev services (faster iteration, hot reload)
-- 📸 Downloads 20 example animal photos to `backend/data/example-photos/`
+- 📸 Downloads 50 diverse example photos to `backend/data/example-photos/`
 - 🔌 Creates connector with absolute filesystem path to data directory
 - 🔍 Indexes photos via local worker
-- ⚡ Takes 1-2 minutes (infrastructure already running)
+- ⚡ Takes 2-3 minutes (infrastructure already running)
 - Perfect for: Active development, debugging, testing local changes
 
 After completion, visit the frontend and try searching for:
-- "cute cat"
-- "dog playing"
-- "raccoon"
+- "cute cat" or "dog playing" (animals)
+- "mountain sunset" or "ocean waves" (landscapes)
+- "city skyline" or "modern building" (urban)
+- "coffee cup" or "laptop computer" (objects)
 
 The photos will be indexed and ready for semantic search, face detection, and other AI features.
 
