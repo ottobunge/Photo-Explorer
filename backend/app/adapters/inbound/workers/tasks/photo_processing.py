@@ -193,10 +193,12 @@ async def _process_photo_async(photo_id: str) -> dict:
                 # Basic image analysis
                 try:
                     analysis = await ml_services.analyze_image(image_data)
+                    # Extract just the labels from DetectedObjectInfo for storage
+                    object_labels = [obj.label for obj in analysis.detected_objects]
                     photo.set_ai_analysis(
                         description=analysis.description if analysis.description else None,
                         scene_classification=analysis.scene_classification,
-                        detected_objects=analysis.detected_objects,
+                        detected_objects=object_labels,
                     )
                 except Exception as e:
                     # Image analysis failure is non-critical, log and continue
