@@ -62,9 +62,16 @@ class FaceRepositoryPostgres(FaceRepository):
 
         return [FaceMapper.to_domain(model) for model in models]
 
-    async def find_faces_by_cluster(self, cluster_id: UUID) -> list[Face]:
-        """Find all faces in a cluster."""
+    async def find_faces_by_cluster(
+        self, cluster_id: UUID, limit: int | None = None, offset: int = 0
+    ) -> list[Face]:
+        """Find all faces in a cluster with optional pagination."""
         stmt = select(FaceModel).where(FaceModel.cluster_id == cluster_id)
+
+        # Add pagination if limit is specified
+        if limit is not None:
+            stmt = stmt.limit(limit).offset(offset)
+
         result = await self._session.execute(stmt)
         models = result.scalars().all()
 
