@@ -1,8 +1,7 @@
 """Settings API routes."""
 
-from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from app.adapters.inbound.api.schemas.settings_schemas import (
     AppSettingsResponse,
@@ -56,8 +55,12 @@ async def update_settings(request: AppSettingsUpdate) -> AppSettingsResponse:
             "cache_dir": "~/.cache/photo-explorer",
             "thumbnail_quality": request.thumbnail_quality or 85,
             "clip_model": request.clip_model or "ViT-B/32",
-            "face_detection_enabled": request.face_detection_enabled if request.face_detection_enabled is not None else True,
-            "auto_index_new_photos": request.auto_index_new_photos if request.auto_index_new_photos is not None else True,
+            "face_detection_enabled": request.face_detection_enabled
+            if request.face_detection_enabled is not None
+            else True,
+            "auto_index_new_photos": request.auto_index_new_photos
+            if request.auto_index_new_photos is not None
+            else True,
             "thumbnail_cache_hours": request.thumbnail_cache_hours or 24,
             "indexing_batch_size": request.indexing_batch_size or 100,
             "indexing_parallel_workers": request.indexing_parallel_workers or 4,

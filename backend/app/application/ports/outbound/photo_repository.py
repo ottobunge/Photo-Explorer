@@ -21,7 +21,6 @@ class PhotoRepository(ABC):
         Returns:
             The saved photo (with any generated fields)
         """
-        pass
 
     @abstractmethod
     async def find_by_id(self, photo_id: UUID) -> Optional[Photo]:
@@ -34,7 +33,6 @@ class PhotoRepository(ABC):
         Returns:
             The Photo entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def find_all(
@@ -56,7 +54,6 @@ class PhotoRepository(ABC):
         Returns:
             List of Photo entities
         """
-        pass
 
     @abstractmethod
     async def delete(self, photo_id: UUID) -> bool:
@@ -69,7 +66,6 @@ class PhotoRepository(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def count(
@@ -85,7 +81,6 @@ class PhotoRepository(ABC):
         Returns:
             Total count of matching photos
         """
-        pass
 
     @abstractmethod
     async def find_by_original_path(self, path: str) -> Optional[Photo]:
@@ -98,7 +93,6 @@ class PhotoRepository(ABC):
         Returns:
             The Photo entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def delete_many(self, photo_ids: list[UUID]) -> int:
@@ -111,7 +105,6 @@ class PhotoRepository(ABC):
         Returns:
             Number of photos actually deleted
         """
-        pass
 
     @abstractmethod
     async def delete_bulk_by_connector(self, connector_id: UUID) -> int:
@@ -124,4 +117,3 @@ class PhotoRepository(ABC):
         Returns:
             Number of photos deleted
         """
-        pass

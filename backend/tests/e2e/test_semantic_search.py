@@ -1,22 +1,11 @@
 """End-to-end tests for semantic search with real images."""
 
-import pytest
-import pytest_asyncio
-from pathlib import Path
 
-from app.adapters.outbound.ml import MLServicesAdapter, get_ml_services
-from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
+import pytest
+
+from app.adapters.outbound.ml import get_ml_services
 from app.adapters.outbound.persistence.postgres import PhotoRepositoryPostgres
-from app.domain.entities import Photo, ConnectorType
-from app.domain.value_objects import PhotoID
-from tests.fixtures.conftest import (
-    test_images_dir,
-    cat_images,
-    dog_images,
-    raccoon_images,
-    ferret_images,
-    all_test_images,
-)
+from app.domain.entities import ConnectorType, Photo
 
 
 @pytest.mark.asyncio
@@ -85,7 +74,9 @@ class TestSemanticSearchE2E:
 
         # Top result should have high confidence (>0.5 similarity)
         top_result = search_results[0]
-        assert top_result.score > 0.5, f"Top result should have >0.5 similarity, got {top_result.score}"
+        assert (
+            top_result.score > 0.5
+        ), f"Top result should have >0.5 similarity, got {top_result.score}"
 
     async def test_semantic_search_distinguishes_animals(
         self, test_session, test_vector_store, all_test_images
@@ -261,12 +252,15 @@ class TestSemanticSearchE2E:
                 f"Cat positions: {cat_positions}, Dog positions: {dog_positions}"
             )
 
-    @pytest.mark.parametrize("animal,query", [
-        ("cat", "feline"),
-        ("dog", "puppy"),
-        ("dog", "canine"),
-        ("raccoon", "masked animal"),
-    ])
+    @pytest.mark.parametrize(
+        "animal,query",
+        [
+            ("cat", "feline"),
+            ("dog", "puppy"),
+            ("dog", "canine"),
+            ("raccoon", "masked animal"),
+        ],
+    )
     async def test_semantic_understanding(
         self, test_session, test_vector_store, all_test_images, animal, query
     ):

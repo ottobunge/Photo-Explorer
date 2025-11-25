@@ -12,13 +12,13 @@ Tests the following endpoints:
 Following TDD approach - tests written before implementation.
 """
 
-import pytest
 from datetime import datetime
 from uuid import uuid4
 
+import pytest
 from httpx import AsyncClient
 
-from app.domain.entities.connector import Connector, ConnectorType, ConnectorStatus
+from app.domain.entities.connector import Connector, ConnectorStatus, ConnectorType
 from app.domain.entities.photo import Photo
 
 
@@ -26,9 +26,7 @@ class TestGetConnectorDetail:
     """Tests for GET /api/v1/connectors/{id}."""
 
     @pytest.mark.asyncio
-    async def test_get_connector_returns_metadata(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_get_connector_returns_metadata(self, client: AsyncClient, connector_repo):
         """Should return connector with all metadata fields."""
         # Given: saved connector
         connector = Connector.create_upload(upload_path="/uploads")
@@ -68,9 +66,7 @@ class TestGetConnectorDetail:
         assert "not found" in response.json()["error"]["message"].lower()
 
     @pytest.mark.asyncio
-    async def test_get_connector_returns_config(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_get_connector_returns_config(self, client: AsyncClient, connector_repo):
         """Should include connector configuration in response."""
         # Given: local connector with specific config
         connector = Connector.create_local(
@@ -101,9 +97,7 @@ class TestGetConnectorPhotos:
     """Tests for GET /api/v1/connectors/{id}/photos."""
 
     @pytest.mark.asyncio
-    async def test_get_connector_photos_empty_list(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_get_connector_photos_empty_list(self, client: AsyncClient, connector_repo):
         """Should return empty list when connector has no photos."""
         # Given: connector with no photos
         connector = Connector.create_upload(upload_path="/uploads")
@@ -138,9 +132,7 @@ class TestGetConnectorPhotos:
             await photo_repo.save(photo)
 
         # When
-        response = await client.get(
-            f"/api/v1/connectors/{saved_connector.id.value}/photos"
-        )
+        response = await client.get(f"/api/v1/connectors/{saved_connector.id.value}/photos")
 
         # Then
         assert response.status_code == 200
@@ -228,9 +220,7 @@ class TestUpdateConnectorConfig:
     """Tests for PATCH /api/v1/connectors/{id}."""
 
     @pytest.mark.asyncio
-    async def test_update_connector_config(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_update_connector_config(self, client: AsyncClient, connector_repo):
         """Should update connector configuration."""
         # Given: existing local connector
         connector = Connector.create_local(
@@ -268,9 +258,7 @@ class TestUpdateConnectorConfig:
         assert updated.config["recursive"] is True
 
     @pytest.mark.asyncio
-    async def test_update_connector_enabled_status(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_update_connector_enabled_status(self, client: AsyncClient, connector_repo):
         """Should update enabled status."""
         # Given: enabled connector
         connector = Connector.create_local(path="/photos", name="Test")
@@ -310,9 +298,7 @@ class TestUpdateConnectorConfig:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_update_connector_validates_config(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_update_connector_validates_config(self, client: AsyncClient, connector_repo):
         """Should validate configuration based on connector type."""
         # Given: upload connector
         connector = Connector.create_upload(upload_path="/uploads")
@@ -354,9 +340,7 @@ class TestDeleteConnector:
         saved_photo = await photo_repo.save(photo)
 
         # When: delete connector (default: orphan photos)
-        response = await client.delete(
-            f"/api/v1/connectors/{saved_connector.id.value}"
-        )
+        response = await client.delete(f"/api/v1/connectors/{saved_connector.id.value}")
 
         # Then
         assert response.status_code == 200
@@ -414,9 +398,7 @@ class TestDeleteConnector:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_connector_returns_confirmation(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_delete_connector_returns_confirmation(self, client: AsyncClient, connector_repo):
         """Should return confirmation with deletion details."""
         # Given: connector with no photos
         connector = Connector.create_local(path="/photos", name="Empty")
@@ -454,9 +436,7 @@ class TestReprocessConnectorPhotos:
             await photo_repo.save(photo)
 
         # When: reprocess
-        response = await client.post(
-            f"/api/v1/connectors/{saved_connector.id.value}/reprocess"
-        )
+        response = await client.post(f"/api/v1/connectors/{saved_connector.id.value}/reprocess")
 
         # Then
         # Accept both 200 and 202 (202 if celery works, 200 if worker not running)
@@ -470,9 +450,7 @@ class TestReprocessConnectorPhotos:
             assert "status" in data
 
     @pytest.mark.asyncio
-    async def test_reprocess_connector_no_photos(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_reprocess_connector_no_photos(self, client: AsyncClient, connector_repo):
         """Should handle connector with no photos gracefully."""
         # Given: connector with no photos
         connector = Connector.create_local(path="/photos", name="Empty")
@@ -502,9 +480,7 @@ class TestTriggerConnectorSync:
     """Tests for POST /api/v1/connectors/{id}/sync."""
 
     @pytest.mark.asyncio
-    async def test_trigger_manual_sync(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_trigger_manual_sync(self, client: AsyncClient, connector_repo):
         """Should trigger background sync task."""
         # Given: local connector
         connector = Connector.create_local(path="/photos", name="Test")
@@ -525,9 +501,7 @@ class TestTriggerConnectorSync:
             assert "status" in data
 
     @pytest.mark.asyncio
-    async def test_trigger_sync_google_photos_connector(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_trigger_sync_google_photos_connector(self, client: AsyncClient, connector_repo):
         """Should work for Google Photos connectors."""
         # Given: Google Photos connector
         connector = Connector.create_google_photos(name="Google Photos")
@@ -574,9 +548,7 @@ class TestGetSyncStatus:
     """Tests for GET /api/v1/connectors/{id}/sync/status."""
 
     @pytest.mark.asyncio
-    async def test_get_sync_status_idle(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_get_sync_status_idle(self, client: AsyncClient, connector_repo):
         """Should return idle status when not syncing."""
         # Given: connector not syncing
         connector = Connector.create_local(path="/photos", name="Test")
@@ -584,9 +556,7 @@ class TestGetSyncStatus:
         saved = await connector_repo.save(connector)
 
         # When
-        response = await client.get(
-            f"/api/v1/connectors/{saved.id.value}/sync/status"
-        )
+        response = await client.get(f"/api/v1/connectors/{saved.id.value}/sync/status")
 
         # Then
         assert response.status_code == 200
@@ -597,9 +567,7 @@ class TestGetSyncStatus:
         assert data["syncing"] is False
 
     @pytest.mark.asyncio
-    async def test_get_sync_status_with_last_sync_stats(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_get_sync_status_with_last_sync_stats(self, client: AsyncClient, connector_repo):
         """Should include last sync statistics."""
         # Given: connector with sync history
         from app.domain.value_objects.sync_stats import SyncStats
@@ -617,9 +585,7 @@ class TestGetSyncStatus:
         saved = await connector_repo.save(connector)
 
         # When
-        response = await client.get(
-            f"/api/v1/connectors/{saved.id.value}/sync/status"
-        )
+        response = await client.get(f"/api/v1/connectors/{saved.id.value}/sync/status")
 
         # Then
         assert response.status_code == 200
@@ -639,9 +605,7 @@ class TestGetSyncStatus:
         non_existent_id = uuid4()
 
         # When
-        response = await client.get(
-            f"/api/v1/connectors/{non_existent_id}/sync/status"
-        )
+        response = await client.get(f"/api/v1/connectors/{non_existent_id}/sync/status")
 
         # Then
         assert response.status_code == 404

@@ -26,7 +26,9 @@ class ClusterNameRequest(BaseModel):
 class ClusterMergeRequest(BaseModel):
     """Request to merge clusters."""
 
-    source_cluster_ids: list[UUID] = Field(..., min_length=1, max_length=100, description="Source cluster IDs to merge")
+    source_cluster_ids: list[UUID] = Field(
+        ..., min_length=1, max_length=100, description="Source cluster IDs to merge"
+    )
     target_cluster_id: UUID = Field(..., description="Target cluster ID")
 
     @field_validator("source_cluster_ids")

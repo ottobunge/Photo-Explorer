@@ -3,7 +3,7 @@
 import logging
 import logging.config
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import orjson
@@ -21,7 +21,7 @@ class JSONFormatter(logging.Formatter):
         """Format log record as JSON."""
         # Base log structure
         log_data: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -130,10 +130,14 @@ def setup_logging(
 
     # Choose formatter based on environment
     formatter_class = JSONFormatter if json_logs else logging.Formatter
-    formatter_args = {} if json_logs else {
-        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        "datefmt": "%Y-%m-%d %H:%M:%S",
-    }
+    formatter_args = (
+        {}
+        if json_logs
+        else {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        }
+    )
 
     # Configure root logger
     logging_config = {

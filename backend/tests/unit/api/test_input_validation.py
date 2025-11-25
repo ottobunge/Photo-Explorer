@@ -5,36 +5,34 @@ This module tests that all Pydantic schemas properly validate user inputs
 to prevent security vulnerabilities and ensure data integrity.
 """
 
+from datetime import date
+from uuid import uuid4
+
 import pytest
-from datetime import date, timedelta
-from uuid import uuid4, UUID
 from pydantic import ValidationError
 
 from app.adapters.inbound.api.schemas.album_schemas import (
     AlbumCreateRequest,
-    AlbumUpdateRequest,
     AlbumPhotosRequest,
 )
 from app.adapters.inbound.api.schemas.connector_schemas import (
     ConnectorCreateRequest,
-    ConnectorUpdateRequest,
-    LocalFolderCreateRequest,
     GooglePhotosCallbackRequest,
-)
-from app.adapters.inbound.api.schemas.search_schemas import (
-    SearchRequest,
-    SearchFilters,
+    LocalFolderCreateRequest,
 )
 from app.adapters.inbound.api.schemas.face_schemas import (
-    ClusterNameRequest,
     ClusterMergeRequest,
+    ClusterNameRequest,
 )
-from app.adapters.inbound.api.schemas.folder_schemas import FolderCreateRequest
-from app.adapters.inbound.api.schemas.settings_schemas import AppSettingsUpdate
 from app.adapters.inbound.api.schemas.model_schemas import (
     DownloadRequest,
     SetActiveModelRequest,
 )
+from app.adapters.inbound.api.schemas.search_schemas import (
+    SearchFilters,
+    SearchRequest,
+)
+from app.adapters.inbound.api.schemas.settings_schemas import AppSettingsUpdate
 
 
 class TestAlbumValidation:
@@ -144,9 +142,7 @@ class TestConnectorValidation:
     def test_google_photos_callback_valid(self):
         """Test valid Google Photos callback."""
         request = GooglePhotosCallbackRequest(
-            code="test_code_123",
-            redirect_uri="https://example.com/callback",
-            state="csrf_token"
+            code="test_code_123", redirect_uri="https://example.com/callback", state="csrf_token"
         )
         assert request.code == "test_code_123"
         assert request.redirect_uri == "https://example.com/callback"
@@ -154,10 +150,7 @@ class TestConnectorValidation:
     def test_google_photos_callback_invalid_redirect_uri_fails(self):
         """Test invalid redirect URI fails."""
         with pytest.raises(ValidationError) as exc_info:
-            GooglePhotosCallbackRequest(
-                code="test_code",
-                redirect_uri="invalid_uri"
-            )
+            GooglePhotosCallbackRequest(code="test_code", redirect_uri="invalid_uri")
         assert "must start with http:// or https://" in str(exc_info.value)
 
 
@@ -266,10 +259,7 @@ class TestFaceValidation:
         """Test valid cluster merge request."""
         source_ids = [uuid4() for _ in range(3)]
         target_id = uuid4()
-        request = ClusterMergeRequest(
-            source_cluster_ids=source_ids,
-            target_cluster_id=target_id
-        )
+        request = ClusterMergeRequest(source_cluster_ids=source_ids, target_cluster_id=target_id)
         assert len(request.source_cluster_ids) == 3
 
     def test_cluster_merge_request_target_in_sources_fails(self):
@@ -277,8 +267,7 @@ class TestFaceValidation:
         cluster_id = uuid4()
         with pytest.raises(ValidationError) as exc_info:
             ClusterMergeRequest(
-                source_cluster_ids=[cluster_id, uuid4()],
-                target_cluster_id=cluster_id
+                source_cluster_ids=[cluster_id, uuid4()], target_cluster_id=cluster_id
             )
         assert "Target cluster cannot be in the list of source clusters" in str(exc_info.value)
 
@@ -336,10 +325,7 @@ class TestModelValidation:
 
     def test_download_request_valid(self):
         """Test valid download request."""
-        request = DownloadRequest(
-            model_id="openai/clip-vit-base-patch32",
-            revision="main"
-        )
+        request = DownloadRequest(model_id="openai/clip-vit-base-patch32", revision="main")
         assert request.model_id == "openai/clip-vit-base-patch32"
 
     def test_download_request_invalid_format_fails(self):

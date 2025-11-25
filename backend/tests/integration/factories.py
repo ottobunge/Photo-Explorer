@@ -1,19 +1,17 @@
 """Test data factories for creating domain entities in tests."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from app.domain.entities import Album, Face, Photo, Connector
-from app.domain.entities.connector import ConnectorType, ConnectorStatus
+from app.domain.entities import Album, Connector, Face, Photo
 from app.domain.value_objects import (
     AlbumId,
     BoundingBox,
+    ConnectorId,
     Embedding,
-    ExifData,
     FaceId,
     PhotoId,
-    ConnectorId,
 )
 
 
@@ -72,10 +70,7 @@ class PhotoFactory:
     @staticmethod
     def create_batch(count: int, **kwargs) -> list[Photo]:
         """Create multiple photos with unique IDs."""
-        return [
-            PhotoFactory.create(filename=f"photo_{i}.jpg", **kwargs)
-            for i in range(count)
-        ]
+        return [PhotoFactory.create(filename=f"photo_{i}.jpg", **kwargs) for i in range(count)]
 
 
 class AlbumFactory:
@@ -107,10 +102,7 @@ class AlbumFactory:
     @staticmethod
     def create_batch(count: int, **kwargs) -> list[Album]:
         """Create multiple albums with unique names."""
-        return [
-            AlbumFactory.create(name=f"Album {i}", **kwargs)
-            for i in range(count)
-        ]
+        return [AlbumFactory.create(name=f"Album {i}", **kwargs) for i in range(count)]
 
 
 class FaceFactory:
@@ -151,10 +143,7 @@ class FaceFactory:
     @staticmethod
     def create_batch(count: int, photo_id: UUID, **kwargs) -> list[Face]:
         """Create multiple faces for a photo."""
-        return [
-            FaceFactory.create(photo_id=photo_id, **kwargs)
-            for i in range(count)
-        ]
+        return [FaceFactory.create(photo_id=photo_id, **kwargs) for i in range(count)]
 
 
 class ConnectorFactory:
@@ -215,6 +204,7 @@ class EmbeddingFactory:
         """Create a CLIP embedding with specified dimensions."""
         # Create a normalized random-like vector
         import math
+
         values = [math.sin(i * 0.1) for i in range(dimension)]
         # Normalize
         magnitude = math.sqrt(sum(v * v for v in values))
@@ -225,6 +215,7 @@ class EmbeddingFactory:
     def create_face_embedding(dimension: int = 512) -> Embedding:
         """Create a face embedding (InsightFace, 512-dim)."""
         import math
+
         values = [math.cos(i * 0.1) for i in range(dimension)]
         # Normalize
         magnitude = math.sqrt(sum(v * v for v in values))
@@ -234,8 +225,8 @@ class EmbeddingFactory:
     @staticmethod
     def create_similar_embedding(base: Embedding, noise: float = 0.1) -> Embedding:
         """Create an embedding similar to the base with some noise."""
-        import random
         import math
+        import random
 
         values = base.to_list()
         noisy = [v + random.uniform(-noise, noise) for v in values]

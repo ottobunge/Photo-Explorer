@@ -21,7 +21,6 @@ class ConnectorRepository(ABC):
         Returns:
             The saved connector
         """
-        pass
 
     @abstractmethod
     async def find_by_id(self, connector_id: UUID) -> Optional[Connector]:
@@ -34,7 +33,6 @@ class ConnectorRepository(ABC):
         Returns:
             The Connector entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def find_by_type(self, connector_type: str) -> Optional[Connector]:
@@ -47,7 +45,6 @@ class ConnectorRepository(ABC):
         Returns:
             The Connector entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def find_all(self) -> list[Connector]:
@@ -57,7 +54,6 @@ class ConnectorRepository(ABC):
         Returns:
             List of Connector entities
         """
-        pass
 
     @abstractmethod
     async def find_enabled(self) -> list[Connector]:
@@ -67,7 +63,6 @@ class ConnectorRepository(ABC):
         Returns:
             List of enabled Connector entities
         """
-        pass
 
     @abstractmethod
     async def find_by_path(self, path: str) -> Optional[Connector]:
@@ -80,7 +75,6 @@ class ConnectorRepository(ABC):
         Returns:
             The Connector entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def delete(self, connector_id: UUID) -> bool:
@@ -93,4 +87,3 @@ class ConnectorRepository(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass

@@ -8,20 +8,17 @@ Tests:
 5. Ranking by similarity score
 """
 
-from uuid import uuid4
 
 import pytest
 
 from app.adapters.outbound.persistence.postgres.repositories import (
-    PhotoRepositoryPostgres,
-    AlbumRepositoryPostgres,
     ConnectorRepositoryPostgres,
+    PhotoRepositoryPostgres,
 )
 from tests.integration.factories import (
-    PhotoFactory,
-    AlbumFactory,
     ConnectorFactory,
     EmbeddingFactory,
+    PhotoFactory,
 )
 
 

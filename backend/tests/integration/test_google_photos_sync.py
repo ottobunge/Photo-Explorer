@@ -8,9 +8,7 @@ Tests:
 5. Test incremental sync
 """
 
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -18,7 +16,7 @@ from app.adapters.outbound.persistence.postgres.repositories import (
     ConnectorRepositoryPostgres,
     PhotoRepositoryPostgres,
 )
-from app.domain.entities.connector import ConnectorType, ConnectorStatus
+from app.domain.entities.connector import ConnectorStatus
 from tests.integration.factories import ConnectorFactory, PhotoFactory
 
 
@@ -71,7 +69,7 @@ class TestGooglePhotosSyncFlow:
                 id=f"gp_photo_{i}",
                 filename=f"photo_{i}.jpg",
                 mime_type="image/jpeg",
-                creation_time=datetime.now(timezone.utc) - timedelta(days=i),
+                creation_time=datetime.now(UTC) - timedelta(days=i),
             )
             for i in range(5)
         ]
@@ -90,7 +88,7 @@ class TestGooglePhotosSyncFlow:
                 taken_at=datetime.fromisoformat(
                     item.mediaMetadata["creationTime"].replace("Z", "+00:00")
                 ),
-                last_synced=datetime.now(timezone.utc),
+                last_synced=datetime.now(UTC),
             )
             await photo_repo.save(photo)
 
@@ -119,7 +117,7 @@ class TestGooglePhotosSyncFlow:
         photo_repo = PhotoRepositoryPostgres(test_session)
 
         # 1. Create connector with last sync time
-        last_sync_time = datetime.now(timezone.utc) - timedelta(days=7)
+        last_sync_time = datetime.now(UTC) - timedelta(days=7)
         connector = ConnectorFactory.create_google_photos(
             last_sync=last_sync_time,
         )
@@ -143,13 +141,13 @@ class TestGooglePhotosSyncFlow:
                 id=f"gp_new_{i}",
                 filename=f"new_photo_{i}.jpg",
                 mime_type="image/jpeg",
-                creation_time=datetime.now(timezone.utc) - timedelta(days=i),
+                creation_time=datetime.now(UTC) - timedelta(days=i),
             )
             for i in range(2)
         ]
 
         # 4. Simulate incremental sync - only add new photos
-        current_sync_time = datetime.now(timezone.utc)
+        current_sync_time = datetime.now(UTC)
         for item in new_mock_items:
             # Check if photo already exists by external_id
             existing = await photo_repo.find_by_external_id(
@@ -214,7 +212,7 @@ class TestGooglePhotosSyncFlow:
                 id=f"gp_photo_{i}",
                 filename=f"photo_{i}.jpg",
                 mime_type="image/jpeg",
-                creation_time=datetime.now(timezone.utc),
+                creation_time=datetime.now(UTC),
             )
             for i in range(3)
         ]
@@ -229,14 +227,16 @@ class TestGooglePhotosSyncFlow:
 
         # 5. Verify deleted photos are marked
         deleted_photos = [
-            p for p in await photo_repo.find_by_connector(connector.id.value, limit=10)
+            p
+            for p in await photo_repo.find_by_connector(connector.id.value, limit=10)
             if p.source_deleted
         ]
         assert len(deleted_photos) == 2
 
         # 6. Verify non-deleted photos
         active_photos = [
-            p for p in await photo_repo.find_by_connector(connector.id.value, limit=10)
+            p
+            for p in await photo_repo.find_by_connector(connector.id.value, limit=10)
             if not p.source_deleted
         ]
         assert len(active_photos) == 3
@@ -268,7 +268,7 @@ class TestGooglePhotosSyncFlow:
             id="gp_photo_1",
             filename="renamed_photo.jpg",  # Name changed
             mime_type="image/jpeg",
-            creation_time=datetime.now(timezone.utc),
+            creation_time=datetime.now(UTC),
             width=3840,  # Resolution changed
             height=2160,
         )
@@ -283,7 +283,7 @@ class TestGooglePhotosSyncFlow:
             existing.filename = updated_item.filename
             existing.width = int(updated_item.mediaMetadata["width"])
             existing.height = int(updated_item.mediaMetadata["height"])
-            existing.last_synced = datetime.now(timezone.utc)
+            existing.last_synced = datetime.now(UTC)
             await photo_repo.save(existing)
 
         # 4. Verify metadata updated
@@ -314,7 +314,7 @@ class TestGooglePhotosSyncFlow:
                 id=f"gp_page1_{i}",
                 filename=f"photo_{i}.jpg",
                 mime_type="image/jpeg",
-                creation_time=datetime.now(timezone.utc),
+                creation_time=datetime.now(UTC),
             )
             for i in range(10)
         ]
@@ -326,7 +326,7 @@ class TestGooglePhotosSyncFlow:
                 id=f"gp_page2_{i}",
                 filename=f"photo_{i + 10}.jpg",
                 mime_type="image/jpeg",
-                creation_time=datetime.now(timezone.utc),
+                creation_time=datetime.now(UTC),
             )
             for i in range(10)
         ]
@@ -338,7 +338,7 @@ class TestGooglePhotosSyncFlow:
                 id=f"gp_page3_{i}",
                 filename=f"photo_{i + 20}.jpg",
                 mime_type="image/jpeg",
-                creation_time=datetime.now(timezone.utc),
+                creation_time=datetime.now(UTC),
             )
             for i in range(5)
         ]
@@ -350,7 +350,7 @@ class TestGooglePhotosSyncFlow:
                 filename=item.filename,
                 connector_id=connector.id.value,
                 external_id=item.id,
-                last_synced=datetime.now(timezone.utc),
+                last_synced=datetime.now(UTC),
             )
             await photo_repo.save(photo)
 
@@ -406,7 +406,6 @@ class TestGooglePhotosSyncFlow:
         sample_image_bytes,
     ):
         """Test sync downloads and creates thumbnails for imported photos."""
-        import io
 
         connector_repo = ConnectorRepositoryPostgres(test_session)
         photo_repo = PhotoRepositoryPostgres(test_session)
@@ -508,7 +507,7 @@ class TestGooglePhotosSyncFlow:
         photo.width = 3840  # Update from API
         photo.height = 2160  # Update from API
         # description should be preserved (not from API)
-        photo.last_synced = datetime.now(timezone.utc)
+        photo.last_synced = datetime.now(UTC)
         updated = await photo_repo.save(photo)
 
         # 3. Verify local changes preserved

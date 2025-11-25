@@ -24,7 +24,6 @@ class FileStorage(ABC):
         Returns:
             The storage path for the saved file
         """
-        pass
 
     @abstractmethod
     async def save_thumbnail(
@@ -42,7 +41,6 @@ class FileStorage(ABC):
         Returns:
             The storage path for the thumbnail
         """
-        pass
 
     @abstractmethod
     async def save_face_crop(
@@ -60,7 +58,6 @@ class FileStorage(ABC):
         Returns:
             The storage path for the face crop
         """
-        pass
 
     @abstractmethod
     async def get_file(self, path: str) -> Optional[bytes]:
@@ -73,7 +70,6 @@ class FileStorage(ABC):
         Returns:
             File bytes or None if not found
         """
-        pass
 
     @abstractmethod
     async def delete_file(self, path: str) -> bool:
@@ -86,7 +82,6 @@ class FileStorage(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def file_exists(self, path: str) -> bool:
@@ -99,7 +94,6 @@ class FileStorage(ABC):
         Returns:
             True if file exists
         """
-        pass
 
     @abstractmethod
     def get_absolute_path(self, storage_path: str) -> Path:
@@ -112,4 +106,3 @@ class FileStorage(ABC):
         Returns:
             Absolute Path object
         """
-        pass

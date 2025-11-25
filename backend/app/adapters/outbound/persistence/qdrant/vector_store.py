@@ -40,6 +40,7 @@ class QdrantVectorStore(VectorStore):
 
         # Get CLIP embedding dimension from config
         from app.infrastructure.models.config import get_model_config
+
         model_config = get_model_config()
         self._clip_embedding_dim = model_config.clip.embedding_dim
 

@@ -72,23 +72,19 @@ router = APIRouter()
                                         "thumbnail_url": "/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/thumbnail",
                                         "taken_at": "2024-01-15T14:30:00Z",
                                         "description": "A beautiful sunset over the ocean",
-                                        "connector_type": "google_photos"
+                                        "connector_type": "google_photos",
                                     },
                                     "score": 0.89,
-                                    "highlights": []
+                                    "highlights": [],
                                 }
                             ],
                             "query_embedding_time_ms": 45.2,
-                            "search_time_ms": 12.8
+                            "search_time_ms": 12.8,
                         },
-                        "meta": {
-                            "total": 25,
-                            "limit": 20,
-                            "offset": 0
-                        }
+                        "meta": {"total": 25, "limit": 20, "offset": 0},
                     }
                 }
-            }
+            },
         },
         500: {
             "description": "Search failed (ML service unavailable, etc.)",
@@ -96,19 +92,15 @@ router = APIRouter()
                 "application/json": {
                     "example": {
                         "success": False,
-                        "data": {
-                            "results": [],
-                            "query_embedding_time_ms": 0,
-                            "search_time_ms": 0
-                        },
+                        "data": {"results": [], "query_embedding_time_ms": 0, "search_time_ms": 0},
                         "meta": {"total": 0, "limit": 20, "offset": 0},
-                        "error": {"message": "ML service unavailable"}
+                        "error": {"message": "ML service unavailable"},
                     }
                 }
-            }
-        }
+            },
+        },
     },
-    tags=["Search"]
+    tags=["Search"],
 )
 async def semantic_search(
     request: SearchRequest,
@@ -137,7 +129,7 @@ async def semantic_search(
         search_time_ms = (time.time() - start_search) * 1000
 
         # Apply offset
-        search_results = search_results[request.offset:]
+        search_results = search_results[request.offset :]
 
         # Get connector filter from request
         connector_ids = None
@@ -161,22 +153,26 @@ async def semantic_search(
                     if not photo_album_ids.intersection(album_ids):
                         continue
 
-                results.append(SearchResultItem(
-                    photo={
-                        "id": str(photo.id.value),
-                        "filename": photo.filename,
-                        "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail" if photo.thumbnail_path or photo.is_remote else None,
-                        "mime_type": photo.mime_type,
-                        "width": photo.width,
-                        "height": photo.height,
-                        "taken_at": photo.taken_at.isoformat() if photo.taken_at else None,
-                        "connector_type": photo.connector_type,
-                        "connector_id": str(photo.connector_id) if photo.connector_id else None,
-                        "description": photo.description,
-                    },
-                    score=result.score,
-                    highlights=[],  # Could add matched keywords later
-                ))
+                results.append(
+                    SearchResultItem(
+                        photo={
+                            "id": str(photo.id.value),
+                            "filename": photo.filename,
+                            "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail"
+                            if photo.thumbnail_path or photo.is_remote
+                            else None,
+                            "mime_type": photo.mime_type,
+                            "width": photo.width,
+                            "height": photo.height,
+                            "taken_at": photo.taken_at.isoformat() if photo.taken_at else None,
+                            "connector_type": photo.connector_type,
+                            "connector_id": str(photo.connector_id) if photo.connector_id else None,
+                            "description": photo.description,
+                        },
+                        score=result.score,
+                        highlights=[],  # Could add matched keywords later
+                    )
+                )
 
         return SearchResponse(
             success=True,
@@ -245,29 +241,25 @@ async def semantic_search(
                                     "photo": {
                                         "id": "550e8400-e29b-41d4-a716-446655440000",
                                         "filename": "IMG_1234.jpg",
-                                        "thumbnail_url": "/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/thumbnail"
+                                        "thumbnail_url": "/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/thumbnail",
                                     },
-                                    "score": 0.89
+                                    "score": 0.89,
                                 }
                             ],
                             "query_embedding_time_ms": 45.2,
-                            "search_time_ms": 12.8
+                            "search_time_ms": 12.8,
                         },
-                        "meta": {"total": 25, "limit": 20, "offset": 0}
+                        "meta": {"total": 25, "limit": 20, "offset": 0},
                     }
                 }
-            }
+            },
         },
         400: {
             "description": "Invalid query parameters",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Query string is required"}
-                }
-            }
-        }
+            "content": {"application/json": {"example": {"detail": "Query string is required"}}},
+        },
     },
-    tags=["Search"]
+    tags=["Search"],
 )
 async def search_photos_get(
     q: Annotated[str, Query(min_length=1, max_length=500, description="Search query text")],
@@ -276,13 +268,16 @@ async def search_photos_get(
     photo_repo: PhotoRepoDep,
     limit: Annotated[int, Query(ge=1, le=100, description="Maximum results (1-100)")] = 20,
     offset: Annotated[int, Query(ge=0, le=10000, description="Results to skip")] = 0,
-    connector_id: Annotated[Optional[str], Query(description="Filter by connector ID (UUID)")] = None,
+    connector_id: Annotated[
+        Optional[str], Query(description="Filter by connector ID (UUID)")
+    ] = None,
     album_id: Annotated[Optional[str], Query(description="Filter by album ID (UUID)")] = None,
 ) -> SearchResponse:
     """
     GET endpoint for semantic search (convenience for browser testing).
     """
     from uuid import UUID
+
     from app.adapters.inbound.api.schemas.search_schemas import SearchFilters
 
     filters = None

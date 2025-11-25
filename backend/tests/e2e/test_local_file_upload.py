@@ -1,14 +1,12 @@
 """End-to-end tests for local file upload and processing."""
 
-import pytest
-import pytest_asyncio
 from pathlib import Path
 
+import pytest
+
 from app.adapters.outbound.ml import get_ml_services
-from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
 from app.adapters.outbound.persistence.postgres import PhotoRepositoryPostgres
-from app.adapters.outbound.storage import LocalFileStorage
-from app.domain.entities import Photo, ConnectorType
+from app.domain.entities import ConnectorType, Photo
 
 
 @pytest.mark.asyncio
@@ -240,9 +238,7 @@ class TestLocalFileUploadE2E:
 
             # Verify uploaded photos of this category are in results
             result_ids = {result.id for result in results}
-            expected_ids = {
-                str(photo.id.value) for photo in uploaded_photos[category]
-            }
+            expected_ids = {str(photo.id.value) for photo in uploaded_photos[category]}
 
             found_ids = expected_ids.intersection(result_ids)
 

@@ -8,15 +8,16 @@ JSON path indexing and EXPLAIN ANALYZE are PostgreSQL-specific features.
 """
 
 import time
-import pytest
 from uuid import uuid4
+
+import pytest
 from sqlalchemy import text
 
 from app.adapters.outbound.persistence.postgres.models import ConnectorModel
 from app.adapters.outbound.persistence.postgres.repositories.connector_repository import (
     ConnectorRepositoryPostgres,
 )
-from app.domain.entities.connector import ConnectorType, ConnectorStatus
+from app.domain.entities.connector import ConnectorStatus, ConnectorType
 
 
 async def is_postgresql(session):
@@ -51,12 +52,14 @@ async def test_find_by_path_uses_index(test_session):
 
     # Execute EXPLAIN ANALYZE on the find_by_path query
     # Note: We need to construct the same query that find_by_path() uses
-    query = text("""
+    query = text(
+        """
         EXPLAIN (ANALYZE, FORMAT JSON)
         SELECT * FROM connectors
         WHERE type = 'local'
         AND config->>'path' = '/test/path/to/photos'
-    """)
+    """
+    )
 
     result = await test_session.execute(query)
     explain_output = result.scalar()
@@ -165,29 +168,26 @@ async def test_index_only_on_non_null_paths(test_session):
         pytest.skip("This test requires PostgreSQL for partial indexes")
 
     # Query the pg_indexes system catalog to check index definition
-    query = text("""
+    query = text(
+        """
         SELECT indexdef
         FROM pg_indexes
         WHERE tablename = 'connectors'
         AND indexname = 'ix_connectors_config_path'
-    """)
+    """
+    )
 
     result = await test_session.execute(query)
     index_def = result.scalar()
 
     # This will fail if the index doesn't exist (RED phase)
     assert index_def is not None, (
-        "Index ix_connectors_config_path does not exist. "
-        "Run the migration to create the index."
+        "Index ix_connectors_config_path does not exist. " "Run the migration to create the index."
     )
 
     # Verify it's a partial index with WHERE clause
-    assert "WHERE" in index_def.upper(), (
-        "Index should be partial with WHERE clause"
-    )
-    assert "IS NOT NULL" in index_def.upper(), (
-        "Index should only include non-null paths"
-    )
+    assert "WHERE" in index_def.upper(), "Index should be partial with WHERE clause"
+    assert "IS NOT NULL" in index_def.upper(), "Index should only include non-null paths"
 
 
 @pytest.mark.asyncio

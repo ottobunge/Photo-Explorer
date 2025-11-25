@@ -9,22 +9,18 @@ Tests the complete flow:
 """
 
 import io
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC
 from uuid import uuid4
 
 import pytest
 from PIL import Image
-from sqlalchemy import select
 
-from app.adapters.outbound.persistence.postgres.models import PhotoModel, FaceModel
 from app.adapters.outbound.persistence.postgres.repositories import (
-    PhotoRepositoryPostgres,
     FaceRepositoryPostgres,
+    PhotoRepositoryPostgres,
 )
-from app.domain.entities import Face
-from app.domain.value_objects import BoundingBox, Embedding
-from tests.integration.factories import PhotoFactory, FaceFactory, EmbeddingFactory
+from app.domain.value_objects import BoundingBox
+from tests.integration.factories import EmbeddingFactory, FaceFactory, PhotoFactory
 
 
 class TestPhotoUploadAndProcessingFlow:
@@ -326,7 +322,7 @@ class TestPhotoUploadAndProcessingFlow:
         sample_image_bytes,
     ):
         """Test photo metadata extraction and storage."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         # 1. Create photo with metadata
         photo_repo = PhotoRepositoryPostgres(test_session)
@@ -336,7 +332,7 @@ class TestPhotoUploadAndProcessingFlow:
             height=1080,
             mime_type="image/jpeg",
             file_size=len(sample_image_bytes),
-            taken_at=datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
+            taken_at=datetime(2024, 1, 15, 10, 30, 0, tzinfo=UTC),
         )
 
         saved = await photo_repo.save(photo)

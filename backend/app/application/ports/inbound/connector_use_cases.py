@@ -18,7 +18,6 @@ class ConnectorUseCases(ABC):
         Returns:
             List of Connector entities
         """
-        pass
 
     @abstractmethod
     async def get_connector(self, connector_id: UUID) -> Optional[Connector]:
@@ -31,7 +30,6 @@ class ConnectorUseCases(ABC):
         Returns:
             The Connector entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def get_connector_by_type(self, connector_type: str) -> Optional[Connector]:
@@ -44,7 +42,6 @@ class ConnectorUseCases(ABC):
         Returns:
             The Connector entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def create_local_connector(
@@ -68,7 +65,6 @@ class ConnectorUseCases(ABC):
         Returns:
             The created Connector entity
         """
-        pass
 
     @abstractmethod
     async def update_connector(
@@ -88,7 +84,6 @@ class ConnectorUseCases(ABC):
         Returns:
             The updated Connector entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def delete_connector(
@@ -106,7 +101,6 @@ class ConnectorUseCases(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def trigger_sync(self, connector_id: UUID) -> bool:
@@ -119,7 +113,6 @@ class ConnectorUseCases(ABC):
         Returns:
             True if sync was triggered, False if connector not found
         """
-        pass
 
     @abstractmethod
     async def get_sync_status(self, connector_id: UUID) -> Optional[SyncStats]:
@@ -132,7 +125,6 @@ class ConnectorUseCases(ABC):
         Returns:
             SyncStats or None if not syncing/not found
         """
-        pass
 
 
 class GooglePhotosConnectorUseCases(ABC):
@@ -149,7 +141,6 @@ class GooglePhotosConnectorUseCases(ABC):
         Returns:
             The authorization URL to redirect the user to
         """
-        pass
 
     @abstractmethod
     async def handle_oauth_callback(
@@ -167,7 +158,6 @@ class GooglePhotosConnectorUseCases(ABC):
         Returns:
             The connected Connector entity
         """
-        pass
 
     @abstractmethod
     async def disconnect(self) -> bool:
@@ -177,7 +167,6 @@ class GooglePhotosConnectorUseCases(ABC):
         Returns:
             True if disconnected successfully
         """
-        pass
 
     @abstractmethod
     async def get_connection_status(self) -> dict:
@@ -187,7 +176,6 @@ class GooglePhotosConnectorUseCases(ABC):
         Returns:
             Dictionary with connection status details
         """
-        pass
 
     @abstractmethod
     async def get_photo_url(
@@ -207,4 +195,3 @@ class GooglePhotosConnectorUseCases(ABC):
         Returns:
             The image URL or None if not found
         """
-        pass

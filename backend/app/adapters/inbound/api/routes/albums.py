@@ -1,6 +1,6 @@
 """Album API routes."""
 
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
@@ -53,22 +53,18 @@ router = APIRouter()
                             "description": "Photos from our trip to Hawaii",
                             "cover_photo_id": None,
                             "photo_count": 0,
-                            "created_at": "2024-01-20T10:00:00Z"
-                        }
+                            "created_at": "2024-01-20T10:00:00Z",
+                        },
                     }
                 }
-            }
+            },
         },
         400: {
             "description": "Invalid request (e.g., name too long)",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Album name is required"}
-                }
-            }
-        }
+            "content": {"application/json": {"example": {"detail": "Album name is required"}}},
+        },
     },
-    tags=["Albums"]
+    tags=["Albums"],
 )
 async def create_album(
     request: AlbumCreateRequest,
@@ -134,7 +130,7 @@ async def create_album(
                                     "description": "Photos from our trip to Hawaii",
                                     "cover_photo_id": "550e8400-e29b-41d4-a716-446655440000",
                                     "photo_count": 127,
-                                    "created_at": "2024-01-20T10:00:00Z"
+                                    "created_at": "2024-01-20T10:00:00Z",
                                 },
                                 {
                                     "id": "223e4567-e89b-12d3-a456-426614174001",
@@ -142,17 +138,17 @@ async def create_album(
                                     "description": None,
                                     "cover_photo_id": None,
                                     "photo_count": 45,
-                                    "created_at": "2024-01-15T14:30:00Z"
-                                }
+                                    "created_at": "2024-01-15T14:30:00Z",
+                                },
                             ]
                         },
-                        "meta": {"page": 1, "per_page": 20, "total": 15}
+                        "meta": {"page": 1, "per_page": 20, "total": 15},
                     }
                 }
-            }
+            },
         }
     },
-    tags=["Albums"]
+    tags=["Albums"],
 )
 async def list_albums(
     album_repo: AlbumRepoDep,

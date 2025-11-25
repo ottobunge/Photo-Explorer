@@ -20,7 +20,6 @@ class TransientError(WorkerException):
     such as network issues, temporary service unavailability, or rate limits.
     """
 
-    pass
 
 
 class PermanentError(WorkerException):
@@ -31,66 +30,55 @@ class PermanentError(WorkerException):
     such as invalid data, missing resources, or business logic violations.
     """
 
-    pass
 
 
 # Specific transient errors
 class NetworkError(TransientError):
     """Network connectivity or timeout errors."""
 
-    pass
 
 
 class ServiceUnavailableError(TransientError):
     """External service temporarily unavailable."""
 
-    pass
 
 
 class RateLimitError(TransientError):
     """Rate limit exceeded, should retry with backoff."""
 
-    pass
 
 
 class DatabaseConnectionError(TransientError):
     """Database connection temporarily unavailable."""
 
-    pass
 
 
 class TokenRefreshError(TransientError):
     """OAuth token needs refresh."""
 
-    pass
 
 
 # Specific permanent errors
 class ResourceNotFoundError(PermanentError):
     """Required resource (photo, connector, etc.) not found."""
 
-    pass
 
 
 class InvalidDataError(PermanentError):
     """Data validation failed."""
 
-    pass
 
 
 class AuthenticationError(PermanentError):
     """Authentication failed (missing or invalid credentials)."""
 
-    pass
 
 
 class ProcessingError(PermanentError):
     """Processing failed due to invalid input or corrupted data."""
 
-    pass
 
 
 class StorageError(PermanentError):
     """Storage operation failed (disk full, permission denied, etc.)."""
 
-    pass

@@ -18,12 +18,12 @@ from app.infrastructure.models.clip import CLIPModelLoader
 from app.infrastructure.models.config import CLIPConfig, FaceConfig
 from app.infrastructure.models.faces import FaceModelLoader
 from app.infrastructure.models.vision import (
-    VisionModelLoader,
     ObjectDetectionLoader,
     SceneClassificationLoader,
-    get_vision_model,
+    VisionModelLoader,
     get_object_detector,
     get_scene_classifier,
+    get_vision_model,
 )
 
 logger = logging.getLogger(__name__)
@@ -158,16 +158,18 @@ class MLServicesAdapter(MLServices):
         try:
             objects = await self.object_detector.detect_objects(image)
             for obj in objects:
-                detected_objects.append(DetectedObjectInfo(
-                    label=obj.label,
-                    confidence=obj.confidence,
-                    bbox=BoundingBox(
-                        x=obj.bbox[0],
-                        y=obj.bbox[1],
-                        width=obj.bbox[2],
-                        height=obj.bbox[3],
-                    ),
-                ))
+                detected_objects.append(
+                    DetectedObjectInfo(
+                        label=obj.label,
+                        confidence=obj.confidence,
+                        bbox=BoundingBox(
+                            x=obj.bbox[0],
+                            y=obj.bbox[1],
+                            width=obj.bbox[2],
+                            height=obj.bbox[3],
+                        ),
+                    )
+                )
         except Exception as e:
             logger.warning(f"Failed to detect objects: {e}")
 
@@ -194,12 +196,10 @@ class MLServicesAdapter(MLServices):
                 ]
                 image_embedding = self.clip_loader.encode_image(image)
                 indoor_score = self.clip_loader.similarity(
-                    image_embedding,
-                    self.clip_loader.encode_text(scene_descriptions[0])
+                    image_embedding, self.clip_loader.encode_text(scene_descriptions[0])
                 )
                 outdoor_score = self.clip_loader.similarity(
-                    image_embedding,
-                    self.clip_loader.encode_text(scene_descriptions[1])
+                    image_embedding, self.clip_loader.encode_text(scene_descriptions[1])
                 )
                 is_indoor = indoor_score > outdoor_score
                 scene_classification = SceneClassification(

@@ -1,10 +1,10 @@
 """Filesystem watcher for local folder connectors."""
 
-import asyncio
 import logging
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 from uuid import UUID
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler

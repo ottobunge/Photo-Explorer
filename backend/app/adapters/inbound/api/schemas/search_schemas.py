@@ -12,11 +12,15 @@ class SearchFilters(BaseModel):
     """Filters for search queries."""
 
     album_ids: Optional[list[UUID]] = Field(None, max_length=100, description="Filter by album IDs")
-    connector_ids: Optional[list[UUID]] = Field(None, max_length=50, description="Filter by connector IDs")
+    connector_ids: Optional[list[UUID]] = Field(
+        None, max_length=50, description="Filter by connector IDs"
+    )
     start_date: Optional[date] = Field(None, description="Filter photos taken after this date")
     end_date: Optional[date] = Field(None, description="Filter photos taken before this date")
     has_faces: Optional[bool] = Field(None, description="Filter by presence of faces")
-    face_cluster_ids: Optional[list[UUID]] = Field(None, max_length=100, description="Filter by face cluster IDs")
+    face_cluster_ids: Optional[list[UUID]] = Field(
+        None, max_length=100, description="Filter by face cluster IDs"
+    )
     is_indoor: Optional[bool] = Field(None, description="Filter by indoor/outdoor classification")
 
     @field_validator("album_ids")
@@ -70,10 +74,20 @@ class SearchFilters(BaseModel):
 class SearchRequest(BaseModel):
     """Request for semantic search."""
 
-    query: str = Field(..., min_length=1, max_length=500, description="Natural language search query", example="sunset over mountains")
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Natural language search query",
+        example="sunset over mountains",
+    )
     filters: Optional[SearchFilters] = Field(None, description="Optional filters to narrow results")
-    limit: int = Field(20, ge=1, le=100, description="Maximum number of results to return", example=20)
-    offset: int = Field(0, ge=0, le=10000, description="Number of results to skip for pagination", example=0)
+    limit: int = Field(
+        20, ge=1, le=100, description="Maximum number of results to return", example=20
+    )
+    offset: int = Field(
+        0, ge=0, le=10000, description="Number of results to skip for pagination", example=0
+    )
 
     class Config:
         json_schema_extra = {
@@ -115,8 +129,12 @@ class SearchResultItem(BaseModel):
     """Single search result."""
 
     photo: dict[str, Any] = Field(..., description="Photo metadata")
-    score: float = Field(..., description="Similarity score (0-1, higher is better)", ge=0, le=1, example=0.85)
-    highlights: list[str] = Field(..., description="Matched keywords or phrases", example=["mountain", "sunset"])
+    score: float = Field(
+        ..., description="Similarity score (0-1, higher is better)", ge=0, le=1, example=0.85
+    )
+    highlights: list[str] = Field(
+        ..., description="Matched keywords or phrases", example=["mountain", "sunset"]
+    )
 
     class Config:
         json_schema_extra = {
@@ -138,8 +156,12 @@ class SearchResultData(BaseModel):
     """Search results data."""
 
     results: list[SearchResultItem] = Field(..., description="List of matching photos")
-    query_embedding_time_ms: float = Field(..., description="Time to generate query embedding (ms)", example=45.2)
-    search_time_ms: float = Field(..., description="Time to search vector database (ms)", example=12.8)
+    query_embedding_time_ms: float = Field(
+        ..., description="Time to generate query embedding (ms)", example=45.2
+    )
+    search_time_ms: float = Field(
+        ..., description="Time to search vector database (ms)", example=12.8
+    )
 
     class Config:
         json_schema_extra = {

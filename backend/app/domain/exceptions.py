@@ -12,7 +12,6 @@ class DomainException(Exception):
 class ValidationException(DomainException):
     """Raised when domain validation fails."""
 
-    pass
 
 
 class EntityNotFoundException(DomainException):
@@ -27,4 +26,3 @@ class EntityNotFoundException(DomainException):
 class InvalidOperationException(DomainException):
     """Raised when an operation is not valid in the current state."""
 
-    pass

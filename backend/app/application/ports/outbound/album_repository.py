@@ -21,7 +21,6 @@ class AlbumRepository(ABC):
         Returns:
             The saved album
         """
-        pass
 
     @abstractmethod
     async def find_by_id(self, album_id: UUID) -> Optional[Album]:
@@ -34,7 +33,6 @@ class AlbumRepository(ABC):
         Returns:
             The Album entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def find_all(self, limit: int = 20, offset: int = 0) -> list[Album]:
@@ -48,7 +46,6 @@ class AlbumRepository(ABC):
         Returns:
             List of Album entities
         """
-        pass
 
     @abstractmethod
     async def delete(self, album_id: UUID) -> bool:
@@ -61,7 +58,6 @@ class AlbumRepository(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def count(self) -> int:
@@ -71,7 +67,6 @@ class AlbumRepository(ABC):
         Returns:
             Total count of albums
         """
-        pass
 
     @abstractmethod
     async def find_by_name(self, name: str) -> Optional[Album]:
@@ -84,4 +79,3 @@ class AlbumRepository(ABC):
         Returns:
             The Album entity or None if not found
         """
-        pass

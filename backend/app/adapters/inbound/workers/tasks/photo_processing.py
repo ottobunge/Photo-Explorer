@@ -2,34 +2,30 @@
 
 import asyncio
 import logging
-from typing import Any
 from uuid import UUID
 
-from celery import shared_task
 from sqlalchemy.exc import DBAPIError, OperationalError
 
 from app.adapters.inbound.workers.celery_app import celery_app
 from app.adapters.inbound.workers.exceptions import (
     DatabaseConnectionError,
     InvalidDataError,
-    NetworkError,
     PermanentError,
     ProcessingError,
     ResourceNotFoundError,
     StorageError,
     TransientError,
 )
-from app.adapters.outbound.ml import MLServicesAdapter, get_ml_services
+from app.adapters.inbound.workers.tasks.face_clustering import update_clusters_task
+from app.adapters.outbound.ml import get_ml_services
 from app.adapters.outbound.persistence.postgres import (
-    PhotoRepositoryPostgres,
     FaceRepositoryPostgres,
+    PhotoRepositoryPostgres,
 )
 from app.adapters.outbound.persistence.postgres.database import get_worker_session_context
 from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
 from app.adapters.outbound.storage import LocalFileStorage
 from app.domain.entities import Face
-from app.domain.value_objects import FaceId
-from app.adapters.inbound.workers.tasks.face_clustering import update_clusters_task
 
 logger = logging.getLogger(__name__)
 
@@ -94,14 +90,14 @@ def process_photo_task(self, photo_id: str) -> dict:
             extra={"photo_id": photo_id},
         )
         # Don't retry unknown errors by default
-        raise PermanentError(f"Unexpected error: {str(e)}", {"photo_id": photo_id})
+        raise PermanentError(f"Unexpected error: {e!s}", {"photo_id": photo_id})
 
 
 async def _process_photo_async(photo_id: str) -> dict:
     """Async implementation of photo processing."""
     try:
         photo_uuid = UUID(photo_id)
-    except (ValueError, AttributeError) as e:
+    except (ValueError, AttributeError):
         raise InvalidDataError(f"Invalid photo_id format: {photo_id}", {"photo_id": photo_id})
 
     # Initialize services - use singleton for ML services
@@ -111,7 +107,7 @@ async def _process_photo_async(photo_id: str) -> dict:
         file_storage = LocalFileStorage()
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}", exc_info=True)
-        raise TransientError(f"Service initialization failed: {str(e)}", {"photo_id": photo_id})
+        raise TransientError(f"Service initialization failed: {e!s}", {"photo_id": photo_id})
 
     try:
         async with get_worker_session_context() as session:
@@ -122,7 +118,7 @@ async def _process_photo_async(photo_id: str) -> dict:
                 photo = await photo_repo.find_by_id(photo_uuid)
             except (OperationalError, DBAPIError) as e:
                 logger.error(f"Database error fetching photo {photo_id}: {e}")
-                raise DatabaseConnectionError(f"Database error: {str(e)}", {"photo_id": photo_id})
+                raise DatabaseConnectionError(f"Database error: {e!s}", {"photo_id": photo_id})
 
             if not photo:
                 logger.error(f"Photo {photo_id} not found")
@@ -138,20 +134,20 @@ async def _process_photo_async(photo_id: str) -> dict:
                 if photo.storage_path:
                     try:
                         image_data = await file_storage.get_file(photo.storage_path)
-                    except (IOError, OSError, PermissionError) as e:
+                    except (OSError, PermissionError) as e:
                         logger.error(f"Storage error loading photo {photo_id}: {e}")
                         raise StorageError(
-                            f"Failed to load from storage: {str(e)}", {"photo_id": photo_id}
+                            f"Failed to load from storage: {e!s}", {"photo_id": photo_id}
                         )
                 elif photo.source_path:
                     try:
                         # For local connector, read from source path
                         with open(photo.source_path, "rb") as f:
                             image_data = f.read()
-                    except (IOError, OSError, PermissionError, FileNotFoundError) as e:
+                    except (OSError, PermissionError, FileNotFoundError) as e:
                         logger.error(f"File error loading photo {photo_id}: {e}")
                         raise StorageError(
-                            f"Failed to load from source: {str(e)}", {"photo_id": photo_id}
+                            f"Failed to load from source: {e!s}", {"photo_id": photo_id}
                         )
                 else:
                     raise InvalidDataError("No image path available", {"photo_id": photo_id})
@@ -169,7 +165,7 @@ async def _process_photo_async(photo_id: str) -> dict:
                 except Exception as e:
                     logger.error(f"Error generating thumbnail for {photo_id}: {e}")
                     raise ProcessingError(
-                        f"Thumbnail generation failed: {str(e)}", {"photo_id": photo_id}
+                        f"Thumbnail generation failed: {e!s}", {"photo_id": photo_id}
                     )
 
                 # Generate CLIP embedding
@@ -187,7 +183,7 @@ async def _process_photo_async(photo_id: str) -> dict:
                     logger.error(f"Error generating embedding for {photo_id}: {e}")
                     # Embedding failure might be transient (vector store down)
                     raise TransientError(
-                        f"Embedding generation failed: {str(e)}", {"photo_id": photo_id}
+                        f"Embedding generation failed: {e!s}", {"photo_id": photo_id}
                     )
 
                 # Basic image analysis
@@ -232,12 +228,12 @@ async def _process_photo_async(photo_id: str) -> dict:
                 except Exception as save_err:
                     logger.error(f"Failed to save error status for photo {photo_id}: {save_err}")
                 raise ProcessingError(
-                    f"Unexpected processing error: {str(e)}", {"photo_id": photo_id}
+                    f"Unexpected processing error: {e!s}", {"photo_id": photo_id}
                 )
 
     except (OperationalError, DBAPIError) as e:
         logger.error(f"Database error during photo processing {photo_id}: {e}")
-        raise DatabaseConnectionError(f"Database error: {str(e)}", {"photo_id": photo_id})
+        raise DatabaseConnectionError(f"Database error: {e!s}", {"photo_id": photo_id})
 
 
 @celery_app.task(
@@ -284,7 +280,7 @@ def detect_faces_task(self, photo_id: str) -> dict:
             f"Unexpected error detecting faces in {photo_id}",
             extra={"photo_id": photo_id},
         )
-        raise PermanentError(f"Unexpected error: {str(e)}", {"photo_id": photo_id})
+        raise PermanentError(f"Unexpected error: {e!s}", {"photo_id": photo_id})
 
 
 async def _detect_faces_async(photo_id: str) -> dict:
@@ -301,7 +297,7 @@ async def _detect_faces_async(photo_id: str) -> dict:
         file_storage = LocalFileStorage()
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}", exc_info=True)
-        raise TransientError(f"Service initialization failed: {str(e)}", {"photo_id": photo_id})
+        raise TransientError(f"Service initialization failed: {e!s}", {"photo_id": photo_id})
 
     try:
         async with get_worker_session_context() as session:
@@ -313,7 +309,7 @@ async def _detect_faces_async(photo_id: str) -> dict:
                 photo = await photo_repo.find_by_id(photo_uuid)
             except (OperationalError, DBAPIError) as e:
                 logger.error(f"Database error fetching photo {photo_id}: {e}")
-                raise DatabaseConnectionError(f"Database error: {str(e)}", {"photo_id": photo_id})
+                raise DatabaseConnectionError(f"Database error: {e!s}", {"photo_id": photo_id})
 
             if not photo:
                 raise ResourceNotFoundError("Photo not found", {"photo_id": photo_id})
@@ -324,19 +320,19 @@ async def _detect_faces_async(photo_id: str) -> dict:
                 if photo.storage_path:
                     try:
                         image_data = await file_storage.get_file(photo.storage_path)
-                    except (IOError, OSError, PermissionError) as e:
+                    except (OSError, PermissionError) as e:
                         logger.error(f"Storage error loading photo {photo_id}: {e}")
                         raise StorageError(
-                            f"Failed to load from storage: {str(e)}", {"photo_id": photo_id}
+                            f"Failed to load from storage: {e!s}", {"photo_id": photo_id}
                         )
                 elif photo.source_path:
                     try:
                         with open(photo.source_path, "rb") as f:
                             image_data = f.read()
-                    except (IOError, OSError, PermissionError, FileNotFoundError) as e:
+                    except (OSError, PermissionError, FileNotFoundError) as e:
                         logger.error(f"File error loading photo {photo_id}: {e}")
                         raise StorageError(
-                            f"Failed to load from source: {str(e)}", {"photo_id": photo_id}
+                            f"Failed to load from source: {e!s}", {"photo_id": photo_id}
                         )
                 else:
                     raise InvalidDataError("No image path available", {"photo_id": photo_id})
@@ -350,7 +346,7 @@ async def _detect_faces_async(photo_id: str) -> dict:
                 except Exception as e:
                     logger.error(f"Face detection failed for {photo_id}: {e}")
                     raise ProcessingError(
-                        f"Face detection failed: {str(e)}", {"photo_id": photo_id}
+                        f"Face detection failed: {e!s}", {"photo_id": photo_id}
                     )
 
                 face_ids = []
@@ -409,12 +405,12 @@ async def _detect_faces_async(photo_id: str) -> dict:
             except Exception as e:
                 logger.exception(f"Unexpected error detecting faces in {photo_id}: {e}")
                 raise ProcessingError(
-                    f"Unexpected face detection error: {str(e)}", {"photo_id": photo_id}
+                    f"Unexpected face detection error: {e!s}", {"photo_id": photo_id}
                 )
 
     except (OperationalError, DBAPIError) as e:
         logger.error(f"Database error during face detection {photo_id}: {e}")
-        raise DatabaseConnectionError(f"Database error: {str(e)}", {"photo_id": photo_id})
+        raise DatabaseConnectionError(f"Database error: {e!s}", {"photo_id": photo_id})
 
 
 @celery_app.task(bind=True, name="photo_processing.reprocess_photo")
@@ -483,7 +479,7 @@ def generate_embedding_from_thumbnail_task(self, photo_id: str) -> dict:
         logger.exception(
             f"Unexpected error generating embedding for {photo_id}", extra={"photo_id": photo_id}
         )
-        raise PermanentError(f"Unexpected error: {str(e)}", {"photo_id": photo_id})
+        raise PermanentError(f"Unexpected error: {e!s}", {"photo_id": photo_id})
 
 
 async def _generate_embedding_from_thumbnail_async(photo_id: str) -> dict:

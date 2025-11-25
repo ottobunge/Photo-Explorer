@@ -39,7 +39,7 @@ async def register_folder(
     # For now, return a deprecation message
     raise HTTPException(
         status_code=410,
-        detail="This endpoint is deprecated. Use POST /api/v1/connectors/local instead."
+        detail="This endpoint is deprecated. Use POST /api/v1/connectors/local instead.",
     )
 
 
@@ -53,8 +53,7 @@ async def list_folders(
     """
     # GitHub Issue: Implement folder listing or remove deprecated API
     raise HTTPException(
-        status_code=410,
-        detail="This endpoint is deprecated. Use GET /api/v1/connectors instead."
+        status_code=410, detail="This endpoint is deprecated. Use GET /api/v1/connectors instead."
     )
 
 
@@ -70,7 +69,7 @@ async def get_folder(
     # GitHub Issue: Implement folder retrieval or remove deprecated API
     raise HTTPException(
         status_code=410,
-        detail="This endpoint is deprecated. Use GET /api/v1/connectors/{connector_id} instead."
+        detail="This endpoint is deprecated. Use GET /api/v1/connectors/{connector_id} instead.",
     )
 
 
@@ -86,7 +85,7 @@ async def trigger_scan(
     # GitHub Issue: Implement folder scan or remove deprecated API
     raise HTTPException(
         status_code=410,
-        detail="This endpoint is deprecated. Use POST /api/v1/connectors/{connector_id}/sync instead."
+        detail="This endpoint is deprecated. Use POST /api/v1/connectors/{connector_id}/sync instead.",
     )
 
 
@@ -103,5 +102,5 @@ async def remove_folder(
     # GitHub Issue: Implement folder removal or remove deprecated API
     raise HTTPException(
         status_code=410,
-        detail="This endpoint is deprecated. Use DELETE /api/v1/connectors/{connector_id} instead."
+        detail="This endpoint is deprecated. Use DELETE /api/v1/connectors/{connector_id} instead.",
     )

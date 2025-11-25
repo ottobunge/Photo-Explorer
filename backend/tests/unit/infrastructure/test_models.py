@@ -1,22 +1,19 @@
 """Tests for model configuration and utilities."""
 
-import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 from app.infrastructure.models.config import (
-    ModelConfig,
     CLIPConfig,
     FaceConfig,
+    ModelConfig,
     get_model_config,
     reset_model_config,
 )
 from app.infrastructure.models.downloader import (
-    ModelDownloader,
     CLIP_MODELS,
     INSIGHTFACE_MODELS,
+    ModelDownloader,
 )
 
 

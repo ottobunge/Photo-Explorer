@@ -70,8 +70,7 @@ class PhotoRepositoryPostgres(PhotoRepository):
             # Insert associations directly into the association table (batch operation)
             if existing_album_ids:
                 values = [
-                    {"photo_id": model.id, "album_id": album_id}
-                    for album_id in existing_album_ids
+                    {"photo_id": model.id, "album_id": album_id} for album_id in existing_album_ids
                 ]
                 await self._session.execute(insert(photo_album_association).values(values))
 

@@ -209,11 +209,7 @@ class FaceRepositoryPostgres(FaceRepository):
 
     async def find_unclustered_faces(self, limit: int = 100) -> list[Face]:
         """Find faces that haven't been assigned to a cluster yet."""
-        stmt = (
-            select(FaceModel)
-            .where(FaceModel.cluster_id.is_(None))
-            .limit(limit)
-        )
+        stmt = select(FaceModel).where(FaceModel.cluster_id.is_(None)).limit(limit)
         result = await self._session.execute(stmt)
         models = result.scalars().all()
 

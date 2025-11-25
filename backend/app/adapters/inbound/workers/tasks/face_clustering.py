@@ -2,10 +2,8 @@
 
 import asyncio
 import logging
-from collections import defaultdict
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from celery import shared_task
 from sqlalchemy.exc import OperationalError
 
 from app.adapters.inbound.workers.celery_app import celery_app
@@ -16,7 +14,6 @@ from app.adapters.outbound.persistence.postgres import (
 from app.adapters.outbound.persistence.postgres.database import get_worker_session_context
 from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
 from app.domain.entities import FaceCluster
-from app.domain.value_objects import FaceClusterId
 
 logger = logging.getLogger(__name__)
 

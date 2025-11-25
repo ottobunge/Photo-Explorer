@@ -6,11 +6,13 @@ Create Date: 2025-01-01 00:00:00.000000
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0001"
@@ -47,8 +49,12 @@ def upgrade() -> None:
         sa.Column(
             "status",
             postgresql.ENUM(
-                "disconnected", "connected", "syncing", "error",
-                name="connectorstatus", create_type=False
+                "disconnected",
+                "connected",
+                "syncing",
+                "error",
+                name="connectorstatus",
+                create_type=False,
             ),
             nullable=False,
             server_default="disconnected",
@@ -129,7 +135,9 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_photos_external_id"), "photos", ["external_id"], unique=False)
     op.create_index(op.f("ix_photos_taken_at"), "photos", ["taken_at"], unique=False)
-    op.create_index(op.f("ix_photos_processing_status"), "photos", ["processing_status"], unique=False)
+    op.create_index(
+        op.f("ix_photos_processing_status"), "photos", ["processing_status"], unique=False
+    )
 
     # Add foreign key for album cover_photo_id (now that photos exists)
     op.create_foreign_key(

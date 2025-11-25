@@ -7,7 +7,7 @@ Provides different rate limits for general endpoints vs upload endpoints.
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -95,8 +95,10 @@ def rate_limit(limit: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]
     Returns:
         Decorator function that applies the rate limit
     """
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         # Store the limit as function metadata for slowapi to pick up
         func.__rate_limit__ = limit  # type: ignore[attr-defined]
         return func
+
     return decorator

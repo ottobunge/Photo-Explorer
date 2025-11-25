@@ -1,13 +1,14 @@
 """Unit tests for ConnectorService following TDD approach."""
-import pytest
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
-from app.application.services.connector_service import ConnectorService
-from app.domain.entities.connector import Connector, ConnectorType, ConnectorStatus
+import pytest
+
 from app.application.ports.outbound import ConnectorRepository, PhotoRepository
+from app.application.services.connector_service import ConnectorService
+from app.domain.entities.connector import Connector, ConnectorStatus, ConnectorType
 from app.domain.value_objects import ConnectorId
 
 
@@ -29,8 +30,8 @@ class TestConnectorServiceCreateLocal:
     def service(self, mock_connector_repo, mock_photo_repo):
         return ConnectorService(mock_connector_repo, mock_photo_repo)
 
-    @patch('app.application.services.connector_service.get_settings')
-    @patch('app.application.services.connector_service.Path')
+    @patch("app.application.services.connector_service.get_settings")
+    @patch("app.application.services.connector_service.Path")
     async def test_create_local_connector_success(
         self, mock_path_class, mock_get_settings, service, mock_connector_repo
     ):
@@ -60,7 +61,7 @@ class TestConnectorServiceCreateLocal:
             config={"path": test_path},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.save.return_value = expected_connector
         mock_connector_repo.find_by_path.return_value = None
@@ -75,8 +76,8 @@ class TestConnectorServiceCreateLocal:
         mock_connector_repo.save.assert_called_once()
         mock_settings.is_path_allowed.assert_called_once_with(test_path)
 
-    @patch('app.application.services.connector_service.get_settings')
-    @patch('app.application.services.connector_service.Path')
+    @patch("app.application.services.connector_service.get_settings")
+    @patch("app.application.services.connector_service.Path")
     async def test_create_local_validates_path_exists(
         self, mock_path_class, mock_get_settings, service
     ):
@@ -99,8 +100,8 @@ class TestConnectorServiceCreateLocal:
         with pytest.raises(ValueError, match="Path does not exist"):
             await service.create_local_connector(test_path)
 
-    @patch('app.application.services.connector_service.get_settings')
-    @patch('app.application.services.connector_service.Path')
+    @patch("app.application.services.connector_service.get_settings")
+    @patch("app.application.services.connector_service.Path")
     async def test_create_local_prevents_duplicate_paths(
         self, mock_path_class, mock_get_settings, service, mock_connector_repo
     ):
@@ -129,7 +130,7 @@ class TestConnectorServiceCreateLocal:
             config={"path": test_path},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_path.return_value = existing_connector
 
@@ -137,8 +138,8 @@ class TestConnectorServiceCreateLocal:
         with pytest.raises(ValueError, match="already exists"):
             await service.create_local_connector(test_path)
 
-    @patch('app.application.services.connector_service.get_settings')
-    @patch('app.application.services.connector_service.Path')
+    @patch("app.application.services.connector_service.get_settings")
+    @patch("app.application.services.connector_service.Path")
     async def test_create_local_generates_default_name(
         self, mock_path_class, mock_get_settings, service, mock_connector_repo
     ):
@@ -169,7 +170,7 @@ class TestConnectorServiceCreateLocal:
             config={"path": test_path},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.save.return_value = expected_connector
 
@@ -180,10 +181,8 @@ class TestConnectorServiceCreateLocal:
         assert result.name == "photos"
         mock_connector_repo.save.assert_called_once()
 
-    @patch('app.application.services.connector_service.get_settings')
-    async def test_create_local_validates_allowed_base_paths(
-        self, mock_get_settings, service
-    ):
+    @patch("app.application.services.connector_service.get_settings")
+    async def test_create_local_validates_allowed_base_paths(self, mock_get_settings, service):
         """Test security validation of allowed base paths."""
         # Arrange
         test_path = "/etc/passwd"
@@ -192,7 +191,7 @@ class TestConnectorServiceCreateLocal:
         mock_settings = Mock()
         mock_settings.is_path_allowed.return_value = (
             False,
-            "Path is not within allowed directories"
+            "Path is not within allowed directories",
         )
         mock_get_settings.return_value = mock_settings
 
@@ -200,8 +199,8 @@ class TestConnectorServiceCreateLocal:
         with pytest.raises(ValueError, match="not within allowed directories"):
             await service.create_local_connector(test_path)
 
-    @patch('app.application.services.connector_service.get_settings')
-    @patch('app.application.services.connector_service.Path')
+    @patch("app.application.services.connector_service.get_settings")
+    @patch("app.application.services.connector_service.Path")
     async def test_create_local_resolves_symlinks(
         self, mock_path_class, mock_get_settings, service, mock_connector_repo
     ):
@@ -234,7 +233,7 @@ class TestConnectorServiceCreateLocal:
             config={"path": real_path},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.save.return_value = expected_connector
 
@@ -275,7 +274,7 @@ class TestConnectorServiceUpdate:
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
         mock_connector_repo.save.return_value = existing_connector
@@ -287,9 +286,7 @@ class TestConnectorServiceUpdate:
         assert result.name == "New Name"
         mock_connector_repo.save.assert_called_once()
 
-    async def test_update_connector_uses_enable_disable_methods(
-        self, service, mock_connector_repo
-    ):
+    async def test_update_connector_uses_enable_disable_methods(self, service, mock_connector_repo):
         """Test that update uses domain enable/disable methods."""
         # Arrange
         connector_id = uuid4()
@@ -301,7 +298,7 @@ class TestConnectorServiceUpdate:
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
         mock_connector_repo.save.return_value = existing_connector
@@ -326,9 +323,7 @@ class TestConnectorServiceUpdate:
         # Assert
         existing_connector.enable.assert_called_once()
 
-    async def test_update_connector_uses_update_config_method(
-        self, service, mock_connector_repo
-    ):
+    async def test_update_connector_uses_update_config_method(self, service, mock_connector_repo):
         """Test that update uses domain update_config method."""
         # Arrange
         connector_id = uuid4()
@@ -339,7 +334,7 @@ class TestConnectorServiceUpdate:
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
         mock_connector_repo.save.return_value = existing_connector
@@ -398,7 +393,7 @@ class TestConnectorServiceDelete:
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
 
@@ -423,7 +418,7 @@ class TestConnectorServiceDelete:
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
         mock_photo_repo.delete_bulk_by_connector.return_value = 42
@@ -449,7 +444,7 @@ class TestConnectorServiceDelete:
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
         mock_photo_repo.delete_bulk_by_connector.return_value = 10
@@ -475,7 +470,7 @@ class TestConnectorServiceDelete:
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
 
@@ -502,7 +497,7 @@ class TestConnectorServiceValidation:
     def service(self, mock_connector_repo, mock_photo_repo):
         return ConnectorService(mock_connector_repo, mock_photo_repo)
 
-    @patch('app.application.services.connector_service.get_settings')
+    @patch("app.application.services.connector_service.get_settings")
     async def test_validate_path_allowed_base_paths(self, mock_get_settings, service):
         """Test validation respects allowed base paths."""
         # Arrange
@@ -512,7 +507,7 @@ class TestConnectorServiceValidation:
         mock_settings = Mock()
         mock_settings.is_path_allowed.return_value = (
             False,
-            "Path is not within allowed directories"
+            "Path is not within allowed directories",
         )
         mock_get_settings.return_value = mock_settings
 
@@ -520,7 +515,7 @@ class TestConnectorServiceValidation:
         with pytest.raises(ValueError, match="not within allowed directories"):
             await service.create_local_connector(test_path)
 
-    @patch('app.application.services.connector_service.get_settings')
+    @patch("app.application.services.connector_service.get_settings")
     async def test_validate_path_blocks_etc_passwd(self, mock_get_settings, service):
         """Test that /etc/passwd and similar system paths are blocked."""
         # Arrange
@@ -530,7 +525,7 @@ class TestConnectorServiceValidation:
         mock_settings = Mock()
         mock_settings.is_path_allowed.return_value = (
             False,
-            "Path is not within allowed directories"
+            "Path is not within allowed directories",
         )
         mock_get_settings.return_value = mock_settings
 
@@ -538,8 +533,8 @@ class TestConnectorServiceValidation:
         with pytest.raises(ValueError, match="not within allowed directories"):
             await service.create_local_connector(test_path)
 
-    @patch('app.application.services.connector_service.get_settings')
-    @patch('app.application.services.connector_service.Path')
+    @patch("app.application.services.connector_service.get_settings")
+    @patch("app.application.services.connector_service.Path")
     async def test_validate_path_blocks_parent_traversal(
         self, mock_path_class, mock_get_settings, service
     ):
@@ -551,7 +546,7 @@ class TestConnectorServiceValidation:
         mock_settings = Mock()
         mock_settings.is_path_allowed.return_value = (
             False,
-            "Path is not within allowed directories"
+            "Path is not within allowed directories",
         )
         mock_get_settings.return_value = mock_settings
 
@@ -595,7 +590,7 @@ class TestConnectorServiceGetters:
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = expected_connector
 
@@ -617,7 +612,7 @@ class TestConnectorServiceGetters:
                 config={"path": "/path1"},
                 status=ConnectorStatus.CONNECTED,
                 enabled=True,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             ),
             Connector(
                 id=ConnectorId(uuid4()),
@@ -626,8 +621,8 @@ class TestConnectorServiceGetters:
                 config={},
                 status=ConnectorStatus.CONNECTED,
                 enabled=True,
-                created_at=datetime.utcnow()
-            )
+                created_at=datetime.utcnow(),
+            ),
         ]
         mock_connector_repo.find_all.return_value = expected_connectors
 
@@ -667,7 +662,7 @@ class TestConnectorServiceGooglePhotos:
             config={},
             status=ConnectorStatus.DISCONNECTED,
             enabled=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         mock_connector_repo.save.return_value = expected_connector
 

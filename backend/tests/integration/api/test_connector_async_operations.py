@@ -10,9 +10,8 @@ Following TDD approach:
 3. VERIFY: Ensure Celery tasks are queued
 """
 
-import pytest
-from uuid import uuid4
 
+import pytest
 from httpx import AsyncClient
 
 from app.domain.entities.connector import Connector, ConnectorStatus
@@ -22,9 +21,7 @@ class TestAsyncEndpointStatusCodes:
     """Tests for async endpoint HTTP status codes."""
 
     @pytest.mark.asyncio
-    async def test_reprocess_returns_202_accepted(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_reprocess_returns_202_accepted(self, client: AsyncClient, connector_repo):
         """Reprocess endpoint should return 202 Accepted (async operation)."""
         # Given: connector with photos
         connector = Connector.create_upload(upload_path="/uploads")
@@ -37,9 +34,7 @@ class TestAsyncEndpointStatusCodes:
         assert response.status_code == 202
 
     @pytest.mark.asyncio
-    async def test_sync_returns_202_accepted(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_sync_returns_202_accepted(self, client: AsyncClient, connector_repo):
         """Sync endpoint should return 202 Accepted (async operation)."""
         # Given: local connector
         connector = Connector.create_local(path="/photos", name="Test")
@@ -52,9 +47,7 @@ class TestAsyncEndpointStatusCodes:
         assert response.status_code == 202
 
     @pytest.mark.asyncio
-    async def test_reprocess_response_includes_task_info(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_reprocess_response_includes_task_info(self, client: AsyncClient, connector_repo):
         """Reprocess response should include task information."""
         # Given: connector
         connector = Connector.create_local(path="/photos", name="Test")
@@ -75,9 +68,7 @@ class TestAsyncEndpointStatusCodes:
         assert data["task_id"] is not None
 
     @pytest.mark.asyncio
-    async def test_sync_response_includes_task_id(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_sync_response_includes_task_id(self, client: AsyncClient, connector_repo):
         """Sync response should include task ID."""
         # Given: Google Photos connector
         connector = Connector.create_google_photos(name="Google Photos")
@@ -118,9 +109,7 @@ class TestAsyncEndpointStatusCodes:
         assert "upload" in data["error"]["message"].lower()
 
     @pytest.mark.asyncio
-    async def test_reprocess_queues_celery_task(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_reprocess_queues_celery_task(self, client: AsyncClient, connector_repo):
         """Reprocess should queue a Celery task."""
         # Given: connector
         connector = Connector.create_upload(upload_path="/uploads")
@@ -140,9 +129,7 @@ class TestAsyncEndpointStatusCodes:
         assert len(task_id) > 0
 
     @pytest.mark.asyncio
-    async def test_sync_queues_celery_task(
-        self, client: AsyncClient, connector_repo
-    ):
+    async def test_sync_queues_celery_task(self, client: AsyncClient, connector_repo):
         """Sync should queue appropriate Celery task based on connector type."""
         # Given: local connector
         connector = Connector.create_local(path="/photos", name="Local")

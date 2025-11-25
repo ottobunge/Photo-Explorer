@@ -1,10 +1,10 @@
 """Google Photos connector adapter."""
 
-import asyncio
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import AsyncIterator, Optional
+from typing import Optional
 
 import httpx
 
@@ -603,10 +603,7 @@ class GooglePhotosClient(PhotoSource):
 
         data = await self._make_request("GET", "mediaItems", params=params)
 
-        photos = [
-            self._parse_media_item(item)
-            for item in data.get("mediaItems", [])
-        ]
+        photos = [self._parse_media_item(item) for item in data.get("mediaItems", [])]
         next_token = data.get("nextPageToken")
 
         return photos, next_token

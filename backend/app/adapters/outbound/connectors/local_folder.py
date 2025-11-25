@@ -4,25 +4,37 @@ import asyncio
 import hashlib
 import logging
 import os
+from collections.abc import AsyncIterator
 from datetime import datetime
 from pathlib import Path
-from typing import AsyncIterator, Optional
+from typing import Optional
 
 import aiofiles
 import aiofiles.os
-from PIL import Image
 import exifread
+from PIL import Image
 
-from app.domain.entities import Connector, Photo
+from app.domain.entities import Connector
 from app.domain.entities.connector import ConnectorType
-from app.domain.value_objects import ExifData, GpsCoordinates, PhotoId
 
 logger = logging.getLogger(__name__)
 
 # Supported image extensions
 SUPPORTED_EXTENSIONS = {
-    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
-    ".heic", ".heif", ".tiff", ".tif", ".raw", ".cr2", ".nef", ".arw"
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".webp",
+    ".heic",
+    ".heif",
+    ".tiff",
+    ".tif",
+    ".raw",
+    ".cr2",
+    ".nef",
+    ".arw",
 }
 
 
@@ -97,7 +109,7 @@ class LocalFolderScanner:
 
         # Determine subfolder for auto-album
         subfolder = None
-        if self.auto_album and relative_path.parent != Path("."):
+        if self.auto_album and relative_path.parent != Path():
             subfolder = str(relative_path.parent)
 
         metadata = {
@@ -147,6 +159,7 @@ class LocalFolderScanner:
 
     async def _extract_exif(self, file_path: Path) -> Optional[dict]:
         """Extract EXIF data from an image file."""
+
         def _read_exif(path: Path) -> Optional[dict]:
             with open(path, "rb") as f:
                 tags = exifread.process_file(f, details=False)
@@ -212,12 +225,10 @@ class LocalFolderScanner:
             if "GPS GPSLatitude" in tags and "GPS GPSLongitude" in tags:
                 try:
                     lat = self._convert_gps_to_decimal(
-                        tags["GPS GPSLatitude"].values,
-                        str(tags.get("GPS GPSLatitudeRef", "N"))
+                        tags["GPS GPSLatitude"].values, str(tags.get("GPS GPSLatitudeRef", "N"))
                     )
                     lon = self._convert_gps_to_decimal(
-                        tags["GPS GPSLongitude"].values,
-                        str(tags.get("GPS GPSLongitudeRef", "E"))
+                        tags["GPS GPSLongitude"].values, str(tags.get("GPS GPSLongitudeRef", "E"))
                     )
                     result["gps_latitude"] = lat
                     result["gps_longitude"] = lon
@@ -251,6 +262,7 @@ class LocalFolderScanner:
 
     async def _get_image_dimensions(self, file_path: Path) -> Optional[tuple[int, int]]:
         """Get image dimensions using PIL."""
+
         def _read_dimensions(path: Path) -> Optional[tuple[int, int]]:
             try:
                 with Image.open(path) as img:
@@ -312,10 +324,7 @@ class LocalFolderScanner:
                 new_files.append(metadata)
 
         # Find deleted files
-        deleted_paths = [
-            path for path in known_files.keys()
-            if path not in current_paths
-        ]
+        deleted_paths = [path for path in known_files.keys() if path not in current_paths]
 
         return new_files, modified_paths, deleted_paths
 

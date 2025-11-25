@@ -1,6 +1,5 @@
 """Integration tests for Photo API endpoints."""
 
-import pytest
 
 
 class TestPhotoUploadAPI:

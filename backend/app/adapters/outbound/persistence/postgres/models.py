@@ -1,12 +1,12 @@
 """SQLAlchemy ORM models for PostgreSQL."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Column,
     DateTime,
     Enum,
     Float,
@@ -15,21 +15,16 @@ from sqlalchemy import (
     Integer,
     String,
     Table,
-    Column,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.domain.entities.connector import ConnectorStatus, ConnectorType
 
-if TYPE_CHECKING:
-    pass
-
 
 class Base(DeclarativeBase):
     """Base class for all ORM models."""
 
-    pass
 
 
 # Association table for Photo <-> Album many-to-many relationship

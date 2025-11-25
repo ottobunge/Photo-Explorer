@@ -5,11 +5,10 @@ Revises: 0003
 Create Date: 2025-11-24 22:58:39.870543+00:00
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 from alembic import op
-import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic.
 revision: str = "b9337dd07fed"
@@ -47,4 +46,3 @@ def downgrade() -> None:
     """
     # PostgreSQL doesn't support removing enum values
     # Would need to recreate the enum type, which is complex
-    pass

@@ -44,7 +44,6 @@ class SettingsUseCases(ABC):
         Returns:
             AppSettings object
         """
-        pass
 
     @abstractmethod
     async def update_settings(
@@ -60,7 +59,6 @@ class SettingsUseCases(ABC):
         Returns:
             Updated AppSettings object
         """
-        pass
 
     @abstractmethod
     async def get_connector_settings(self, connector_type: str) -> Optional[ConnectorSettings]:
@@ -73,7 +71,6 @@ class SettingsUseCases(ABC):
         Returns:
             ConnectorSettings or None if not found
         """
-        pass
 
     @abstractmethod
     async def save_connector_settings(
@@ -91,7 +88,6 @@ class SettingsUseCases(ABC):
         Returns:
             Saved ConnectorSettings
         """
-        pass
 
     @abstractmethod
     async def get_storage_stats(self) -> dict:
@@ -101,4 +97,3 @@ class SettingsUseCases(ABC):
         Returns:
             Dictionary with storage stats (photos, thumbnails, cache, etc.)
         """
-        pass

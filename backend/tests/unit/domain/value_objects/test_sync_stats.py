@@ -1,7 +1,9 @@
 """Unit tests for SyncStats value object."""
 
+from datetime import datetime
+
 import pytest
-from datetime import datetime, timedelta
+
 from app.domain.value_objects.sync_stats import SyncStats
 
 

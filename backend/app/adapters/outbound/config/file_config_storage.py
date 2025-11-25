@@ -50,7 +50,7 @@ class FileConfigStorage(ConfigStorage):
             return None
 
         try:
-            with open(path, "r") as f:
+            with open(path) as f:
                 return yaml.safe_load(f) or {}
         except Exception:
             return None
@@ -130,7 +130,7 @@ class SecureTokenStorage:
             return None
 
         try:
-            with open(path, "r") as f:
+            with open(path) as f:
                 return json.load(f)
         except Exception:
             return None

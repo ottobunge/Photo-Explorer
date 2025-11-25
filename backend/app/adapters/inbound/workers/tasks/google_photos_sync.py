@@ -4,22 +4,18 @@ import asyncio
 import logging
 import os
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 import httpx
-from sqlalchemy.exc import DBAPIError, OperationalError
+from sqlalchemy.exc import OperationalError
 
 from app.adapters.inbound.workers.celery_app import celery_app
 from app.adapters.inbound.workers.exceptions import (
     AuthenticationError,
-    DatabaseConnectionError,
     InvalidDataError,
     NetworkError,
     PermanentError,
     RateLimitError,
-    ResourceNotFoundError,
-    ServiceUnavailableError,
     TokenRefreshError,
     TransientError,
 )
@@ -28,13 +24,12 @@ from app.adapters.outbound.connectors.google_photos import (
     GooglePhotosPickerClient,
 )
 from app.adapters.outbound.ml import get_ml_services
-from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
-from app.adapters.outbound.storage import LocalFileStorage
 from app.adapters.outbound.persistence.postgres import (
     ConnectorRepositoryPostgres,
     PhotoRepositoryPostgres,
 )
-from app.adapters.outbound.storage import SecureTokenStorage
+from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
+from app.adapters.outbound.storage import LocalFileStorage, SecureTokenStorage
 from app.domain.entities import Photo
 from app.domain.entities.connector import ConnectorStatus, ConnectorType, SyncStats
 
@@ -142,7 +137,7 @@ def sync_google_photos_task(self, connector_id: str) -> dict:
             f"Unexpected error syncing Google Photos {connector_id}",
             extra={"connector_id": connector_id},
         )
-        raise PermanentError(f"Unexpected sync error: {str(e)}", {"connector_id": connector_id})
+        raise PermanentError(f"Unexpected sync error: {e!s}", {"connector_id": connector_id})
 
 
 async def _sync_google_photos_async(connector_id: str) -> dict:

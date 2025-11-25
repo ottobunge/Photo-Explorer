@@ -4,21 +4,21 @@ This test demonstrates the performance improvement from fixing the N+1 query
 in album associations during photo save operations.
 """
 
-import pytest
 from datetime import datetime
 from uuid import uuid4
+
+import pytest
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 from app.adapters.outbound.persistence.postgres.models import (
-    PhotoModel,
     AlbumModel,
     ConnectorModel,
 )
 from app.adapters.outbound.persistence.postgres.repositories.photo_repository import (
     PhotoRepositoryPostgres,
 )
-from app.domain.entities.connector import ConnectorType, ConnectorStatus
+from app.domain.entities.connector import ConnectorStatus, ConnectorType
 from app.domain.entities.photo import Photo
 
 
@@ -131,36 +131,36 @@ async def test_n1_query_fix_performance_metrics(db_session, query_counter):
     print("\n" + "=" * 70)
     print("N+1 QUERY FIX - PERFORMANCE METRICS")
     print("=" * 70)
-    print(f"\nSaving photo with 5 albums:")
+    print("\nSaving photo with 5 albums:")
     print(f"  Query count: {queries_for_5_albums}")
-    print(f"  Expected (with fix): ≤ 8 queries")
-    print(f"  Expected (with N+1 bug): ~10-12 queries")
-    print(f"\nSaving photo with 10 albums:")
+    print("  Expected (with fix): ≤ 8 queries")
+    print("  Expected (with N+1 bug): ~10-12 queries")
+    print("\nSaving photo with 10 albums:")
     print(f"  Query count: {queries_for_10_albums}")
-    print(f"  Expected (with fix): ≤ 8 queries")
-    print(f"  Expected (with N+1 bug): ~15-17 queries")
-    print(f"\nQuery count difference (10 albums - 5 albums):")
+    print("  Expected (with fix): ≤ 8 queries")
+    print("  Expected (with N+1 bug): ~15-17 queries")
+    print("\nQuery count difference (10 albums - 5 albums):")
     print(f"  Actual: {queries_for_10_albums - queries_for_5_albums}")
-    print(f"  Expected (with fix): ~0 (constant time)")
-    print(f"  Expected (with N+1 bug): ~5 (linear scaling)")
+    print("  Expected (with fix): ~0 (constant time)")
+    print("  Expected (with N+1 bug): ~5 (linear scaling)")
     print("\n" + "=" * 70)
     print("PERFORMANCE IMPROVEMENT")
     print("=" * 70)
     if queries_for_10_albums <= 8:
         improvement_vs_n1 = ((15 - queries_for_10_albums) / 15) * 100
-        print(f"\nWith batch query optimization:")
-        print(f"  ✓ Query count stays constant regardless of album count")
+        print("\nWith batch query optimization:")
+        print("  ✓ Query count stays constant regardless of album count")
         print(f"  ✓ ~{improvement_vs_n1:.1f}% reduction in queries for 10 albums")
-        print(f"  ✓ Scales to hundreds of albums without performance degradation")
+        print("  ✓ Scales to hundreds of albums without performance degradation")
     print("=" * 70 + "\n")
 
     # Verify the fix works correctly
-    assert queries_for_5_albums <= 8, (
-        f"Query count for 5 albums should be ≤8, got {queries_for_5_albums}"
-    )
-    assert queries_for_10_albums <= 8, (
-        f"Query count for 10 albums should be ≤8, got {queries_for_10_albums}"
-    )
+    assert (
+        queries_for_5_albums <= 8
+    ), f"Query count for 5 albums should be ≤8, got {queries_for_5_albums}"
+    assert (
+        queries_for_10_albums <= 8
+    ), f"Query count for 10 albums should be ≤8, got {queries_for_10_albums}"
 
     # Verify query count doesn't scale with album count
     difference = abs(queries_for_10_albums - queries_for_5_albums)

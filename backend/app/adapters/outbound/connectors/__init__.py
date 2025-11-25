@@ -1,9 +1,5 @@
 """Connector adapters for external photo sources."""
 
-from app.adapters.outbound.connectors.local_folder import (
-    LocalFolderScanner,
-    SUPPORTED_EXTENSIONS,
-)
 from app.adapters.outbound.connectors.folder_watcher import (
     FolderWatcher,
     PhotoFileEventHandler,
@@ -13,8 +9,12 @@ from app.adapters.outbound.connectors.folder_watcher import (
 from app.adapters.outbound.connectors.google_photos import (
     GooglePhotosClient,
     GooglePhotosPickerClient,
-    PickerSession,
     PickerMediaItem,
+    PickerSession,
+)
+from app.adapters.outbound.connectors.local_folder import (
+    SUPPORTED_EXTENSIONS,
+    LocalFolderScanner,
 )
 
 __all__ = [

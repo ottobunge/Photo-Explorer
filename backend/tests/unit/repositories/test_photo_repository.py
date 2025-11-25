@@ -3,9 +3,10 @@
 Tests for bulk photo deletion following TDD approach.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
+
+import pytest
 
 from app.adapters.outbound.persistence.postgres.repositories.photo_repository import (
     PhotoRepositoryPostgres,
@@ -121,8 +122,7 @@ class TestPhotoRepositoryDeleteMany:
 
         # Then: should call execute exactly once (not N times)
         assert mock_session.execute.call_count == 1, (
-            "delete_many should use single DELETE query with IN clause, "
-            "not N individual queries"
+            "delete_many should use single DELETE query with IN clause, " "not N individual queries"
         )
 
         # Verify the DELETE statement uses IN clause
@@ -130,9 +130,9 @@ class TestPhotoRepositoryDeleteMany:
         stmt = str(execute_call[0][0])
 
         # Should be a DELETE statement
-        assert "DELETE" in stmt.upper() or "delete" in stmt.lower(), (
-            "Should execute a DELETE statement"
-        )
+        assert (
+            "DELETE" in stmt.upper() or "delete" in stmt.lower()
+        ), "Should execute a DELETE statement"
 
     @pytest.mark.asyncio
     async def test_delete_many_with_single_id(self):

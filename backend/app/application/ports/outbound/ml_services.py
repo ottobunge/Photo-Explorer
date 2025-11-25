@@ -51,7 +51,6 @@ class MLServices(ABC):
         Returns:
             CLIP embedding vector
         """
-        pass
 
     @abstractmethod
     async def encode_text(self, text: str) -> Embedding:
@@ -64,7 +63,6 @@ class MLServices(ABC):
         Returns:
             CLIP embedding vector
         """
-        pass
 
     # Vision LLM operations
 
@@ -81,7 +79,6 @@ class MLServices(ABC):
         Returns:
             ImageAnalysis with description and classifications
         """
-        pass
 
     @abstractmethod
     async def generate_description(self, image_data: bytes, prompt: Optional[str] = None) -> str:
@@ -95,7 +92,6 @@ class MLServices(ABC):
         Returns:
             Generated description string
         """
-        pass
 
     @abstractmethod
     async def answer_question(self, image_data: bytes, question: str) -> str:
@@ -109,7 +105,6 @@ class MLServices(ABC):
         Returns:
             Answer string
         """
-        pass
 
     @abstractmethod
     async def detect_objects(self, image_data: bytes) -> list[DetectedObjectInfo]:
@@ -122,7 +117,6 @@ class MLServices(ABC):
         Returns:
             List of detected objects with labels and bounding boxes
         """
-        pass
 
     @abstractmethod
     async def classify_scene(self, image_data: bytes) -> SceneClassification:
@@ -135,7 +129,6 @@ class MLServices(ABC):
         Returns:
             Scene classification result
         """
-        pass
 
     # Face detection operations
 
@@ -150,7 +143,6 @@ class MLServices(ABC):
         Returns:
             List of detected faces with embeddings
         """
-        pass
 
     @abstractmethod
     async def encode_face(self, face_image_data: bytes) -> Optional[Embedding]:
@@ -163,7 +155,6 @@ class MLServices(ABC):
         Returns:
             Face embedding vector or None if no face detected
         """
-        pass
 
     # Thumbnail generation
 
@@ -183,7 +174,6 @@ class MLServices(ABC):
         Returns:
             Thumbnail image bytes
         """
-        pass
 
     @abstractmethod
     async def crop_face(
@@ -203,4 +193,3 @@ class MLServices(ABC):
         Returns:
             Cropped face image bytes
         """
-        pass

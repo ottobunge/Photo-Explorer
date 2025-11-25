@@ -12,8 +12,8 @@ This module initializes the FastAPI application with:
 import asyncio
 import logging
 import signal
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,6 +37,7 @@ from app.middleware.error_handlers import setup_error_handlers
 # Keep backward compatibility with existing RequestTracingMiddleware if it exists
 try:
     from app.middleware import RequestTracingMiddleware
+
     USE_REQUEST_TRACING = True
 except ImportError:
     USE_REQUEST_TRACING = False
@@ -108,10 +109,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize default connectors
     try:
+        from app.adapters.outbound.persistence.postgres import get_async_session
         from app.adapters.outbound.persistence.postgres.repositories.connector_repository import (
             ConnectorRepositoryPostgres,
         )
-        from app.adapters.outbound.persistence.postgres import get_async_session
         from app.application.services.connector_initialization import (
             ensure_default_upload_connector,
         )
@@ -165,7 +166,7 @@ def create_app() -> FastAPI:
     tags_metadata = [
         {
             "name": "Health",
-            "description": "Health check endpoints for monitoring application status and readiness"
+            "description": "Health check endpoints for monitoring application status and readiness",
         },
         {
             "name": "Photos",
@@ -180,7 +181,7 @@ Photo management operations including upload, retrieval, and deletion.
 - Photo metadata and analysis
 - Original file and thumbnail delivery
 - Visual similarity search
-            """
+            """,
         },
         {
             "name": "Albums",
@@ -193,7 +194,7 @@ Album management for organizing photos into collections.
 - Set album cover photos
 - View album contents
 - Manual and automatic organization
-            """
+            """,
         },
         {
             "name": "Search",
@@ -207,7 +208,7 @@ Semantic search powered by CLIP (Contrastive Language-Image Pre-training).
 - Filter by connector or album
 - Performance metrics included
 - Multi-language support
-            """
+            """,
         },
         {
             "name": "Faces",
@@ -221,7 +222,7 @@ Face detection, recognition, and clustering.
 - Face crop thumbnails
 - Search photos by person
 - Cluster management (merge, split, move)
-            """
+            """,
         },
         {
             "name": "Connectors",
@@ -240,7 +241,7 @@ Photo source connectors for importing from multiple sources.
 - Photo reprocessing
 - Sync status and statistics
 - Secure token storage
-            """
+            """,
         },
         {
             "name": "Folders",
@@ -252,7 +253,7 @@ Local folder management with filesystem watching.
 - Automatic photo import on detection
 - Recursive directory scanning
 - Auto-album creation from folder structure
-            """
+            """,
         },
         {
             "name": "Settings",
@@ -264,7 +265,7 @@ Application settings and configuration management.
 - Configure allowed directories
 - ML model settings
 - Storage configuration
-            """
+            """,
         },
         {
             "name": "Models",
@@ -276,7 +277,7 @@ ML model management and status.
 - View model information
 - Download AI models on demand
 - Model version management
-            """
+            """,
         },
     ]
 
@@ -410,15 +411,9 @@ For issues, questions, or contributions, visit our GitHub repository.
     app.include_router(search.router, prefix=f"{api_prefix}/search", tags=["Search"])
     app.include_router(faces.router, prefix=f"{api_prefix}/faces", tags=["Faces"])
     app.include_router(folders.router, prefix=f"{api_prefix}/folders", tags=["Folders"])
-    app.include_router(
-        connectors.router, prefix=f"{api_prefix}/connectors", tags=["Connectors"]
-    )
-    app.include_router(
-        settings.router, prefix=f"{api_prefix}/settings", tags=["Settings"]
-    )
-    app.include_router(
-        models.router, prefix=f"{api_prefix}/models", tags=["Models"]
-    )
+    app.include_router(connectors.router, prefix=f"{api_prefix}/connectors", tags=["Connectors"])
+    app.include_router(settings.router, prefix=f"{api_prefix}/settings", tags=["Settings"])
+    app.include_router(models.router, prefix=f"{api_prefix}/models", tags=["Models"])
 
     logger.info("API routes registered")
 

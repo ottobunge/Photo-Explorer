@@ -1,6 +1,5 @@
 """Unit tests for Album entity."""
 
-from datetime import datetime
 from uuid import uuid4
 
 import pytest
@@ -51,6 +50,7 @@ class TestAlbumUpdate:
 
         # Small delay to ensure timestamp changes
         import time
+
         time.sleep(0.01)
 
         album.update(name="New Name")
@@ -202,6 +202,7 @@ class TestAlbumCoverPhoto:
         original_updated_at = album.updated_at
 
         import time
+
         time.sleep(0.01)
 
         album.set_cover(photo_id)

@@ -87,8 +87,8 @@ def _build_cluster_data(
                                     "photo_count": 32,
                                     "representative_face": {
                                         "id": "550e8400-e29b-41d4-a716-446655440000",
-                                        "crop_url": "/api/v1/faces/550e8400-e29b-41d4-a716-446655440000/crop"
-                                    }
+                                        "crop_url": "/api/v1/faces/550e8400-e29b-41d4-a716-446655440000/crop",
+                                    },
                                 },
                                 {
                                     "id": "223e4567-e89b-12d3-a456-426614174001",
@@ -97,18 +97,18 @@ def _build_cluster_data(
                                     "photo_count": 10,
                                     "representative_face": {
                                         "id": "650e8400-e29b-41d4-a716-446655440001",
-                                        "crop_url": "/api/v1/faces/650e8400-e29b-41d4-a716-446655440001/crop"
-                                    }
-                                }
+                                        "crop_url": "/api/v1/faces/650e8400-e29b-41d4-a716-446655440001/crop",
+                                    },
+                                },
                             ]
                         },
-                        "meta": {"page": 1, "per_page": 50, "total": 23}
+                        "meta": {"page": 1, "per_page": 50, "total": 23},
                     }
                 }
-            }
+            },
         }
     },
-    tags=["Faces"]
+    tags=["Faces"],
 )
 async def list_clusters(
     face_repo: FaceRepoDep,
@@ -189,23 +189,19 @@ async def list_clusters(
                             "photo_count": 32,
                             "representative_face": {
                                 "id": "550e8400-e29b-41d4-a716-446655440000",
-                                "crop_url": "/api/v1/faces/550e8400-e29b-41d4-a716-446655440000/crop"
-                            }
-                        }
+                                "crop_url": "/api/v1/faces/550e8400-e29b-41d4-a716-446655440000/crop",
+                            },
+                        },
                     }
                 }
-            }
+            },
         },
         404: {
             "description": "Cluster not found",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Cluster not found"}
-                }
-            }
-        }
+            "content": {"application/json": {"example": {"detail": "Cluster not found"}}},
+        },
     },
-    tags=["Faces"]
+    tags=["Faces"],
 )
 async def get_cluster(cluster_id: UUID, face_repo: FaceRepoDep) -> ClusterResponse:
     """Get a face cluster by ID."""
@@ -295,23 +291,19 @@ async def get_cluster_faces(
                             "photo_count": 32,
                             "representative_face": {
                                 "id": "550e8400-e29b-41d4-a716-446655440000",
-                                "crop_url": "/api/v1/faces/550e8400-e29b-41d4-a716-446655440000/crop"
-                            }
-                        }
+                                "crop_url": "/api/v1/faces/550e8400-e29b-41d4-a716-446655440000/crop",
+                            },
+                        },
                     }
                 }
-            }
+            },
         },
         404: {
             "description": "Cluster not found",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Cluster not found"}
-                }
-            }
-        }
+            "content": {"application/json": {"example": {"detail": "Cluster not found"}}},
+        },
     },
-    tags=["Faces"]
+    tags=["Faces"],
 )
 async def name_cluster(
     cluster_id: UUID,
@@ -360,9 +352,7 @@ async def merge_clusters(
         raise HTTPException(status_code=400, detail=error_msg)
 
     # Get photo count for response
-    photo_ids = await face_repo.find_photo_ids_by_cluster(
-        merged_cluster.id.value, limit=10000
-    )
+    photo_ids = await face_repo.find_photo_ids_by_cluster(merged_cluster.id.value, limit=10000)
     photo_count = len(photo_ids)
 
     cluster_data = _build_cluster_data(merged_cluster, photo_count)
@@ -389,9 +379,7 @@ async def split_face(
         raise HTTPException(status_code=400, detail=error_msg)
 
     # Get photo count for response (will be 1 for new single-face cluster)
-    photo_ids = await face_repo.find_photo_ids_by_cluster(
-        new_cluster.id.value, limit=10000
-    )
+    photo_ids = await face_repo.find_photo_ids_by_cluster(new_cluster.id.value, limit=10000)
     photo_count = len(photo_ids)
 
     cluster_data = _build_cluster_data(new_cluster, photo_count)
@@ -450,20 +438,13 @@ async def move_face(
     responses={
         200: {
             "description": "Face crop image (JPEG)",
-            "content": {
-                "image/jpeg": {
-                    "schema": {
-                        "type": "string",
-                        "format": "binary"
-                    }
-                }
-            },
+            "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}},
             "headers": {
                 "Cache-Control": {
                     "description": "Caching directive for 24 hours",
-                    "schema": {"type": "string", "example": "public, max-age=86400"}
+                    "schema": {"type": "string", "example": "public, max-age=86400"},
                 }
-            }
+            },
         },
         404: {
             "description": "Face or crop not found",
@@ -472,22 +453,22 @@ async def move_face(
                     "examples": {
                         "face_not_found": {
                             "summary": "Face doesn't exist",
-                            "value": {"detail": "Face not found"}
+                            "value": {"detail": "Face not found"},
                         },
                         "crop_not_available": {
                             "summary": "Crop not generated",
-                            "value": {"detail": "Face crop not available"}
+                            "value": {"detail": "Face crop not available"},
                         },
                         "file_missing": {
                             "summary": "File missing from storage",
-                            "value": {"detail": "Face crop file not found"}
-                        }
+                            "value": {"detail": "Face crop file not found"},
+                        },
                     }
                 }
-            }
-        }
+            },
+        },
     },
-    tags=["Faces"]
+    tags=["Faces"],
 )
 async def get_face_crop(
     face_id: UUID,
@@ -537,7 +518,7 @@ async def search_by_face(
             limit=20,
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Face search failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Face search failed: {e!s}")
 
     # Convert to response format
     photo_results = [

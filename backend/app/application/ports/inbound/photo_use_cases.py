@@ -30,7 +30,6 @@ class PhotoUseCases(ABC):
         Returns:
             The created Photo entity with processing status "pending"
         """
-        pass
 
     @abstractmethod
     async def get_photo(self, photo_id: UUID) -> Optional[Photo]:
@@ -43,7 +42,6 @@ class PhotoUseCases(ABC):
         Returns:
             The Photo entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def list_photos(
@@ -63,7 +61,6 @@ class PhotoUseCases(ABC):
         Returns:
             List of Photo entities
         """
-        pass
 
     @abstractmethod
     async def delete_photo(self, photo_id: UUID) -> bool:
@@ -76,7 +73,6 @@ class PhotoUseCases(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def get_photo_file(self, photo_id: UUID) -> Optional[tuple[bytes, str]]:
@@ -89,7 +85,6 @@ class PhotoUseCases(ABC):
         Returns:
             Tuple of (file_bytes, content_type) or None if not found
         """
-        pass
 
     @abstractmethod
     async def get_photo_thumbnail(self, photo_id: UUID) -> Optional[tuple[bytes, str]]:
@@ -102,4 +97,3 @@ class PhotoUseCases(ABC):
         Returns:
             Tuple of (file_bytes, content_type) or None if not found
         """
-        pass

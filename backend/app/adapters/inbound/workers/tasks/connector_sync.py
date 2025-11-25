@@ -15,14 +15,13 @@ from app.adapters.inbound.workers.tasks.photo_processing import (
 )
 from app.adapters.outbound.connectors.local_folder import LocalFolderScanner
 from app.adapters.outbound.persistence.postgres import (
+    AlbumRepositoryPostgres,
     ConnectorRepositoryPostgres,
     PhotoRepositoryPostgres,
-    AlbumRepositoryPostgres,
 )
 from app.adapters.outbound.persistence.postgres.database import get_worker_session_context
-from app.domain.entities import Album, Connector, Photo
-from app.domain.entities.connector import ConnectorStatus, ConnectorType, SyncStats
-from app.domain.value_objects import PhotoId
+from app.domain.entities import Album, Photo
+from app.domain.entities.connector import ConnectorType, SyncStats
 
 logger = logging.getLogger(__name__)
 

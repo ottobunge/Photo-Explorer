@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import pytest
-
 from app.domain.entities.connector import (
     Connector,
     ConnectorStatus,
@@ -177,6 +175,7 @@ class TestConnectorStatusManagement:
         original_updated_at = connector.updated_at
 
         import time
+
         time.sleep(0.01)
 
         connector.set_connected()
@@ -261,6 +260,7 @@ class TestConnectorConfiguration:
         original_updated_at = connector.updated_at
 
         import time
+
         time.sleep(0.01)
 
         connector.update_config({"key": "value"})
@@ -294,6 +294,7 @@ class TestConnectorEnableDisable:
         original_updated_at = connector.updated_at
 
         import time
+
         time.sleep(0.01)
 
         connector.disable()

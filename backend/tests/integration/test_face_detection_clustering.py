@@ -16,12 +16,10 @@ from app.adapters.outbound.persistence.postgres.repositories import (
     FaceRepositoryPostgres,
     PhotoRepositoryPostgres,
 )
-from app.domain.entities import FaceCluster
-from app.domain.value_objects import FaceClusterId
 from tests.integration.factories import (
-    PhotoFactory,
-    FaceFactory,
     EmbeddingFactory,
+    FaceFactory,
+    PhotoFactory,
 )
 
 

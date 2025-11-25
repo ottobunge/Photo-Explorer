@@ -4,8 +4,8 @@ Tests for querying photos by connector, counting photos per connector, etc.
 Following TDD approach.
 """
 
+
 import pytest
-from uuid import uuid4
 
 from app.domain.entities.connector import Connector, ConnectorType
 from app.domain.entities.photo import Photo
@@ -15,26 +15,20 @@ class TestPhotoRepositoryFindByConnector:
     """Tests for finding photos by connector ID."""
 
     @pytest.mark.asyncio
-    async def test_find_by_connector_returns_empty_when_no_photos(
-        self, photo_repo, connector_repo
-    ):
+    async def test_find_by_connector_returns_empty_when_no_photos(self, photo_repo, connector_repo):
         """Should return empty list when connector has no photos."""
         # Given: connector with no photos
         connector = Connector.create_upload(upload_path="/uploads")
         saved_connector = await connector_repo.save(connector)
 
         # When
-        result = await photo_repo.find_by_connector(
-            saved_connector.id.value, limit=20, offset=0
-        )
+        result = await photo_repo.find_by_connector(saved_connector.id.value, limit=20, offset=0)
 
         # Then
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_find_by_connector_returns_matching_photos(
-        self, photo_repo, connector_repo
-    ):
+    async def test_find_by_connector_returns_matching_photos(self, photo_repo, connector_repo):
         """Should return only photos from specified connector."""
         # Given: 2 connectors with photos
         connector1 = Connector.create_upload(upload_path="/uploads")
@@ -70,9 +64,7 @@ class TestPhotoRepositoryFindByConnector:
         await photo_repo.save(photo3)
 
         # When: query connector 1
-        result = await photo_repo.find_by_connector(
-            saved_c1.id.value, limit=20, offset=0
-        )
+        result = await photo_repo.find_by_connector(saved_c1.id.value, limit=20, offset=0)
 
         # Then: only photos from connector 1
         assert len(result) == 2
@@ -81,9 +73,7 @@ class TestPhotoRepositoryFindByConnector:
         assert all(p.connector_id == saved_c1.id.value for p in result)
 
     @pytest.mark.asyncio
-    async def test_find_by_connector_paginates_correctly(
-        self, photo_repo, connector_repo
-    ):
+    async def test_find_by_connector_paginates_correctly(self, photo_repo, connector_repo):
         """Should respect limit and offset for pagination."""
         # Given: connector with 5 photos
         connector = Connector.create_upload(upload_path="/uploads")
@@ -100,25 +90,19 @@ class TestPhotoRepositoryFindByConnector:
             await photo_repo.save(photo)
 
         # When: first page (limit 2)
-        page1 = await photo_repo.find_by_connector(
-            saved_connector.id.value, limit=2, offset=0
-        )
+        page1 = await photo_repo.find_by_connector(saved_connector.id.value, limit=2, offset=0)
 
         # Then
         assert len(page1) == 2
 
         # When: second page
-        page2 = await photo_repo.find_by_connector(
-            saved_connector.id.value, limit=2, offset=2
-        )
+        page2 = await photo_repo.find_by_connector(saved_connector.id.value, limit=2, offset=2)
 
         # Then
         assert len(page2) == 2
 
         # When: third page
-        page3 = await photo_repo.find_by_connector(
-            saved_connector.id.value, limit=2, offset=4
-        )
+        page3 = await photo_repo.find_by_connector(saved_connector.id.value, limit=2, offset=4)
 
         # Then
         assert len(page3) == 1
@@ -132,9 +116,7 @@ class TestPhotoRepositoryFindByConnector:
         assert len(page2_ids & page3_ids) == 0
 
     @pytest.mark.asyncio
-    async def test_find_by_connector_handles_deleted_connector(
-        self, photo_repo, connector_repo
-    ):
+    async def test_find_by_connector_handles_deleted_connector(self, photo_repo, connector_repo):
         """Should handle case where connector was deleted (photos orphaned)."""
         # Given: connector with photos, then deleted
         connector = Connector.create_upload(upload_path="/uploads")
@@ -152,35 +134,27 @@ class TestPhotoRepositoryFindByConnector:
         await connector_repo.delete(saved_connector.id.value)
 
         # When: try to find photos by deleted connector ID
-        result = await photo_repo.find_by_connector(
-            saved_connector.id.value, limit=20, offset=0
-        )
+        result = await photo_repo.find_by_connector(saved_connector.id.value, limit=20, offset=0)
 
         # Then: no photos returned (connector_id is NULL)
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_find_by_connector_empty_result_when_no_photos(
-        self, photo_repo, connector_repo
-    ):
+    async def test_find_by_connector_empty_result_when_no_photos(self, photo_repo, connector_repo):
         """Should return empty list for connector with zero photos."""
         # Given: connector with no photos
         connector = Connector.create_local(path="/photos", name="Empty")
         saved_connector = await connector_repo.save(connector)
 
         # When
-        result = await photo_repo.find_by_connector(
-            saved_connector.id.value, limit=20, offset=0
-        )
+        result = await photo_repo.find_by_connector(saved_connector.id.value, limit=20, offset=0)
 
         # Then
         assert result == []
         assert isinstance(result, list)
 
     @pytest.mark.asyncio
-    async def test_find_by_connector_orders_by_created_at_desc(
-        self, photo_repo, connector_repo
-    ):
+    async def test_find_by_connector_orders_by_created_at_desc(self, photo_repo, connector_repo):
         """Should return photos ordered by created_at descending (newest first)."""
         # Given: connector with photos created at different times
         connector = Connector.create_upload(upload_path="/uploads")
@@ -201,9 +175,7 @@ class TestPhotoRepositoryFindByConnector:
             await photo_repo.save(photo)
 
         # When
-        result = await photo_repo.find_by_connector(
-            saved_connector.id.value, limit=20, offset=0
-        )
+        result = await photo_repo.find_by_connector(saved_connector.id.value, limit=20, offset=0)
 
         # Then: ordered by created_at descending
         assert len(result) == 3
@@ -216,9 +188,7 @@ class TestPhotoRepositoryCountByConnector:
     """Tests for counting photos by connector."""
 
     @pytest.mark.asyncio
-    async def test_count_by_connector_returns_zero_when_no_photos(
-        self, photo_repo, connector_repo
-    ):
+    async def test_count_by_connector_returns_zero_when_no_photos(self, photo_repo, connector_repo):
         """Should return 0 when connector has no photos."""
         # Given: empty connector
         connector = Connector.create_upload(upload_path="/uploads")
@@ -231,9 +201,7 @@ class TestPhotoRepositoryCountByConnector:
         assert count == 0
 
     @pytest.mark.asyncio
-    async def test_count_by_connector_returns_accurate_count(
-        self, photo_repo, connector_repo
-    ):
+    async def test_count_by_connector_returns_accurate_count(self, photo_repo, connector_repo):
         """Should return exact count of photos for connector."""
         # Given: connector with 3 photos
         connector = Connector.create_local(path="/photos", name="Test")
@@ -295,9 +263,7 @@ class TestPhotoRepositoryCountByConnector:
         assert count2 == 5
 
     @pytest.mark.asyncio
-    async def test_count_by_connector_handles_deleted_connector(
-        self, photo_repo, connector_repo
-    ):
+    async def test_count_by_connector_handles_deleted_connector(self, photo_repo, connector_repo):
         """Should return 0 for deleted connector (orphaned photos)."""
         # Given: connector with photos, then deleted
         connector = Connector.create_upload(upload_path="/uploads")

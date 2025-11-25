@@ -1,29 +1,29 @@
 """Model management infrastructure."""
 
+from .clip import CLIPModelLoader
 from .config import ModelConfig, get_model_config
 from .downloader import ModelDownloader
-from .clip import CLIPModelLoader
 from .faces import FaceModelLoader
 from .huggingface import (
-    HuggingFaceModelBrowser,
+    RECOMMENDED_MODELS,
     HFModelInfo,
+    HuggingFaceModelBrowser,
     ModelTask,
     get_model_browser,
-    RECOMMENDED_MODELS,
 )
 from .vision import (
-    VisionModelType,
-    VisionModelLoader,
     BLIP2ModelLoader,
+    DetectedObject,
+    ImageCaption,
     MoondreamModelLoader,
     ObjectDetectionLoader,
-    SceneClassificationLoader,
-    ImageCaption,
-    DetectedObject,
     SceneClassification,
-    get_vision_model,
+    SceneClassificationLoader,
+    VisionModelLoader,
+    VisionModelType,
     get_object_detector,
     get_scene_classifier,
+    get_vision_model,
 )
 
 __all__ = [

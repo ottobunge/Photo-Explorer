@@ -1,7 +1,7 @@
 """Health check endpoints for monitoring and orchestration."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Response, status
@@ -55,7 +55,7 @@ async def health_check() -> HealthStatus:
     """
     return HealthStatus(
         status="healthy",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
 
@@ -103,7 +103,7 @@ async def readiness_check(response: Response) -> ReadinessStatus:
 
     return ReadinessStatus(
         status="ready" if all_healthy else "not_ready",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         dependencies=dependencies,
     )
 
@@ -234,12 +234,8 @@ async def check_qdrant() -> DependencyStatus:
         # Get collection info
         settings = get_settings()
         try:
-            photos_info = await vector_store.get_collection_info(
-                settings.qdrant_collection_photos
-            )
-            faces_info = await vector_store.get_collection_info(
-                settings.qdrant_collection_faces
-            )
+            photos_info = await vector_store.get_collection_info(settings.qdrant_collection_photos)
+            faces_info = await vector_store.get_collection_info(settings.qdrant_collection_faces)
 
             return DependencyStatus(
                 name="qdrant",

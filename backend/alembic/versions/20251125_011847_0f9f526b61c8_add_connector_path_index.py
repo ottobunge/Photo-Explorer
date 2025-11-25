@@ -12,11 +12,10 @@ Revises: b9337dd07fed
 Create Date: 2025-11-25 01:18:47.718098+00:00
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 from alembic import op
-import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic.
 revision: str = "0f9f526b61c8"
@@ -33,12 +32,14 @@ def upgrade() -> None:
     the path field exists in the config JSON, which reduces index size
     and is more efficient than indexing all rows.
     """
-    op.execute("""
+    op.execute(
+        """
         CREATE INDEX ix_connectors_config_path
         ON connectors
         USING btree ((config->>'path'))
         WHERE config->>'path' IS NOT NULL
-    """)
+    """
+    )
 
 
 def downgrade() -> None:

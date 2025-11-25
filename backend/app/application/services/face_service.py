@@ -11,7 +11,7 @@ from app.application.ports.outbound import (
     VectorStore,
 )
 from app.domain.entities import Face, FaceCluster
-from app.domain.exceptions import EntityNotFoundException, InvalidOperationException
+from app.domain.exceptions import EntityNotFoundException
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,9 @@ class FaceService(FaceUseCases):
         # Save target cluster
         target = await self._face_repo.save_cluster(target)
 
-        logger.info(f"Merged {len(source_cluster_ids)} clusters into {target_cluster_id}, moved {total_moved} faces")
+        logger.info(
+            f"Merged {len(source_cluster_ids)} clusters into {target_cluster_id}, moved {total_moved} faces"
+        )
         return target
 
     async def split_face(self, face_id: UUID) -> FaceCluster:
@@ -220,9 +222,7 @@ class FaceService(FaceUseCases):
         """Count clusters."""
         return await self._face_repo.count_clusters(named_only=named_only)
 
-    async def get_representative_face_crop(
-        self, cluster_id: UUID
-    ) -> Optional[tuple[bytes, str]]:
+    async def get_representative_face_crop(self, cluster_id: UUID) -> Optional[tuple[bytes, str]]:
         """Get the crop image for the cluster's representative face."""
         cluster = await self._face_repo.find_cluster_by_id(cluster_id)
         if not cluster or not cluster.representative_face_id:

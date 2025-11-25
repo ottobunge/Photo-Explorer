@@ -23,7 +23,6 @@ class FaceRepository(ABC):
         Returns:
             The saved face
         """
-        pass
 
     @abstractmethod
     async def find_face_by_id(self, face_id: UUID) -> Optional[Face]:
@@ -36,7 +35,6 @@ class FaceRepository(ABC):
         Returns:
             The Face entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def find_faces_by_photo(self, photo_id: UUID) -> list[Face]:
@@ -49,7 +47,6 @@ class FaceRepository(ABC):
         Returns:
             List of Face entities
         """
-        pass
 
     @abstractmethod
     async def find_faces_by_cluster(self, cluster_id: UUID) -> list[Face]:
@@ -62,7 +59,6 @@ class FaceRepository(ABC):
         Returns:
             List of Face entities
         """
-        pass
 
     @abstractmethod
     async def delete_face(self, face_id: UUID) -> bool:
@@ -75,7 +71,6 @@ class FaceRepository(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     # Cluster operations
 
@@ -90,7 +85,6 @@ class FaceRepository(ABC):
         Returns:
             The saved cluster
         """
-        pass
 
     @abstractmethod
     async def find_cluster_by_id(self, cluster_id: UUID) -> Optional[FaceCluster]:
@@ -103,7 +97,6 @@ class FaceRepository(ABC):
         Returns:
             The FaceCluster entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def find_all_clusters(
@@ -125,7 +118,6 @@ class FaceRepository(ABC):
         Returns:
             List of FaceCluster entities
         """
-        pass
 
     @abstractmethod
     async def delete_cluster(self, cluster_id: UUID) -> bool:
@@ -138,7 +130,6 @@ class FaceRepository(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def count_clusters(self, named_only: bool = False) -> int:
@@ -151,7 +142,6 @@ class FaceRepository(ABC):
         Returns:
             Total count of clusters
         """
-        pass
 
     @abstractmethod
     async def find_photo_ids_by_cluster(
@@ -171,4 +161,3 @@ class FaceRepository(ABC):
         Returns:
             List of photo IDs
         """
-        pass

@@ -53,7 +53,6 @@ class FolderUseCases(ABC):
         Returns:
             The created WatchedFolder
         """
-        pass
 
     @abstractmethod
     async def list_folders(self) -> list[WatchedFolder]:
@@ -63,7 +62,6 @@ class FolderUseCases(ABC):
         Returns:
             List of WatchedFolder entities
         """
-        pass
 
     @abstractmethod
     async def get_folder(self, folder_id: UUID) -> Optional[WatchedFolder]:
@@ -76,7 +74,6 @@ class FolderUseCases(ABC):
         Returns:
             The WatchedFolder or None if not found
         """
-        pass
 
     @abstractmethod
     async def get_folder_stats(self, folder_id: UUID) -> Optional[FolderStats]:
@@ -89,7 +86,6 @@ class FolderUseCases(ABC):
         Returns:
             FolderStats or None if folder not found
         """
-        pass
 
     @abstractmethod
     async def trigger_scan(self, folder_id: UUID) -> bool:
@@ -102,7 +98,6 @@ class FolderUseCases(ABC):
         Returns:
             True if scan was triggered, False if folder not found
         """
-        pass
 
     @abstractmethod
     async def remove_folder(
@@ -120,4 +115,3 @@ class FolderUseCases(ABC):
         Returns:
             True if removed, False if not found
         """
-        pass

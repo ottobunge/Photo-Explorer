@@ -76,9 +76,7 @@ class FaceCluster:
     def set_representative(self, face_id: UUID) -> None:
         """Set the representative face for display."""
         if face_id not in self.face_ids:
-            raise InvalidOperationException(
-                f"Face {face_id} is not a member of this cluster"
-            )
+            raise InvalidOperationException(f"Face {face_id} is not a member of this cluster")
         self.representative_face_id = face_id
         self._touch()
 

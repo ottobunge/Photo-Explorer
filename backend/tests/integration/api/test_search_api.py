@@ -9,15 +9,13 @@ These tests would have caught the bug where GET endpoint wasn't passing dependen
 Following TDD approach - comprehensive API tests for search functionality.
 """
 
-import pytest
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
-from unittest.mock import AsyncMock, patch, MagicMock
 
+import pytest
 from httpx import AsyncClient
 
-from app.domain.entities.connector import Connector, ConnectorType
-from app.domain.entities.photo import Photo
-from tests.integration.factories import PhotoFactory, ConnectorFactory, EmbeddingFactory
+from tests.integration.factories import ConnectorFactory, EmbeddingFactory, PhotoFactory
 
 
 class TestSearchPostEndpoint:
@@ -56,7 +54,7 @@ class TestSearchPostEndpoint:
                 "query": "sunset over mountains",
                 "limit": 10,
                 "offset": 0,
-            }
+            },
         )
 
         # Then
@@ -92,10 +90,7 @@ class TestSearchPostEndpoint:
         )
 
         # When
-        response = await client.post(
-            "/api/v1/search",
-            json={"query": "test", "limit": 10}
-        )
+        response = await client.post("/api/v1/search", json={"query": "test", "limit": 10})
 
         # Then
         assert response.status_code == 200
@@ -165,10 +160,8 @@ class TestSearchPostEndpoint:
             json={
                 "query": "test",
                 "limit": 10,
-                "filters": {
-                    "connector_ids": [str(saved_c1.id.value)]
-                }
-            }
+                "filters": {"connector_ids": [str(saved_c1.id.value)]},
+            },
         )
 
         # Then: only connector 1 photos returned
@@ -202,8 +195,7 @@ class TestSearchPostEndpoint:
 
         # When: page 1 (limit=5, offset=0)
         response1 = await client.post(
-            "/api/v1/search",
-            json={"query": "test", "limit": 5, "offset": 0}
+            "/api/v1/search", json={"query": "test", "limit": 5, "offset": 0}
         )
 
         # Then
@@ -215,8 +207,7 @@ class TestSearchPostEndpoint:
 
         # When: page 2 (limit=5, offset=5)
         response2 = await client.post(
-            "/api/v1/search",
-            json={"query": "test", "limit": 5, "offset": 5}
+            "/api/v1/search", json={"query": "test", "limit": 5, "offset": 5}
         )
 
         # Then
@@ -230,15 +221,10 @@ class TestSearchPostEndpoint:
         assert len(page1_ids.intersection(page2_ids)) == 0
 
     @pytest.mark.asyncio
-    async def test_post_search_empty_results(
-        self, client: AsyncClient, test_vector_store
-    ):
+    async def test_post_search_empty_results(self, client: AsyncClient, test_vector_store):
         """Should handle no results gracefully."""
         # When: search with no indexed photos
-        response = await client.post(
-            "/api/v1/search",
-            json={"query": "test", "limit": 10}
-        )
+        response = await client.post("/api/v1/search", json={"query": "test", "limit": 10})
 
         # Then
         assert response.status_code == 200
@@ -249,30 +235,20 @@ class TestSearchPostEndpoint:
         assert data["meta"]["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_post_search_invalid_query_empty(
-        self, client: AsyncClient
-    ):
+    async def test_post_search_invalid_query_empty(self, client: AsyncClient):
         """Should reject empty query."""
         # When
-        response = await client.post(
-            "/api/v1/search",
-            json={"query": "", "limit": 10}
-        )
+        response = await client.post("/api/v1/search", json={"query": "", "limit": 10})
 
         # Then: validation error
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_post_search_invalid_query_too_long(
-        self, client: AsyncClient
-    ):
+    async def test_post_search_invalid_query_too_long(self, client: AsyncClient):
         """Should reject query exceeding max length."""
         # When: query > 500 characters
         long_query = "a" * 501
-        response = await client.post(
-            "/api/v1/search",
-            json={"query": long_query, "limit": 10}
-        )
+        response = await client.post("/api/v1/search", json={"query": long_query, "limit": 10})
 
         # Then: validation error
         assert response.status_code == 422
@@ -290,10 +266,7 @@ class TestSearchPostEndpoint:
         await test_vector_store.store_photo_embedding(saved.id.value, embedding)
 
         # When
-        response = await client.post(
-            "/api/v1/search",
-            json={"query": "test", "limit": 10}
-        )
+        response = await client.post("/api/v1/search", json={"query": "test", "limit": 10})
 
         # Then: timing info included
         assert response.status_code == 200
@@ -313,9 +286,7 @@ class TestSearchGetEndpoint:
     """
 
     @pytest.mark.asyncio
-    async def test_get_search_basic_query(
-        self, client: AsyncClient, photo_repo, test_vector_store
-    ):
+    async def test_get_search_basic_query(self, client: AsyncClient, photo_repo, test_vector_store):
         """Should perform semantic search via GET request.
 
         This test would have caught the bug where GET wasn't passing dependencies.
@@ -328,9 +299,7 @@ class TestSearchGetEndpoint:
         await test_vector_store.store_photo_embedding(saved.id.value, embedding)
 
         # When: GET search with query parameter
-        response = await client.get(
-            "/api/v1/search?q=sunset"
-        )
+        response = await client.get("/api/v1/search?q=sunset")
 
         # Then: should work without errors (bug would cause 500 error)
         assert response.status_code == 200
@@ -444,9 +413,7 @@ class TestSearchGetEndpoint:
         assert len(data["data"]["results"]) == 20
 
     @pytest.mark.asyncio
-    async def test_get_search_missing_query_parameter(
-        self, client: AsyncClient
-    ):
+    async def test_get_search_missing_query_parameter(self, client: AsyncClient):
         """Should reject request without query parameter."""
         # When: no 'q' parameter
         response = await client.get("/api/v1/search")
@@ -455,9 +422,7 @@ class TestSearchGetEndpoint:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_get_search_empty_query(
-        self, client: AsyncClient
-    ):
+    async def test_get_search_empty_query(self, client: AsyncClient):
         """Should reject empty query string."""
         # When
         response = await client.get("/api/v1/search?q=")
@@ -466,9 +431,7 @@ class TestSearchGetEndpoint:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_get_search_query_too_long(
-        self, client: AsyncClient
-    ):
+    async def test_get_search_query_too_long(self, client: AsyncClient):
         """Should reject query exceeding max length."""
         # When: query > 500 characters
         long_query = "a" * 501
@@ -478,9 +441,7 @@ class TestSearchGetEndpoint:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_get_search_invalid_limit(
-        self, client: AsyncClient
-    ):
+    async def test_get_search_invalid_limit(self, client: AsyncClient):
         """Should reject invalid limit values."""
         # When: limit > 100
         response1 = await client.get("/api/v1/search?q=test&limit=101")
@@ -491,9 +452,7 @@ class TestSearchGetEndpoint:
         assert response2.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_get_search_invalid_offset(
-        self, client: AsyncClient
-    ):
+    async def test_get_search_invalid_offset(self, client: AsyncClient):
         """Should reject invalid offset values."""
         # When: negative offset
         response1 = await client.get("/api/v1/search?q=test&offset=-1")
@@ -539,9 +498,7 @@ class TestSearchGetEndpoint:
         )
 
         # When: filter by connector 1
-        response = await client.get(
-            f"/api/v1/search?q=test&connector_id={saved_c1.id.value}"
-        )
+        response = await client.get(f"/api/v1/search?q=test&connector_id={saved_c1.id.value}")
 
         # Then: only connector 1 photos
         assert response.status_code == 200
@@ -576,8 +533,7 @@ class TestSearchGetEndpoint:
 
         # When: search via POST with same parameters
         post_response = await client.post(
-            "/api/v1/search",
-            json={"query": "test", "limit": 5, "offset": 0}
+            "/api/v1/search", json={"query": "test", "limit": 5, "offset": 0}
         )
 
         # Then: both should succeed
@@ -616,10 +572,7 @@ class TestSearchErrorHandling:
         with patch("app.adapters.outbound.ml.MLServicesAdapter.encode_text") as mock_encode:
             mock_encode.side_effect = Exception("ML service unavailable")
 
-            response = await client.post(
-                "/api/v1/search",
-                json={"query": "test", "limit": 10}
-            )
+            response = await client.post("/api/v1/search", json={"query": "test", "limit": 10})
 
         # Then: error response
         assert response.status_code == 200  # Returns 200 with error in response
@@ -636,13 +589,12 @@ class TestSearchErrorHandling:
         """Should handle vector store errors gracefully."""
         # Patch the vector store's search_photos method to raise an exception
         # We need to patch it at the module level where it's used
-        with patch("app.adapters.outbound.persistence.qdrant.QdrantVectorStore.search_photos") as mock_search:
+        with patch(
+            "app.adapters.outbound.persistence.qdrant.QdrantVectorStore.search_photos"
+        ) as mock_search:
             mock_search.side_effect = Exception("Vector store unavailable")
 
-            response = await client.post(
-                "/api/v1/search",
-                json={"query": "test", "limit": 10}
-            )
+            response = await client.post("/api/v1/search", json={"query": "test", "limit": 10})
 
         # Then: error response
         assert response.status_code == 200  # Returns 200 with error in response
@@ -654,12 +606,14 @@ class TestSearchErrorHandling:
 
 # Fixtures
 
+
 @pytest.fixture
 async def photo_repo(db_session):
     """Provide PhotoRepository instance."""
     from app.adapters.outbound.persistence.postgres.repositories.photo_repository import (
         PhotoRepositoryPostgres,
     )
+
     return PhotoRepositoryPostgres(db_session)
 
 
@@ -669,6 +623,7 @@ async def connector_repo(db_session):
     from app.adapters.outbound.persistence.postgres.repositories.connector_repository import (
         ConnectorRepositoryPostgres,
     )
+
     return ConnectorRepositoryPostgres(db_session)
 
 
@@ -727,8 +682,10 @@ async def setup_search_mocks(test_vector_store, base_embedding):
 
     # Create mock ML service that returns base_embedding
     mock_ml_service = MagicMock()
+
     async def mock_encode_text(text: str):
         return base_embedding
+
     mock_ml_service.encode_text = mock_encode_text
 
     # Override dependencies

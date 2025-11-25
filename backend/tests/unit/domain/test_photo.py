@@ -1,12 +1,11 @@
 """Unit tests for Photo entity."""
 
-from datetime import datetime
 from uuid import uuid4
 
 import pytest
 
 from app.domain.entities import Photo
-from app.domain.value_objects import PhotoId, SceneClassification
+from app.domain.value_objects import SceneClassification
 
 
 class TestPhotoCreation:

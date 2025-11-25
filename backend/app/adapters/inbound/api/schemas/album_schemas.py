@@ -1,6 +1,5 @@
 """Album API schemas."""
 
-from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
@@ -70,7 +69,9 @@ class AlbumUpdateRequest(BaseModel):
 class AlbumPhotosRequest(BaseModel):
     """Request to add/remove photos from album."""
 
-    photo_ids: list[UUID] = Field(..., min_length=1, max_length=1000, description="List of photo IDs")
+    photo_ids: list[UUID] = Field(
+        ..., min_length=1, max_length=1000, description="List of photo IDs"
+    )
 
     @field_validator("photo_ids")
     @classmethod

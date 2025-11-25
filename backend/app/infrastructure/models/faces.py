@@ -8,7 +8,7 @@ from typing import Optional, Union
 import numpy as np
 from PIL import Image
 
-from .config import ModelConfig, FaceConfig, get_model_config
+from .config import FaceConfig, ModelConfig, get_model_config
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,6 @@ class FaceModelLoader:
             return True
 
         try:
-            import insightface
             from insightface.app import FaceAnalysis
 
             model_name = self._face_config.detection_model
@@ -152,6 +151,7 @@ class FaceModelLoader:
         # Try to free GPU memory
         try:
             import torch
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         except Exception:
@@ -203,7 +203,9 @@ class FaceModelLoader:
             faces = [f for f in faces if (f.bbox[2] - f.bbox[0]) >= min_size]
 
             # Sort by face size (largest first)
-            faces.sort(key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True)
+            faces.sort(
+                key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True
+            )
 
             # Limit number of faces
             if max_faces:
@@ -214,14 +216,22 @@ class FaceModelLoader:
             for face in faces:
                 bbox = tuple(int(x) for x in face.bbox)
 
-                detected.append(DetectedFace(
-                    bbox=bbox,
-                    confidence=float(face.det_score),
-                    embedding=face.embedding if hasattr(face, "embedding") else None,
-                    landmarks=face.landmark_2d_106 if hasattr(face, "landmark_2d_106") else face.landmark,
-                    age=int(face.age) if hasattr(face, "age") else None,
-                    gender="male" if hasattr(face, "gender") and face.gender == 1 else "female" if hasattr(face, "gender") else None,
-                ))
+                detected.append(
+                    DetectedFace(
+                        bbox=bbox,
+                        confidence=float(face.det_score),
+                        embedding=face.embedding if hasattr(face, "embedding") else None,
+                        landmarks=face.landmark_2d_106
+                        if hasattr(face, "landmark_2d_106")
+                        else face.landmark,
+                        age=int(face.age) if hasattr(face, "age") else None,
+                        gender="male"
+                        if hasattr(face, "gender") and face.gender == 1
+                        else "female"
+                        if hasattr(face, "gender")
+                        else None,
+                    )
+                )
 
             return detected
 

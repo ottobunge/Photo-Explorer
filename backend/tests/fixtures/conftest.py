@@ -34,13 +34,11 @@ def test_images_dir():
         result = subprocess.run(
             [sys.executable, str(download_script)],
             capture_output=True,
-            text=True,
+            text=True, check=False,
         )
 
         if result.returncode != 0:
-            pytest.fail(
-                f"Failed to download test images:\n{result.stdout}\n{result.stderr}"
-            )
+            pytest.fail(f"Failed to download test images:\n{result.stdout}\n{result.stderr}")
 
         print(result.stdout)
 

@@ -26,7 +26,6 @@ class AlbumUseCases(ABC):
         Returns:
             The created Album entity
         """
-        pass
 
     @abstractmethod
     async def get_album(self, album_id: UUID) -> Optional[Album]:
@@ -39,7 +38,6 @@ class AlbumUseCases(ABC):
         Returns:
             The Album entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def list_albums(
@@ -57,7 +55,6 @@ class AlbumUseCases(ABC):
         Returns:
             List of Album entities
         """
-        pass
 
     @abstractmethod
     async def update_album(
@@ -77,7 +74,6 @@ class AlbumUseCases(ABC):
         Returns:
             The updated Album entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def delete_album(self, album_id: UUID) -> bool:
@@ -90,7 +86,6 @@ class AlbumUseCases(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def add_photos_to_album(
@@ -108,7 +103,6 @@ class AlbumUseCases(ABC):
         Returns:
             The updated Album entity
         """
-        pass
 
     @abstractmethod
     async def remove_photos_from_album(
@@ -126,7 +120,6 @@ class AlbumUseCases(ABC):
         Returns:
             The updated Album entity
         """
-        pass
 
     @abstractmethod
     async def set_album_cover(
@@ -144,4 +137,3 @@ class AlbumUseCases(ABC):
         Returns:
             The updated Album entity
         """
-        pass

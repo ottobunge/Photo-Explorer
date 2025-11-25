@@ -4,22 +4,23 @@ This module specifically tests that N+1 query problems are resolved
 through proper eager loading of relationships.
 """
 
-import pytest
 from datetime import datetime
 from uuid import uuid4
+
+import pytest
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 from app.adapters.outbound.persistence.postgres.models import (
-    PhotoModel,
     AlbumModel,
     ConnectorModel,
     FaceModel,
+    PhotoModel,
 )
 from app.adapters.outbound.persistence.postgres.repositories.photo_repository import (
     PhotoRepositoryPostgres,
 )
-from app.domain.entities.connector import ConnectorType, ConnectorStatus
+from app.domain.entities.connector import ConnectorStatus, ConnectorType
 
 
 class QueryCounter:
@@ -467,7 +468,11 @@ async def test_bulk_delete_removes_photos_from_db(db_session, sample_data):
     repo = PhotoRepositoryPostgres(db_session)
 
     # Get photo IDs to delete
-    photo_ids = [sample_data["photos"][0].id, sample_data["photos"][1].id, sample_data["photos"][2].id]
+    photo_ids = [
+        sample_data["photos"][0].id,
+        sample_data["photos"][1].id,
+        sample_data["photos"][2].id,
+    ]
 
     # Verify photos exist before deletion
     for photo_id in photo_ids:
@@ -494,8 +499,9 @@ async def test_bulk_delete_removes_photos_from_db(db_session, sample_data):
 @pytest.mark.asyncio
 async def test_bulk_delete_cascades_to_faces(db_session, sample_data):
     """Test that bulk delete cascades to related faces."""
-    from app.adapters.outbound.persistence.postgres.models import FaceModel
     from sqlalchemy import select
+
+    from app.adapters.outbound.persistence.postgres.models import FaceModel
 
     repo = PhotoRepositoryPostgres(db_session)
 
@@ -619,8 +625,8 @@ async def test_bulk_delete_performs_single_query(db_session, sample_data, query_
 @pytest.mark.asyncio
 async def test_bulk_delete_large_batch(db_session):
     """Test that bulk delete can handle a large batch of photos efficiently."""
-    from app.domain.entities.photo import Photo
     from app.domain.entities.connector import ConnectorType
+    from app.domain.entities.photo import Photo
 
     # Create a connector first
     connector = ConnectorModel(

@@ -21,7 +21,6 @@ from app.infrastructure.models import (
     ModelTask,
     get_model_browser,
     get_model_config,
-    RECOMMENDED_MODELS,
 )
 
 router = APIRouter()
@@ -70,10 +69,7 @@ async def search_models(
     # Check which are downloaded
     downloaded_ids = set(browser.list_downloaded_models())
 
-    models = [
-        _model_to_schema(m, is_downloaded=m.model_id in downloaded_ids)
-        for m in results
-    ]
+    models = [_model_to_schema(m, is_downloaded=m.model_id in downloaded_ids) for m in results]
 
     return ModelSearchResponse(
         success=True,
@@ -228,12 +224,14 @@ async def get_recommended_models(
         for model_id in model_ids:
             # Create minimal info for now (full info would be too slow)
             parts = model_id.split("/", 1)
-            result[task_name].append(HFModelData(
-                model_id=model_id,
-                author=parts[0] if len(parts) > 1 else "",
-                model_name=parts[1] if len(parts) > 1 else parts[0],
-                is_downloaded=model_id in downloaded_ids,
-            ))
+            result[task_name].append(
+                HFModelData(
+                    model_id=model_id,
+                    author=parts[0] if len(parts) > 1 else "",
+                    model_name=parts[1] if len(parts) > 1 else parts[0],
+                    is_downloaded=model_id in downloaded_ids,
+                )
+            )
 
     return RecommendedModelsResponse(
         success=True,
@@ -244,7 +242,7 @@ async def get_recommended_models(
 @router.get("/active", response_model=ActiveModelsResponse)
 async def get_active_models() -> ActiveModelsResponse:
     """Get currently configured active models."""
-    from app.infrastructure.models.downloader import ModelDownloader, CLIP_MODELS
+    from app.infrastructure.models.downloader import CLIP_MODELS
 
     config = get_model_config()
 
@@ -263,19 +261,25 @@ async def get_active_models() -> ActiveModelsResponse:
     # Also check open_clip's default cache location
     if not clip_downloaded:
         import os
+
         open_clip_cache = os.path.expanduser("~/.cache/clip")
         if os.path.exists(open_clip_cache):
             # open_clip may cache models here
-            clip_downloaded = any(
-                clip_model_name.replace("/", "-") in f
-                for f in os.listdir(open_clip_cache)
-            ) if os.path.isdir(open_clip_cache) else False
+            clip_downloaded = (
+                any(clip_model_name.replace("/", "-") in f for f in os.listdir(open_clip_cache))
+                if os.path.isdir(open_clip_cache)
+                else False
+            )
 
     # InsightFace models are auto-downloaded by the insightface library
     # Check if the model directory exists
     face_model_name = config.face.detection_model
     face_model_dir = config.face_dir / "models" / face_model_name
-    face_downloaded = face_model_dir.exists() and any(face_model_dir.iterdir()) if face_model_dir.exists() else False
+    face_downloaded = (
+        face_model_dir.exists() and any(face_model_dir.iterdir())
+        if face_model_dir.exists()
+        else False
+    )
 
     return ActiveModelsResponse(
         success=True,

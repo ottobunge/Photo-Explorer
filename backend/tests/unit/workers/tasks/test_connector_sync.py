@@ -1,9 +1,8 @@
 """Unit tests for connector sync tasks."""
 
-import pytest
-from pathlib import Path
-from uuid import uuid4
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.adapters.inbound.workers.tasks.connector_sync import _sync_local_folder_async
 from app.domain.entities.connector import Connector

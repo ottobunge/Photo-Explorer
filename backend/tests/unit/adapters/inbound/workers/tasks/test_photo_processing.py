@@ -1,6 +1,6 @@
 """Unit tests for photo processing worker tasks."""
 
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 import pytest
@@ -65,9 +65,7 @@ class TestRunAsyncHelper:
 class TestProcessPhotoTask:
     """Tests for process_photo_task Celery task."""
 
-    @patch(
-        "app.adapters.inbound.workers.tasks.photo_processing._process_photo_async"
-    )
+    @patch("app.adapters.inbound.workers.tasks.photo_processing._process_photo_async")
     def test_process_photo_task_success(self, mock_process_async):
         """When processing succeeds, it should return results."""
         mock_process_async.return_value = {
@@ -83,9 +81,7 @@ class TestProcessPhotoTask:
         assert result["embedding_created"] is True
         assert result["faces_detected"] == 2
 
-    @patch(
-        "app.adapters.inbound.workers.tasks.photo_processing._process_photo_async"
-    )
+    @patch("app.adapters.inbound.workers.tasks.photo_processing._process_photo_async")
     def test_process_photo_task_handles_permanent_error(self, mock_process_async):
         """When permanent error occurs, it should not retry."""
         mock_process_async.side_effect = PermanentError("Invalid photo format")
@@ -99,9 +95,7 @@ class TestProcessPhotoTask:
         with pytest.raises(PermanentError):
             process_photo_task.apply(args=[photo_id]).get()
 
-    @patch(
-        "app.adapters.inbound.workers.tasks.photo_processing._process_photo_async"
-    )
+    @patch("app.adapters.inbound.workers.tasks.photo_processing._process_photo_async")
     def test_process_photo_task_handles_transient_error(self, mock_process_async):
         """When transient error occurs, it should retry."""
         mock_process_async.side_effect = TransientError("Database temporarily unavailable")
@@ -115,12 +109,8 @@ class TestProcessPhotoTask:
         with pytest.raises(TransientError):
             process_photo_task.apply(args=[photo_id]).get()
 
-    @patch(
-        "app.adapters.inbound.workers.tasks.photo_processing._process_photo_async"
-    )
-    def test_process_photo_task_converts_unknown_error_to_permanent(
-        self, mock_process_async
-    ):
+    @patch("app.adapters.inbound.workers.tasks.photo_processing._process_photo_async")
+    def test_process_photo_task_converts_unknown_error_to_permanent(self, mock_process_async):
         """When unknown error occurs, it should convert to PermanentError."""
         mock_process_async.side_effect = ValueError("Unexpected error")
 
@@ -131,9 +121,7 @@ class TestProcessPhotoTask:
 
         assert "Unexpected error" in str(exc.value)
 
-    @patch(
-        "app.adapters.inbound.workers.tasks.photo_processing._process_photo_async"
-    )
+    @patch("app.adapters.inbound.workers.tasks.photo_processing._process_photo_async")
     def test_process_photo_task_retries_on_operational_error(self, mock_process_async):
         """When OperationalError occurs, task should be configured to retry."""
         # This test verifies the task decorator configuration

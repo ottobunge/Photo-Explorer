@@ -4,20 +4,19 @@ Following TDD approach - these tests define the expected behavior
 before implementation.
 """
 
-import pytest
 from datetime import datetime
 from uuid import uuid4
 
-from app.domain.entities.connector import Connector, ConnectorType, ConnectorStatus
+import pytest
+
+from app.domain.entities.connector import Connector, ConnectorStatus, ConnectorType
 
 
 class TestConnectorRepositoryFindAll:
     """Tests for finding all connectors."""
 
     @pytest.mark.asyncio
-    async def test_find_all_returns_empty_list_when_no_connectors(
-        self, connector_repo
-    ):
+    async def test_find_all_returns_empty_list_when_no_connectors(self, connector_repo):
         """Should return empty list when no connectors exist."""
         # When
         result = await connector_repo.find_all()
@@ -31,9 +30,7 @@ class TestConnectorRepositoryFindAll:
         """Should return all connectors from database."""
         # Given: 3 different connectors
         google_connector = Connector.create_google_photos(name="Google Photos")
-        local_connector = Connector.create_local(
-            path="/photos", name="My Photos"
-        )
+        local_connector = Connector.create_local(path="/photos", name="My Photos")
         upload_connector = Connector.create_upload(upload_path="/uploads")
 
         await connector_repo.save(google_connector)
@@ -112,9 +109,7 @@ class TestConnectorRepositoryFindByType:
     """Tests for finding connectors by type."""
 
     @pytest.mark.asyncio
-    async def test_find_by_type_returns_none_when_not_found(
-        self, connector_repo
-    ):
+    async def test_find_by_type_returns_none_when_not_found(self, connector_repo):
         """Should return None when no connector of that type exists."""
         # When
         result = await connector_repo.find_by_type(ConnectorType.GOOGLE_PHOTOS.value)
@@ -123,9 +118,7 @@ class TestConnectorRepositoryFindByType:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_find_by_type_returns_first_matching_connector(
-        self, connector_repo
-    ):
+    async def test_find_by_type_returns_first_matching_connector(self, connector_repo):
         """Should return first connector of specified type."""
         # Given: 2 local connectors
         local1 = Connector.create_local(path="/photos1", name="Photos 1")
@@ -165,9 +158,7 @@ class TestConnectorRepositoryFindEnabled:
     """Tests for finding enabled connectors only."""
 
     @pytest.mark.asyncio
-    async def test_find_enabled_returns_empty_when_all_disabled(
-        self, connector_repo
-    ):
+    async def test_find_enabled_returns_empty_when_all_disabled(self, connector_repo):
         """Should return empty list when all connectors are disabled."""
         # Given: 2 disabled connectors
         connector1 = Connector.create_local(path="/photos", name="Local")
@@ -185,9 +176,7 @@ class TestConnectorRepositoryFindEnabled:
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_find_enabled_filters_out_disabled_connectors(
-        self, connector_repo
-    ):
+    async def test_find_enabled_filters_out_disabled_connectors(self, connector_repo):
         """Should only return enabled connectors."""
         # Given: mix of enabled and disabled
         enabled1 = Connector.create_local(path="/photos1", name="Enabled 1")
@@ -315,9 +304,7 @@ class TestConnectorRepositoryDelete:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_delete_sets_null_on_photos(
-        self, connector_repo, photo_repo
-    ):
+    async def test_delete_sets_null_on_photos(self, connector_repo, photo_repo):
         """Should set connector_id to NULL on associated photos."""
         # Given: connector with photos
         connector = Connector.create_upload(upload_path="/uploads")

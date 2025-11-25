@@ -37,7 +37,6 @@ class VectorStore(ABC):
             embedding: The CLIP embedding vector
             payload: Optional metadata to store with the embedding
         """
-        pass
 
     @abstractmethod
     async def search_photos(
@@ -57,7 +56,6 @@ class VectorStore(ABC):
         Returns:
             List of search results with scores
         """
-        pass
 
     @abstractmethod
     async def delete_photo_embedding(self, photo_id: UUID) -> bool:
@@ -70,7 +68,6 @@ class VectorStore(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def get_photo_embedding(self, photo_id: UUID) -> Optional[Embedding]:
@@ -83,7 +80,6 @@ class VectorStore(ABC):
         Returns:
             The embedding or None if not found
         """
-        pass
 
     # Face embeddings
 
@@ -102,7 +98,6 @@ class VectorStore(ABC):
             embedding: The face embedding vector
             payload: Optional metadata (photo_id, cluster_id)
         """
-        pass
 
     @abstractmethod
     async def search_faces(
@@ -122,7 +117,6 @@ class VectorStore(ABC):
         Returns:
             List of search results with scores
         """
-        pass
 
     @abstractmethod
     async def delete_face_embedding(self, face_id: UUID) -> bool:
@@ -135,7 +129,6 @@ class VectorStore(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def find_similar_faces(
@@ -155,4 +148,3 @@ class VectorStore(ABC):
         Returns:
             List of similar faces with scores
         """
-        pass

@@ -6,10 +6,10 @@ from app.application.ports.outbound.connector_repository import ConnectorReposit
 from app.application.ports.outbound.face_repository import FaceRepository
 from app.application.ports.outbound.file_storage import FileStorage
 from app.application.ports.outbound.ml_services import (
-    MLServices,
     DetectedFace,
     DetectedObjectInfo,
     ImageAnalysis,
+    MLServices,
 )
 from app.application.ports.outbound.photo_repository import PhotoRepository
 from app.application.ports.outbound.photo_source import PhotoSource, RemotePhotoMetadata

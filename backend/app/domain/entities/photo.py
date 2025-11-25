@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from app.domain.value_objects import BoundingBox, ExifData, PhotoId, SceneClassification
+from app.domain.value_objects import ExifData, PhotoId, SceneClassification
 
 
 @dataclass

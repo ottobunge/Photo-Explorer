@@ -175,9 +175,7 @@ class TestMLServicesTextEncoding:
 
             assert isinstance(embedding, Embedding)
             assert embedding.values == [0.1, 0.2, 0.3, 0.4]
-            mock_loader.encode_text.assert_called_once_with(
-                "a beautiful sunset over the ocean"
-            )
+            mock_loader.encode_text.assert_called_once_with("a beautiful sunset over the ocean")
 
     @patch("app.adapters.outbound.ml.ml_services.CLIPModelLoader")
     def test_encode_text_handles_empty_string(self, mock_clip_loader_class):
@@ -234,9 +232,7 @@ class TestMLServicesImageEncoding:
             assert isinstance(call_args[0], Image.Image)
 
     @patch("app.adapters.outbound.ml.ml_services.CLIPModelLoader")
-    def test_encode_image_from_pil_returns_embedding(
-        self, mock_clip_loader_class, sample_image
-    ):
+    def test_encode_image_from_pil_returns_embedding(self, mock_clip_loader_class, sample_image):
         """When encoding PIL image, it should return an Embedding."""
         with patch("app.adapters.outbound.ml.ml_services.get_settings") as mock_settings:
             mock_settings.return_value = Mock(
@@ -330,13 +326,11 @@ class TestMLServicesSingletonPattern:
     def test_get_ml_services_returns_singleton(self):
         """When calling get_ml_services multiple times, should return same instance."""
         # Import the module-level function
-        from app.adapters.outbound.ml.ml_services import (
-            _ml_services_instance,
-            get_ml_services,
-        )
-
         # Reset global singleton for test isolation
         import app.adapters.outbound.ml.ml_services as ml_module
+        from app.adapters.outbound.ml.ml_services import (
+            get_ml_services,
+        )
 
         ml_module._ml_services_instance = None
 

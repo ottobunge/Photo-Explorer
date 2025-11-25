@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -13,10 +12,12 @@ from huggingface_hub import (
     HfApi,
     hf_hub_download,
     list_repo_files,
-    model_info as get_model_info,
     snapshot_download,
 )
-from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub import (
+    model_info as get_model_info,
+)
+from huggingface_hub.utils import RepositoryNotFoundError
 
 from .config import ModelConfig, get_model_config
 
@@ -180,13 +181,15 @@ class HuggingFaceModelBrowser:
 
             models = await loop.run_in_executor(
                 None,
-                lambda: list(self._api.list_models(
-                    search=query,
-                    filter=filter_str,
-                    sort=sort,
-                    direction=-1,
-                    limit=limit,
-                ))
+                lambda: list(
+                    self._api.list_models(
+                        search=query,
+                        filter=filter_str,
+                        sort=sort,
+                        direction=-1,
+                        limit=limit,
+                    )
+                ),
             )
 
             return [self._parse_model_info(m) for m in models]
@@ -208,26 +211,17 @@ class HuggingFaceModelBrowser:
         try:
             loop = asyncio.get_event_loop()
 
-            info = await loop.run_in_executor(
-                None,
-                lambda: get_model_info(model_id)
-            )
+            info = await loop.run_in_executor(None, lambda: get_model_info(model_id))
 
             # Get file list
-            files = await loop.run_in_executor(
-                None,
-                lambda: list_repo_files(model_id)
-            )
+            files = await loop.run_in_executor(None, lambda: list_repo_files(model_id))
 
             model_info = self._parse_model_info(info)
             model_info.files = list(files)
 
             # Calculate total size from siblings
             if hasattr(info, "siblings") and info.siblings:
-                total_size = sum(
-                    s.size for s in info.siblings
-                    if hasattr(s, "size") and s.size
-                )
+                total_size = sum(s.size for s in info.siblings if hasattr(s, "size") and s.size)
                 model_info.size_bytes = total_size
 
             return model_info
@@ -326,7 +320,7 @@ class HuggingFaceModelBrowser:
                     local_dir=str(local_dir),
                     allow_patterns=allow_patterns,
                     ignore_patterns=ignore_patterns,
-                )
+                ),
             )
 
             self._downloads[model_id] = DownloadProgress(
@@ -379,7 +373,7 @@ class HuggingFaceModelBrowser:
                     filename=filename,
                     revision=revision,
                     local_dir=str(local_dir),
-                )
+                ),
             )
 
             return Path(path)
@@ -452,7 +446,6 @@ def get_model_browser() -> HuggingFaceModelBrowser:
 def main() -> None:
     """CLI for Hugging Face model operations."""
     import argparse
-    import json
 
     parser = argparse.ArgumentParser(description="Hugging Face Model Browser")
     subparsers = parser.add_subparsers(dest="command", help="Commands")

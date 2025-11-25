@@ -54,7 +54,9 @@ class ModelConfig:
     """Global model configuration."""
 
     # Base directory for model storage
-    models_dir: Path = field(default_factory=lambda: Path.home() / ".cache" / "photo-explorer" / "models")
+    models_dir: Path = field(
+        default_factory=lambda: Path.home() / ".cache" / "photo-explorer" / "models"
+    )
 
     # CLIP configuration
     clip: CLIPConfig = field(default_factory=CLIPConfig)
@@ -81,10 +83,12 @@ class ModelConfig:
     @classmethod
     def from_env(cls) -> "ModelConfig":
         """Create configuration from environment variables."""
-        models_dir = Path(os.environ.get(
-            "PHOTO_EXPLORER_MODELS_DIR",
-            str(Path.home() / ".cache" / "photo-explorer" / "models")
-        ))
+        models_dir = Path(
+            os.environ.get(
+                "PHOTO_EXPLORER_MODELS_DIR",
+                str(Path.home() / ".cache" / "photo-explorer" / "models"),
+            )
+        )
 
         clip_model = os.environ.get("PHOTO_EXPLORER_CLIP_MODEL", "ViT-L-14")
         clip_pretrained = os.environ.get("PHOTO_EXPLORER_CLIP_PRETRAINED", "openai")

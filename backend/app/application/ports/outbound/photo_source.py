@@ -1,9 +1,10 @@
 """Photo source port - Interface for fetching photos from external sources."""
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import AsyncIterator, Optional
+from typing import Optional
 
 
 @dataclass
@@ -50,7 +51,6 @@ class PhotoSource(ABC):
         Returns:
             Tuple of (photos, next_page_token)
         """
-        pass
 
     @abstractmethod
     def iter_all_photos(
@@ -66,7 +66,6 @@ class PhotoSource(ABC):
         Yields:
             RemotePhotoMetadata for each photo
         """
-        pass
 
     @abstractmethod
     async def get_photo(self, external_id: str) -> Optional[RemotePhotoMetadata]:
@@ -79,7 +78,6 @@ class PhotoSource(ABC):
         Returns:
             RemotePhotoMetadata or None if not found
         """
-        pass
 
     @abstractmethod
     async def get_photo_bytes(
@@ -101,7 +99,6 @@ class PhotoSource(ABC):
         Returns:
             Photo bytes or None if not found
         """
-        pass
 
     @abstractmethod
     async def get_photo_url(
@@ -123,7 +120,6 @@ class PhotoSource(ABC):
         Returns:
             The photo URL or None if not found
         """
-        pass
 
     @abstractmethod
     async def get_thumbnail_url(
@@ -143,4 +139,3 @@ class PhotoSource(ABC):
         Returns:
             The thumbnail URL or None if not found
         """
-        pass

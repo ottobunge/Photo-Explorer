@@ -2,11 +2,11 @@
 
 import hashlib
 import logging
-import os
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 
 import httpx
 
@@ -425,12 +425,12 @@ def main() -> None:
             print("=" * 50)
             status = downloader.get_model_status()
 
-            print(f"\nCLIP:")
+            print("\nCLIP:")
             print(f"  Configured: {status['clip']['configured']}")
             print(f"  Downloaded: {', '.join(status['clip']['downloaded']) or 'None'}")
             print(f"  Ready: {'Yes' if status['clip']['ready'] else 'No'}")
 
-            print(f"\nFace Detection:")
+            print("\nFace Detection:")
             print(f"  Configured: {status['face']['configured']}")
             print(f"  Downloaded: {', '.join(status['face']['downloaded']) or 'None'}")
             print(f"  Ready: {'Yes' if status['face']['ready'] else 'No'}")

@@ -10,7 +10,7 @@ from app.adapters.outbound.persistence.postgres.models import (
     PhotoModel,
 )
 from app.domain.entities.album import Album
-from app.domain.entities.connector import Connector, ConnectorStatus, ConnectorType
+from app.domain.entities.connector import Connector
 from app.domain.entities.face import Face
 from app.domain.entities.face_cluster import FaceCluster
 from app.domain.entities.photo import Photo
@@ -141,9 +141,15 @@ class PhotoMapper:
             taken_at=entity.taken_at,
             exif_data=exif_data,
             description=entity.description,
-            scene_type=entity.scene_classification.scene_type if entity.scene_classification else None,
-            scene_confidence=entity.scene_classification.confidence if entity.scene_classification else None,
-            is_indoor=entity.scene_classification.is_indoor if entity.scene_classification else None,
+            scene_type=entity.scene_classification.scene_type
+            if entity.scene_classification
+            else None,
+            scene_confidence=entity.scene_classification.confidence
+            if entity.scene_classification
+            else None,
+            is_indoor=entity.scene_classification.is_indoor
+            if entity.scene_classification
+            else None,
             detected_objects=entity.detected_objects if entity.detected_objects else None,
             processing_status=entity.processing_status,
         )

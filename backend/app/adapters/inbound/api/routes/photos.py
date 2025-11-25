@@ -13,8 +13,7 @@ from app.adapters.inbound.api.schemas.photo_schemas import (
     PhotoResponse,
     PhotoUploadResponse,
 )
-from app.adapters.inbound.workers.tasks import process_photo_task, detect_faces_task
-from app.domain.entities.connector import ConnectorType
+from app.adapters.inbound.workers.tasks import detect_faces_task, process_photo_task
 from app.dependencies import (
     AlbumRepoDep,
     ConnectorRepoDep,
@@ -23,6 +22,7 @@ from app.dependencies import (
     PhotoServiceDep,
     SearchServiceDep,
 )
+from app.domain.entities.connector import ConnectorType
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -40,8 +40,12 @@ async def upload_photos(
     photo_service: PhotoServiceDep,
     album_repo: AlbumRepoDep,
     connector_repo: ConnectorRepoDep,
-    files: Annotated[list[UploadFile], File(description="One or more image files to upload (max 100 at once)")],
-    album_id: Annotated[Optional[UUID], Form(description="Optional album ID to add photos to")] = None,
+    files: Annotated[
+        list[UploadFile], File(description="One or more image files to upload (max 100 at once)")
+    ],
+    album_id: Annotated[
+        Optional[UUID], Form(description="Optional album ID to add photos to")
+    ] = None,
 ) -> PhotoUploadResponse:
     """
     Upload one or more photos to the library.
@@ -130,8 +134,15 @@ async def upload_photos(
 
     # Allowed MIME types for images
     allowed_mime_types = {
-        "image/jpeg", "image/jpg", "image/png", "image/gif",
-        "image/webp", "image/bmp", "image/tiff", "image/heic", "image/heif"
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "image/bmp",
+        "image/tiff",
+        "image/heic",
+        "image/heif",
     }
     # Maximum file size: 50MB
     max_file_size = 50 * 1024 * 1024
@@ -140,50 +151,62 @@ async def upload_photos(
         try:
             # Validate filename
             if not file.filename:
-                failed.append({
-                    "filename": "unknown",
-                    "error": "Filename is required",
-                })
+                failed.append(
+                    {
+                        "filename": "unknown",
+                        "error": "Filename is required",
+                    }
+                )
                 continue
 
             # Sanitize filename length
             if len(file.filename) > 255:
-                failed.append({
-                    "filename": file.filename[:50] + "...",
-                    "error": "Filename is too long (max 255 characters)",
-                })
+                failed.append(
+                    {
+                        "filename": file.filename[:50] + "...",
+                        "error": "Filename is too long (max 255 characters)",
+                    }
+                )
                 continue
 
             # Validate file type
             if not file.content_type:
-                failed.append({
-                    "filename": file.filename,
-                    "error": "Content type is required",
-                })
+                failed.append(
+                    {
+                        "filename": file.filename,
+                        "error": "Content type is required",
+                    }
+                )
                 continue
 
             if file.content_type.lower() not in allowed_mime_types:
-                failed.append({
-                    "filename": file.filename,
-                    "error": f"Invalid file type: {file.content_type}. Allowed: {', '.join(sorted(allowed_mime_types))}",
-                })
+                failed.append(
+                    {
+                        "filename": file.filename,
+                        "error": f"Invalid file type: {file.content_type}. Allowed: {', '.join(sorted(allowed_mime_types))}",
+                    }
+                )
                 continue
 
             # Read file content
             file_content = await file.read()
             if not file_content:
-                failed.append({
-                    "filename": file.filename,
-                    "error": "Empty file",
-                })
+                failed.append(
+                    {
+                        "filename": file.filename,
+                        "error": "Empty file",
+                    }
+                )
                 continue
 
             # Validate file size
             if len(file_content) > max_file_size:
-                failed.append({
-                    "filename": file.filename,
-                    "error": f"File size exceeds maximum of {max_file_size // (1024 * 1024)}MB",
-                })
+                failed.append(
+                    {
+                        "filename": file.filename,
+                        "error": f"File size exceeds maximum of {max_file_size // (1024 * 1024)}MB",
+                    }
+                )
                 continue
 
             # Upload photo using photo service
@@ -202,7 +225,7 @@ async def upload_photos(
             detect_faces_task.delay(str(photo.id.value))
 
             logger.info(
-                f"Photo uploaded and queued for processing",
+                "Photo uploaded and queued for processing",
                 extra={
                     "photo_id": str(photo.id.value),
                     "photo_filename": photo.filename,
@@ -210,25 +233,29 @@ async def upload_photos(
                 },
             )
 
-            uploaded.append({
-                "id": str(photo.id.value),
-                "filename": photo.filename,
-                "status": "processing",
-            })
+            uploaded.append(
+                {
+                    "id": str(photo.id.value),
+                    "filename": photo.filename,
+                    "status": "processing",
+                }
+            )
 
         except Exception as e:
             logger.error(
-                f"Failed to upload photo",
+                "Failed to upload photo",
                 extra={
                     "photo_filename": file.filename or "unknown",
                     "error": str(e),
                 },
                 exc_info=True,
             )
-            failed.append({
-                "filename": file.filename or "unknown",
-                "error": f"Upload failed: {str(e)}",
-            })
+            failed.append(
+                {
+                    "filename": file.filename or "unknown",
+                    "error": f"Upload failed: {e!s}",
+                }
+            )
 
     return PhotoUploadResponse(
         success=True,
@@ -248,7 +275,9 @@ async def list_photos(
     page: Annotated[int, Query(ge=1, le=1000, description="Page number (1-indexed)")] = 1,
     per_page: Annotated[int, Query(ge=1, le=100, description="Number of items per page")] = 20,
     album_id: Annotated[Optional[UUID], Query(description="Filter by album ID")] = None,
-    connector_id: Annotated[Optional[UUID], Query(description="Filter by connector ID (photo source)")] = None,
+    connector_id: Annotated[
+        Optional[UUID], Query(description="Filter by connector ID (photo source)")
+    ] = None,
 ) -> PhotoListResponse:
     """
     List photos with pagination and optional filters.
@@ -322,27 +351,35 @@ async def list_photos(
     # Convert to response format
     photo_list = []
     for photo in photos:
-        photo_list.append({
-            "id": photo.id.value,
-            "filename": photo.filename,
-            "original_path": photo.source_path,
-            "storage_path": photo.storage_path,
-            "thumbnail_path": photo.thumbnail_path,
-            "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail" if photo.thumbnail_path or photo.is_remote else None,
-            "mime_type": photo.mime_type,
-            "file_size": photo.file_size,
-            "width": photo.width,
-            "height": photo.height,
-            "taken_at": photo.taken_at,
-            "description": photo.description,
-            "scene_type": photo.scene_classification.scene_type if photo.scene_classification else None,
-            "is_indoor": photo.scene_classification.is_indoor if photo.scene_classification else None,
-            "detected_objects": photo.detected_objects or [],
-            "processing_status": photo.processing_status,
-            "connector_type": photo.connector_type,
-            "created_at": photo.created_at,
-            "updated_at": photo.updated_at,
-        })
+        photo_list.append(
+            {
+                "id": photo.id.value,
+                "filename": photo.filename,
+                "original_path": photo.source_path,
+                "storage_path": photo.storage_path,
+                "thumbnail_path": photo.thumbnail_path,
+                "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail"
+                if photo.thumbnail_path or photo.is_remote
+                else None,
+                "mime_type": photo.mime_type,
+                "file_size": photo.file_size,
+                "width": photo.width,
+                "height": photo.height,
+                "taken_at": photo.taken_at,
+                "description": photo.description,
+                "scene_type": photo.scene_classification.scene_type
+                if photo.scene_classification
+                else None,
+                "is_indoor": photo.scene_classification.is_indoor
+                if photo.scene_classification
+                else None,
+                "detected_objects": photo.detected_objects or [],
+                "processing_status": photo.processing_status,
+                "connector_type": photo.connector_type,
+                "created_at": photo.created_at,
+                "updated_at": photo.updated_at,
+            }
+        )
 
     return PhotoListResponse(
         success=True,
@@ -421,7 +458,9 @@ async def get_photo(
         "original_path": photo.source_path,
         "storage_path": photo.storage_path,
         "thumbnail_path": photo.thumbnail_path,
-        "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail" if photo.thumbnail_path or photo.is_remote else None,
+        "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail"
+        if photo.thumbnail_path or photo.is_remote
+        else None,
         "mime_type": photo.mime_type,
         "file_size": photo.file_size,
         "width": photo.width,
@@ -496,7 +535,7 @@ async def delete_photo(
         raise HTTPException(status_code=404, detail="Photo not found")
 
     logger.info(
-        f"Photo deleted successfully",
+        "Photo deleted successfully",
         extra={"photo_id": str(photo_id)},
     )
 
@@ -528,18 +567,16 @@ async def delete_photo(
                 "image/jpeg": {"schema": {"type": "string", "format": "binary"}},
                 "image/png": {"schema": {"type": "string", "format": "binary"}},
                 "image/webp": {"schema": {"type": "string", "format": "binary"}},
-            }
+            },
         },
         404: {
             "description": "Photo not found or file not available",
             "content": {
-                "application/json": {
-                    "example": {"detail": "Photo not found or file not available"}
-                }
-            }
-        }
+                "application/json": {"example": {"detail": "Photo not found or file not available"}}
+            },
+        },
     },
-    tags=["Photos"]
+    tags=["Photos"],
 )
 async def get_photo_file(
     photo_id: UUID,
@@ -589,20 +626,13 @@ async def get_photo_file(
     responses={
         200: {
             "description": "Thumbnail image (JPEG)",
-            "content": {
-                "image/jpeg": {
-                    "schema": {
-                        "type": "string",
-                        "format": "binary"
-                    }
-                }
-            },
+            "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}},
             "headers": {
                 "Cache-Control": {
                     "description": "Caching directive",
-                    "schema": {"type": "string", "example": "public, max-age=86400"}
+                    "schema": {"type": "string", "example": "public, max-age=86400"},
                 }
-            }
+            },
         },
         404: {
             "description": "Photo or thumbnail not found",
@@ -611,22 +641,22 @@ async def get_photo_file(
                     "examples": {
                         "photo_not_found": {
                             "summary": "Photo doesn't exist",
-                            "value": {"detail": "Photo not found"}
+                            "value": {"detail": "Photo not found"},
                         },
                         "thumbnail_not_ready": {
                             "summary": "Thumbnail not generated yet",
-                            "value": {"detail": "Thumbnail not available"}
+                            "value": {"detail": "Thumbnail not available"},
                         },
                         "file_missing": {
                             "summary": "Thumbnail file missing",
-                            "value": {"detail": "Thumbnail file not found"}
-                        }
+                            "value": {"detail": "Thumbnail file not found"},
+                        },
                     }
                 }
-            }
-        }
+            },
+        },
     },
-    tags=["Photos"]
+    tags=["Photos"],
 )
 async def get_photo_thumbnail(
     photo_id: UUID,
@@ -761,11 +791,13 @@ async def get_similar_photos(
                 "created_at": result.photo.created_at,
                 "updated_at": result.photo.updated_at,
             }
-            results.append({
-                "photo": photo_data,
-                "score": result.score,
-                "highlights": result.highlights,
-            })
+            results.append(
+                {
+                    "photo": photo_data,
+                    "score": result.score,
+                    "highlights": result.highlights,
+                }
+            )
 
         logger.debug(
             f"Found {len(results)} similar photos",
@@ -780,7 +812,7 @@ async def get_similar_photos(
 
     except Exception as e:
         logger.error(
-            f"Error finding similar photos",
+            "Error finding similar photos",
             extra={
                 "photo_id": str(photo_id),
                 "error": str(e),

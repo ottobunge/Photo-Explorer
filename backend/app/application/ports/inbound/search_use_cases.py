@@ -92,7 +92,6 @@ class SearchUseCases(ABC):
         Returns:
             SearchResponse with matching photos and scores
         """
-        pass
 
     @abstractmethod
     async def find_similar(
@@ -110,7 +109,6 @@ class SearchUseCases(ABC):
         Returns:
             List of similar photos with scores
         """
-        pass
 
     @abstractmethod
     async def search_by_face(
@@ -128,4 +126,3 @@ class SearchUseCases(ABC):
         Returns:
             List of photos containing matching faces
         """
-        pass

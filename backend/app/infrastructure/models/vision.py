@@ -6,8 +6,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import torch
 from PIL import Image
@@ -19,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class VisionModelType(str, Enum):
     """Supported vision model types."""
+
     BLIP2 = "blip2"
     LLAVA = "llava"
     MOONDREAM = "moondream"
@@ -27,6 +27,7 @@ class VisionModelType(str, Enum):
 @dataclass
 class ImageCaption:
     """Result from image captioning."""
+
     caption: str
     confidence: Optional[float] = None
 
@@ -34,6 +35,7 @@ class ImageCaption:
 @dataclass
 class DetectedObject:
     """A detected object in an image."""
+
     label: str
     confidence: float
     bbox: tuple[float, float, float, float]  # x, y, width, height (normalized)
@@ -42,6 +44,7 @@ class DetectedObject:
 @dataclass
 class SceneClassification:
     """Scene classification result."""
+
     scene_type: str
     confidence: float
     is_indoor: bool
@@ -52,19 +55,18 @@ class VisionModelLoader(ABC):
     """Abstract base class for vision models."""
 
     @abstractmethod
-    async def generate_caption(self, image: Image.Image, prompt: Optional[str] = None) -> ImageCaption:
+    async def generate_caption(
+        self, image: Image.Image, prompt: Optional[str] = None
+    ) -> ImageCaption:
         """Generate a caption for an image."""
-        pass
 
     @abstractmethod
     async def answer_question(self, image: Image.Image, question: str) -> str:
         """Answer a question about an image."""
-        pass
 
     @abstractmethod
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
-        pass
 
 
 class BLIP2ModelLoader(VisionModelLoader):
@@ -103,7 +105,7 @@ class BLIP2ModelLoader(VisionModelLoader):
         logger.info(f"Loading BLIP-2 model: {self._model_id}")
 
         def _load():
-            from transformers import Blip2Processor, Blip2ForConditionalGeneration
+            from transformers import Blip2ForConditionalGeneration, Blip2Processor
 
             device = self._get_device()
 
@@ -134,7 +136,9 @@ class BLIP2ModelLoader(VisionModelLoader):
         """Check if model is loaded."""
         return self._model is not None
 
-    async def generate_caption(self, image: Image.Image, prompt: Optional[str] = None) -> ImageCaption:
+    async def generate_caption(
+        self, image: Image.Image, prompt: Optional[str] = None
+    ) -> ImageCaption:
         """Generate a caption for an image."""
         if not self.is_loaded():
             await self.load()
@@ -160,7 +164,9 @@ class BLIP2ModelLoader(VisionModelLoader):
                     early_stopping=True,
                 )
 
-            caption = self._processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+            caption = self._processor.batch_decode(generated_ids, skip_special_tokens=True)[
+                0
+            ].strip()
             return caption
 
         loop = asyncio.get_event_loop()
@@ -189,11 +195,13 @@ class BLIP2ModelLoader(VisionModelLoader):
                     num_beams=3,
                 )
 
-            answer = self._processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+            answer = self._processor.batch_decode(generated_ids, skip_special_tokens=True)[
+                0
+            ].strip()
 
             # Remove the prompt from the answer if present
             if answer.startswith(prompt):
-                answer = answer[len(prompt):].strip()
+                answer = answer[len(prompt) :].strip()
 
             return answer
 
@@ -257,7 +265,9 @@ class MoondreamModelLoader(VisionModelLoader):
         """Check if model is loaded."""
         return self._model is not None
 
-    async def generate_caption(self, image: Image.Image, prompt: Optional[str] = None) -> ImageCaption:
+    async def generate_caption(
+        self, image: Image.Image, prompt: Optional[str] = None
+    ) -> ImageCaption:
         """Generate a caption for an image."""
         if not self.is_loaded():
             await self.load()
@@ -322,7 +332,7 @@ class ObjectDetectionLoader:
         logger.info(f"Loading DETR model: {self.MODEL_ID}")
 
         def _load():
-            from transformers import DetrImageProcessor, DetrForObjectDetection
+            from transformers import DetrForObjectDetection, DetrImageProcessor
 
             device = self._get_device()
 
@@ -362,7 +372,7 @@ class ObjectDetectionLoader:
             )[0]
 
             detected = []
-            for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
+            for score, label, box in zip(results["scores"], results["labels"], results["boxes"], strict=False):
                 box = box.tolist()
                 label_name = self._model.config.id2label[label.item()]
 
@@ -376,11 +386,13 @@ class ObjectDetectionLoader:
                     (y2 - y) / height,
                 )
 
-                detected.append(DetectedObject(
-                    label=label_name,
-                    confidence=score.item(),
-                    bbox=norm_box,
-                ))
+                detected.append(
+                    DetectedObject(
+                        label=label_name,
+                        confidence=score.item(),
+                        bbox=norm_box,
+                    )
+                )
 
             return detected
 
@@ -399,15 +411,45 @@ class SceneClassificationLoader:
 
     # Common scene categories
     INDOOR_SCENES = {
-        "bedroom", "bathroom", "kitchen", "living_room", "dining_room",
-        "office", "classroom", "library", "hospital", "restaurant",
-        "cafe", "bar", "gym", "museum", "store", "mall", "hotel",
+        "bedroom",
+        "bathroom",
+        "kitchen",
+        "living_room",
+        "dining_room",
+        "office",
+        "classroom",
+        "library",
+        "hospital",
+        "restaurant",
+        "cafe",
+        "bar",
+        "gym",
+        "museum",
+        "store",
+        "mall",
+        "hotel",
     }
 
     OUTDOOR_SCENES = {
-        "beach", "mountain", "forest", "park", "garden", "street",
-        "highway", "bridge", "building", "city", "village", "farm",
-        "field", "lake", "river", "ocean", "sky", "desert", "snow",
+        "beach",
+        "mountain",
+        "forest",
+        "park",
+        "garden",
+        "street",
+        "highway",
+        "bridge",
+        "building",
+        "city",
+        "village",
+        "farm",
+        "field",
+        "lake",
+        "river",
+        "ocean",
+        "sky",
+        "desert",
+        "snow",
     }
 
     def __init__(self, config: Optional[ModelConfig] = None):
@@ -478,7 +520,7 @@ class SceneClassificationLoader:
             top_probs, top_indices = torch.topk(probs[0], k=min(top_k, len(probs[0])))
 
             top_labels = []
-            for idx, prob in zip(top_indices, top_probs):
+            for idx, prob in zip(top_indices, top_probs, strict=False):
                 label = self._model.config.id2label[idx.item()]
                 top_labels.append((label, prob.item()))
 
@@ -523,10 +565,13 @@ def get_vision_model(model_type: Optional[VisionModelType] = None) -> VisionMode
         model_type_str = os.environ.get("VISION_MODEL", "blip2")
         model_type = VisionModelType(model_type_str)
 
-    if _vision_model is None or not isinstance(_vision_model, {
-        VisionModelType.BLIP2: BLIP2ModelLoader,
-        VisionModelType.MOONDREAM: MoondreamModelLoader,
-    }.get(model_type, BLIP2ModelLoader)):
+    if _vision_model is None or not isinstance(
+        _vision_model,
+        {
+            VisionModelType.BLIP2: BLIP2ModelLoader,
+            VisionModelType.MOONDREAM: MoondreamModelLoader,
+        }.get(model_type, BLIP2ModelLoader),
+    ):
         if model_type == VisionModelType.BLIP2:
             _vision_model = BLIP2ModelLoader()
         elif model_type == VisionModelType.MOONDREAM:

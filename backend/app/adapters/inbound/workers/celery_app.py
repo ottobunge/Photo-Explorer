@@ -6,9 +6,6 @@ from typing import Any
 from celery import Celery, Task
 from celery.signals import (
     celeryd_init,
-    task_failure,
-    task_retry,
-    task_success,
     worker_ready,
 )
 

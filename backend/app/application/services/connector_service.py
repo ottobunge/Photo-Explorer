@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.application.ports.outbound import ConnectorRepository, PhotoRepository
 from app.config import get_settings
-from app.domain.entities.connector import Connector, ConnectorStatus, ConnectorType
+from app.domain.entities.connector import Connector, ConnectorType
 
 
 class ConnectorService:

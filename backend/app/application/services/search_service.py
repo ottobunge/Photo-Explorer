@@ -308,6 +308,7 @@ class SearchService(SearchUseCases):
             SearchResponse with matching photos
         """
         import time
+
         start_time = time.time()
 
         # Create a combined search query from object labels
@@ -339,6 +340,7 @@ class SearchService(SearchUseCases):
             SearchResponse with matching photos
         """
         import time
+
         start_time = time.time()
 
         # Create search query
@@ -377,6 +379,7 @@ class SearchService(SearchUseCases):
             SearchResponse with matching photos
         """
         import time
+
         start_time = time.time()
 
         if query:
@@ -399,13 +402,10 @@ class SearchService(SearchUseCases):
                 filtered.sort(key=lambda p: p.taken_at or p.created_at)
 
             # Apply offset and limit
-            filtered = filtered[offset:offset + limit]
+            filtered = filtered[offset : offset + limit]
 
             # Convert to SearchResults
-            results = [
-                SearchResult(photo=photo, score=1.0, highlights=[])
-                for photo in filtered
-            ]
+            results = [SearchResult(photo=photo, score=1.0, highlights=[]) for photo in filtered]
 
             query_time_ms = (time.time() - start_time) * 1000
 

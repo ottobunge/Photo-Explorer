@@ -19,7 +19,6 @@ class ConfigStorage(ABC):
         Returns:
             The configuration as a dictionary or None if not found
         """
-        pass
 
     @abstractmethod
     async def save_config(self, name: str, config: dict[str, Any]) -> None:
@@ -30,7 +29,6 @@ class ConfigStorage(ABC):
             name: The config name
             config: The configuration to save
         """
-        pass
 
     @abstractmethod
     async def delete_config(self, name: str) -> bool:
@@ -43,7 +41,6 @@ class ConfigStorage(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     def get_config_path(self, name: str) -> Path:
@@ -56,7 +53,6 @@ class ConfigStorage(ABC):
         Returns:
             The Path to the configuration file
         """
-        pass
 
     @abstractmethod
     def get_config_dir(self) -> Path:
@@ -66,4 +62,3 @@ class ConfigStorage(ABC):
         Returns:
             The Path to the configuration directory
         """
-        pass

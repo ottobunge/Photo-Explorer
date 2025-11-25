@@ -8,15 +8,12 @@ Tests the following endpoints:
 Following TDD approach - tests written before implementation.
 """
 
-import pytest
-from pathlib import Path
-from uuid import uuid4
-import tempfile
 import shutil
 
+import pytest
 from httpx import AsyncClient
 
-from app.domain.entities.connector import Connector, ConnectorType, ConnectorStatus
+from app.domain.entities.connector import Connector
 
 
 class TestCreateLocalConnector:
@@ -101,7 +98,11 @@ class TestCreateLocalConnector:
 
         # Then
         assert response.status_code == 400
-        assert "path" in response.json()["error"]["message"].lower() or "not found" in response.json()["error"]["message"].lower() or "not exist" in response.json()["error"]["message"].lower()
+        assert (
+            "path" in response.json()["error"]["message"].lower()
+            or "not found" in response.json()["error"]["message"].lower()
+            or "not exist" in response.json()["error"]["message"].lower()
+        )
 
     @pytest.mark.asyncio
     async def test_create_local_connector_validates_path_is_directory(
@@ -129,6 +130,7 @@ class TestCreateLocalConnector:
         """Should prevent creating duplicate connector for same path."""
         # Given: existing connector for path
         from pathlib import Path
+
         folder_path = str(Path(temp_photos_dir).resolve())
         existing = Connector.create_local(path=folder_path, name="Existing")
         await connector_repo.save(existing)
@@ -203,9 +205,7 @@ class TestCreateLocalConnector:
             assert field in data, f"Missing field: {field}"
 
     @pytest.mark.asyncio
-    async def test_create_local_connector_blocks_system_directories(
-        self, client: AsyncClient
-    ):
+    async def test_create_local_connector_blocks_system_directories(self, client: AsyncClient):
         """SECURITY: Should block access to system directories."""
         # Given: system directory paths
         system_paths = ["/etc", "/var", "/sys", "/proc", "/dev", "/boot", "/root"]
@@ -223,9 +223,7 @@ class TestCreateLocalConnector:
             assert "not within allowed" in error_msg or "not allowed" in error_msg
 
     @pytest.mark.asyncio
-    async def test_create_local_connector_blocks_paths_outside_allowed(
-        self, client: AsyncClient
-    ):
+    async def test_create_local_connector_blocks_paths_outside_allowed(self, client: AsyncClient):
         """SECURITY: Should only allow paths within configured allowed directories."""
         # Given: path outside user home (default allowed path)
         # Note: This assumes default config allows only home directory
@@ -386,9 +384,7 @@ class TestTriggerLocalFolderScan:
     """Tests for triggering local folder scan."""
 
     @pytest.mark.asyncio
-    async def test_trigger_folder_scan(
-        self, client: AsyncClient, connector_repo, temp_photos_dir
-    ):
+    async def test_trigger_folder_scan(self, client: AsyncClient, connector_repo, temp_photos_dir):
         """Should trigger background task to scan folder."""
         # Given: local connector with photos in folder
         connector = Connector.create_local(path=str(temp_photos_dir), name="Test")
@@ -425,9 +421,7 @@ class TestTriggerLocalFolderScan:
         # Then: check status updated
         # Note: In real implementation, status would be updated by background task
         # This test verifies the endpoint accepts the request
-        response = await client.get(
-            f"/api/v1/connectors/{saved.id.value}/sync/status"
-        )
+        response = await client.get(f"/api/v1/connectors/{saved.id.value}/sync/status")
         assert response.status_code == 200
 
     @pytest.mark.asyncio
@@ -497,9 +491,7 @@ class TestLocalConnectorEdgeCases:
         shutil.rmtree(special_dir)
 
     @pytest.mark.asyncio
-    async def test_create_connector_with_relative_path(
-        self, client: AsyncClient
-    ):
+    async def test_create_connector_with_relative_path(self, client: AsyncClient):
         """Should reject or convert relative paths."""
         # When: use relative path
         response = await client.post(

@@ -27,32 +27,27 @@ class _TypedId:
 class PhotoId(_TypedId):
     """Strongly-typed ID for Photo entities."""
 
-    pass
 
 
 @dataclass(frozen=True)
 class AlbumId(_TypedId):
     """Strongly-typed ID for Album entities."""
 
-    pass
 
 
 @dataclass(frozen=True)
 class FaceId(_TypedId):
     """Strongly-typed ID for Face entities."""
 
-    pass
 
 
 @dataclass(frozen=True)
 class FaceClusterId(_TypedId):
     """Strongly-typed ID for FaceCluster entities."""
 
-    pass
 
 
 @dataclass(frozen=True)
 class ConnectorId(_TypedId):
     """Strongly-typed ID for Connector entities."""
 
-    pass

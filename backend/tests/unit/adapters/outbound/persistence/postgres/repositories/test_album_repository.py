@@ -2,10 +2,9 @@
 
 from uuid import uuid4
 
-import pytest
 from sqlalchemy import select
 
-from app.adapters.outbound.persistence.postgres.models import AlbumModel, PhotoModel
+from app.adapters.outbound.persistence.postgres.models import AlbumModel
 from app.adapters.outbound.persistence.postgres.repositories.album_repository import (
     AlbumRepositoryPostgres,
 )
@@ -142,6 +141,7 @@ class TestAlbumRepositoryFindAll:
         await repo.save(album1)
 
         import asyncio
+
         await asyncio.sleep(0.01)
 
         album2 = Album.create(name="Second")

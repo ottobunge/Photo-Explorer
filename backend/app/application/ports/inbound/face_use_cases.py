@@ -30,7 +30,6 @@ class FaceUseCases(ABC):
         Returns:
             List of FaceCluster entities
         """
-        pass
 
     @abstractmethod
     async def get_cluster(self, cluster_id: UUID) -> Optional[FaceCluster]:
@@ -43,7 +42,6 @@ class FaceUseCases(ABC):
         Returns:
             The FaceCluster entity or None if not found
         """
-        pass
 
     @abstractmethod
     async def name_cluster(self, cluster_id: UUID, name: str) -> FaceCluster:
@@ -57,7 +55,6 @@ class FaceUseCases(ABC):
         Returns:
             The updated FaceCluster entity
         """
-        pass
 
     @abstractmethod
     async def merge_clusters(
@@ -75,7 +72,6 @@ class FaceUseCases(ABC):
         Returns:
             The merged FaceCluster entity
         """
-        pass
 
     @abstractmethod
     async def split_face(self, face_id: UUID) -> FaceCluster:
@@ -88,7 +84,6 @@ class FaceUseCases(ABC):
         Returns:
             The new FaceCluster containing just this face
         """
-        pass
 
     @abstractmethod
     async def move_face(self, face_id: UUID, target_cluster_id: UUID) -> Face:
@@ -102,7 +97,6 @@ class FaceUseCases(ABC):
         Returns:
             The updated Face entity
         """
-        pass
 
     @abstractmethod
     async def get_face_crop(self, face_id: UUID) -> Optional[tuple[bytes, str]]:
@@ -115,7 +109,6 @@ class FaceUseCases(ABC):
         Returns:
             Tuple of (image_bytes, content_type) or None if not found
         """
-        pass
 
     @abstractmethod
     async def get_faces_for_photo(self, photo_id: UUID) -> list[Face]:
@@ -128,7 +121,6 @@ class FaceUseCases(ABC):
         Returns:
             List of Face entities
         """
-        pass
 
     @abstractmethod
     async def get_photos_for_cluster(
@@ -148,4 +140,3 @@ class FaceUseCases(ABC):
         Returns:
             List of photo IDs
         """
-        pass

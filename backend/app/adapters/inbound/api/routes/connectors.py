@@ -2,7 +2,6 @@
 
 import logging
 import os
-from datetime import datetime
 from typing import Annotated, Optional
 from uuid import UUID
 
@@ -11,7 +10,6 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from app.adapters.inbound.api.schemas.connector_schemas import (
-    ConnectorCreateRequest,
     ConnectorListResponse,
     ConnectorResponse,
     ConnectorUpdateRequest,
@@ -287,7 +285,7 @@ async def delete_connector(
             },
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail=f"Failed to delete connector: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete connector: {e!s}")
 
 
 @router.post("/{connector_id}/sync")
@@ -513,7 +511,7 @@ async def google_photos_oauth_callback(
             },
             exc_info=True,
         )
-        raise HTTPException(status_code=400, detail=f"OAuth exchange failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"OAuth exchange failed: {e!s}")
     finally:
         await client.close()
 
@@ -538,7 +536,7 @@ async def google_photos_oauth_callback_redirect(
     The main flow uses the frontend callback page which calls the POST endpoint.
     """
     # Extract frontend origin from redirect_uri (e.g., http://localhost:5173)
-    from urllib.parse import urlparse, quote
+    from urllib.parse import quote, urlparse
 
     parsed = urlparse(redirect_uri)
     frontend_origin = f"{parsed.scheme}://{parsed.netloc}"
@@ -555,7 +553,7 @@ async def disconnect_google_photos(
     connector_repo: ConnectorRepoDep,
 ) -> dict:
     """Disconnect from Google Photos and delete tokens."""
-    from app.domain.entities.connector import ConnectorType, ConnectorStatus
+    from app.domain.entities.connector import ConnectorStatus, ConnectorType
 
     # Delete stored tokens
     token_storage = SecureTokenStorage()
@@ -852,16 +850,16 @@ async def delete_picker_session(
                                 "path": "/photos/family",
                                 "recursive": True,
                                 "watch": False,
-                                "auto_album": False
+                                "auto_album": False,
                             },
                             "last_sync": None,
                             "error_message": None,
                             "created_at": "2024-01-20T10:00:00Z",
-                            "updated_at": None
-                        }
+                            "updated_at": None,
+                        },
                     }
                 }
-            }
+            },
         },
         400: {
             "description": "Invalid request (path doesn't exist, not a directory, etc.)",
@@ -870,23 +868,19 @@ async def delete_picker_session(
                     "examples": {
                         "not_exists": {
                             "summary": "Path doesn't exist",
-                            "value": {"detail": "Path does not exist: /nonexistent"}
+                            "value": {"detail": "Path does not exist: /nonexistent"},
                         },
                         "not_directory": {
                             "summary": "Path is not a directory",
-                            "value": {"detail": "Path is not a directory: /file.txt"}
-                        }
+                            "value": {"detail": "Path is not a directory: /file.txt"},
+                        },
                     }
                 }
-            }
+            },
         },
         403: {
             "description": "Path not allowed (security restriction)",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Path not allowed: /etc"}
-                }
-            }
+            "content": {"application/json": {"example": {"detail": "Path not allowed: /etc"}}},
         },
         409: {
             "description": "Connector already exists for this path",
@@ -894,10 +888,10 @@ async def delete_picker_session(
                 "application/json": {
                     "example": {"detail": "Connector already exists for path: /photos"}
                 }
-            }
-        }
+            },
+        },
     },
-    tags=["Connectors"]
+    tags=["Connectors"],
 )
 async def create_local_folder_connector(
     request: LocalFolderCreateRequest,
@@ -905,8 +899,9 @@ async def create_local_folder_connector(
 ) -> ConnectorResponse:
     """Add a local folder for indexing."""
     from pathlib import Path
-    from app.domain.entities.connector import Connector
+
     from app.config import get_settings
+    from app.domain.entities.connector import Connector
 
     settings = get_settings()
 

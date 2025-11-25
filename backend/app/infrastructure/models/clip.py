@@ -81,7 +81,9 @@ class CLIPModelLoader:
             else:
                 self._device = "cpu"
                 if self._clip_config.device != "cpu":
-                    logger.warning(f"Requested device {self._clip_config.device} not available, using CPU")
+                    logger.warning(
+                        f"Requested device {self._clip_config.device} not available, using CPU"
+                    )
 
             logger.info(f"Using device: {self._device}")
 
@@ -120,6 +122,7 @@ class CLIPModelLoader:
         # Try to free GPU memory
         try:
             import torch
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         except Exception:

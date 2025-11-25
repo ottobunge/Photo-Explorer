@@ -340,6 +340,7 @@ async def _analyze_pending_photos_async() -> dict:
         # Note: This would need a custom repository method
         # For now, we'll use a placeholder approach
         from sqlalchemy import select
+
         from app.adapters.outbound.persistence.postgres.models import PhotoModel
 
         stmt = (

@@ -36,7 +36,6 @@ class TokenStorage(ABC):
             connector_type: The connector type (e.g., "google_photos")
             tokens: The OAuth tokens to save
         """
-        pass
 
     @abstractmethod
     async def load_tokens(self, connector_type: str) -> Optional[OAuthTokens]:
@@ -49,7 +48,6 @@ class TokenStorage(ABC):
         Returns:
             The OAuthTokens or None if not found
         """
-        pass
 
     @abstractmethod
     async def delete_tokens(self, connector_type: str) -> bool:
@@ -62,7 +60,6 @@ class TokenStorage(ABC):
         Returns:
             True if deleted, False if not found
         """
-        pass
 
     @abstractmethod
     async def has_tokens(self, connector_type: str) -> bool:
@@ -75,4 +72,3 @@ class TokenStorage(ABC):
         Returns:
             True if tokens exist
         """
-        pass

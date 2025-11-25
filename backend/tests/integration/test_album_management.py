@@ -8,12 +8,11 @@ Tests:
 5. Cascade behavior
 """
 
-from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
 
-from app.adapters.outbound.persistence.postgres.models import AlbumModel, photo_album_association
+from app.adapters.outbound.persistence.postgres.models import photo_album_association
 from app.adapters.outbound.persistence.postgres.repositories import (
     AlbumRepositoryPostgres,
     PhotoRepositoryPostgres,
