@@ -1,75 +1,33 @@
 import { test, expect } from '@playwright/test';
+import { createMockPhoto, createMockPhotos, photoWithoutThumbnail } from '../fixtures/photos';
+import { createMockSearchResult } from '../fixtures/photos';
+import {
+	setupHomepageMocks,
+	setupSearchPageMocks,
+	setupSearchModeMocks,
+	setupEmptyStateMocks,
+	mockPhotosAPI
+} from '../helpers/api-mocks';
 
 test.describe('Photo Navigation - Homepage', () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock the photos API for homepage
-		await page.route('**/api/v1/photos?per_page=12', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: {
-						photos: [
-							{
-								id: 'test-photo-1',
-								filename: 'sunset.jpg',
-								thumbnail_url: '/api/v1/photos/test-photo-1/thumbnail',
-								connector_type: 'local',
-								taken_at: '2024-01-01T12:00:00Z',
-								created_at: '2024-01-01T12:00:00Z'
-							},
-							{
-								id: 'test-photo-2',
-								filename: 'beach.jpg',
-								thumbnail_url: '/api/v1/photos/test-photo-2/thumbnail',
-								connector_type: 'google_photos',
-								taken_at: '2024-01-02T12:00:00Z',
-								created_at: '2024-01-02T12:00:00Z'
-							}
-						]
-					},
-					meta: { total: 2 }
-				})
-			});
-		});
+		// Use fixture data and helper mocks for consistent setup
+		const testPhotos = [
+			createMockPhoto({
+				id: 'test-photo-1',
+				filename: 'sunset.jpg',
+				connector_type: 'local',
+				taken_at: '2024-01-01T12:00:00Z'
+			}),
+			createMockPhoto({
+				id: 'test-photo-2',
+				filename: 'beach.jpg',
+				connector_type: 'google_photos',
+				taken_at: '2024-01-02T12:00:00Z'
+			})
+		];
 
-		// Mock connectors API
-		await page.route('**/api/v1/connectors', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: { connectors: [] }
-				})
-			});
-		});
-
-		// Mock albums API
-		await page.route('**/api/v1/albums', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: { albums: [] }
-				})
-			});
-		});
-
-		// Mock face clusters API
-		await page.route('**/api/v1/faces/clusters', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: { clusters: [] }
-				})
-			});
-		});
-
+		await setupHomepageMocks(page, { photos: testPhotos });
 		await page.goto('/');
 	});
 
@@ -125,17 +83,7 @@ test.describe('Photo Navigation - Homepage', () => {
 
 	test('When homepage has no photos, Then empty state is shown with no clickable cards', async ({ page }) => {
 		// Given: API returns no photos
-		await page.route('**/api/v1/photos?per_page=12', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: { photos: [] },
-					meta: { total: 0 }
-				})
-			});
-		});
+		await setupEmptyStateMocks(page);
 
 		// When: User visits homepage
 		await page.goto('/');
@@ -146,71 +94,92 @@ test.describe('Photo Navigation - Homepage', () => {
 		// And: No photo cards should exist
 		await expect(page.getByTestId('photo-card')).toHaveCount(0);
 	});
+
+	// === Converted from homepage.test.ts unit tests ===
+
+	test('When photos load, Then thumbnails display with correct filenames', async ({ page }) => {
+		// Given: Homepage is loaded with photos
+		await expect(page.getByTestId('photo-card')).toHaveCount(2);
+
+		// Then: Filenames should be visible
+		await expect(page.getByText('sunset.jpg')).toBeVisible();
+		await expect(page.getByText('beach.jpg')).toBeVisible();
+
+		// And: Images should have proper alt attributes
+		const images = page.locator('img[alt="sunset.jpg"]');
+		await expect(images.first()).toBeVisible();
+	});
+
+	test('When photo has no thumbnail, Then placeholder icon is shown', async ({ page }) => {
+		// Given: Photo without thumbnail exists
+		const photoNoThumb = photoWithoutThumbnail;
+		await setupHomepageMocks(page, { photos: [photoNoThumb] });
+		await page.goto('/');
+
+		// Then: Photo card should still be clickable
+		const photoCard = page.getByTestId('photo-card');
+		await expect(photoCard).toBeVisible();
+		await expect(photoCard).toHaveAttribute('href', `/photos/${photoNoThumb.id}`);
+
+		// And: Placeholder should be visible (gray background)
+		const card = await photoCard.first();
+		const hasPlaceholder = await card.locator('.bg-gray-100').count();
+		expect(hasPlaceholder).toBeGreaterThan(0);
+	});
+
+	test('When multiple photos render, Then each has unique filename displayed', async ({ page }) => {
+		// Given: Multiple photos with different filenames
+		const multiplePhotos = createMockPhotos(3, (index) => ({
+			id: `photo-${index}`,
+			filename: `photo-${index}.jpg`
+		}));
+
+		await setupHomepageMocks(page, { photos: multiplePhotos });
+		await page.goto('/');
+
+		// Then: All photo cards should be rendered
+		await expect(page.getByTestId('photo-card')).toHaveCount(3);
+
+		// And: Each filename should be visible
+		for (let i = 0; i < 3; i++) {
+			await expect(page.getByText(`photo-${i}.jpg`)).toBeVisible();
+		}
+	});
+
+	test('When homepage loads, Then stats are displayed correctly', async ({ page }) => {
+		// Given: Homepage is loaded
+		await expect(page.getByText('Dashboard')).toBeVisible();
+
+		// Then: Stats section should be visible
+		await expect(page.getByText('Total Photos')).toBeVisible();
+		await expect(page.getByText('Albums')).toBeVisible();
+		await expect(page.getByText('Named People')).toBeVisible();
+		await expect(page.getByText('Connectors')).toBeVisible();
+	});
 });
 
 test.describe('Photo Navigation - Search Page', () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock connectors API
-		await page.route('**/api/v1/connectors', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: { connectors: [] }
-				})
-			});
-		});
-
-		// Mock albums API
-		await page.route('**/api/v1/albums', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: { albums: [] }
-				})
-			});
-		});
+		// Mock connectors and albums for all search page tests
+		await setupSearchPageMocks(page);
 	});
 
 	test('When user browses photos, Then all photos should be clickable', async ({ page }) => {
 		// Given: Photos API returns results
-		await page.route('**/api/v1/photos?page=1&per_page=24', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: {
-						photos: [
-							{
-								id: 'browse-1',
-								filename: 'mountain.jpg',
-								thumbnail_url: '/api/v1/photos/browse-1/thumbnail',
-								connector_type: 'local',
-								width: 1920,
-								height: 1080,
-								taken_at: null,
-								created_at: '2024-01-01T12:00:00Z'
-							},
-							{
-								id: 'browse-2',
-								filename: 'lake.jpg',
-								thumbnail_url: '/api/v1/photos/browse-2/thumbnail',
-								connector_type: 'local',
-								width: 1920,
-								height: 1080,
-								taken_at: null,
-								created_at: '2024-01-02T12:00:00Z'
-							}
-						]
-					},
-					meta: { total: 2 }
-				})
-			});
-		});
+		const browsePhotos = [
+			createMockPhoto({
+				id: 'browse-1',
+				filename: 'mountain.jpg',
+				connector_type: 'local'
+			}),
+			createMockPhoto({
+				id: 'browse-2',
+				filename: 'lake.jpg',
+				connector_type: 'local'
+			})
+		];
+
+		await setupSearchPageMocks(page, { photos: browsePhotos });
 
 		// When: User visits the search/browse page
 		await page.goto('/search');
@@ -224,34 +193,19 @@ test.describe('Photo Navigation - Search Page', () => {
 	});
 
 	test('When user searches for photos, Then search results should be clickable', async ({ page }) => {
-		// Given: Search API returns results
-		await page.route('**/api/v1/search?q=sunset*', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: {
-						results: [
-							{
-								photo: {
-									id: 'sunset-1',
-									filename: 'sunset-beach.jpg',
-									thumbnail_url: '/api/v1/photos/sunset-1/thumbnail',
-									connector_type: 'local',
-									width: 3000,
-									height: 2000,
-									taken_at: '2024-06-15T19:30:00Z',
-									created_at: '2024-06-15T19:30:00Z'
-								},
-								score: 0.89
-							}
-						]
-					},
-					meta: { total: 1 }
-				})
-			});
-		});
+		// Given: Search API returns results with scores
+		const searchResults = [
+			createMockSearchResult(
+				{ score: 0.89 },
+				{
+					id: 'sunset-1',
+					filename: 'sunset-beach.jpg',
+					taken_at: '2024-06-15T19:30:00Z'
+				}
+			)
+		];
+
+		await setupSearchModeMocks(page, 'sunset', { results: searchResults });
 
 		// When: User navigates to search page with query
 		await page.goto('/search?q=sunset');
@@ -268,34 +222,19 @@ test.describe('Photo Navigation - Search Page', () => {
 
 	test('When user clicks search result, Then they navigate to photo detail', async ({ page }) => {
 		// Given: Search results are displayed
-		await page.route('**/api/v1/search?q=cat*', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: {
-						results: [
-							{
-								photo: {
-									id: 'cat-photo-1',
-									filename: 'cute-cat.jpg',
-									thumbnail_url: '/api/v1/photos/cat-photo-1/thumbnail',
-									connector_type: 'local',
-									width: 2000,
-									height: 1500,
-									taken_at: null,
-									created_at: '2024-03-15T10:00:00Z'
-								},
-								score: 0.95
-							}
-						]
-					},
-					meta: { total: 1 }
-				})
-			});
-		});
+		const catResults = [
+			createMockSearchResult(
+				{ score: 0.95 },
+				{
+					id: 'cat-photo-1',
+					filename: 'cute-cat.jpg',
+					width: 2000,
+					height: 1500
+				}
+			)
+		];
 
+		await setupSearchModeMocks(page, 'cat', { results: catResults });
 		await page.goto('/search?q=cat');
 
 		// When: User clicks on the search result
@@ -307,55 +246,21 @@ test.describe('Photo Navigation - Search Page', () => {
 
 	test('When user paginates through results, Then photos remain clickable', async ({ page }) => {
 		// Given: Paginated results exist
-		await page.route('**/api/v1/photos?page=1&per_page=24', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: {
-						photos: [
-							{
-								id: 'page1-photo',
-								filename: 'page1.jpg',
-								thumbnail_url: '/api/v1/photos/page1-photo/thumbnail',
-								connector_type: 'local',
-								width: 1920,
-								height: 1080,
-								taken_at: null,
-								created_at: '2024-01-01T12:00:00Z'
-							}
-						]
-					},
-					meta: { total: 50 }
-				})
-			});
+		const page1Photo = createMockPhoto({
+			id: 'page1-photo',
+			filename: 'page1.jpg'
 		});
 
-		await page.route('**/api/v1/photos?page=2&per_page=24', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: {
-						photos: [
-							{
-								id: 'page2-photo',
-								filename: 'page2.jpg',
-								thumbnail_url: '/api/v1/photos/page2-photo/thumbnail',
-								connector_type: 'local',
-								width: 1920,
-								height: 1080,
-								taken_at: null,
-								created_at: '2024-01-02T12:00:00Z'
-							}
-						]
-					},
-					meta: { total: 50 }
-				})
-			});
+		const page2Photo = createMockPhoto({
+			id: 'page2-photo',
+			filename: 'page2.jpg'
 		});
+
+		// Mock page 1
+		await mockPhotosAPI.withPhotos(page, [page1Photo], { page: 1, perPage: 24, total: 50 });
+
+		// Mock page 2
+		await mockPhotosAPI.withPhotos(page, [page2Photo], { page: 2, perPage: 24, total: 50 });
 
 		await page.goto('/search');
 
@@ -370,17 +275,7 @@ test.describe('Photo Navigation - Search Page', () => {
 
 	test('When search returns no results, Then no photo cards are shown', async ({ page }) => {
 		// Given: Search API returns no results
-		await page.route('**/api/v1/search?q=nonexistent*', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: { results: [] },
-					meta: { total: 0 }
-				})
-			});
-		});
+		await setupSearchModeMocks(page, 'nonexistent', { results: [] });
 
 		// When: User searches for something that doesn't exist
 		await page.goto('/search?q=nonexistent');
@@ -394,31 +289,12 @@ test.describe('Photo Navigation - Search Page', () => {
 
 	test('When user uses keyboard navigation, Then they can tab to photos and press Enter', async ({ page }) => {
 		// Given: Photos are displayed
-		await page.route('**/api/v1/photos?page=1&per_page=24', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: {
-						photos: [
-							{
-								id: 'keyboard-photo',
-								filename: 'keyboard-test.jpg',
-								thumbnail_url: '/api/v1/photos/keyboard-photo/thumbnail',
-								connector_type: 'local',
-								width: 1920,
-								height: 1080,
-								taken_at: null,
-								created_at: '2024-01-01T12:00:00Z'
-							}
-						]
-					},
-					meta: { total: 1 }
-				})
-			});
+		const keyboardPhoto = createMockPhoto({
+			id: 'keyboard-photo',
+			filename: 'keyboard-test.jpg'
 		});
 
+		await setupSearchPageMocks(page, { photos: [keyboardPhoto] });
 		await page.goto('/search');
 
 		// When: User tabs to photo card and presses Enter
@@ -428,5 +304,57 @@ test.describe('Photo Navigation - Search Page', () => {
 
 		// Then: User should navigate to photo detail
 		await expect(page).toHaveURL(/\/photos\/keyboard-photo/);
+	});
+
+	// === Converted from search-page.test.ts unit tests ===
+
+	test('When search results load, Then filenames are displayed', async ({ page }) => {
+		// Given: Search returns results
+		const results = [
+			createMockSearchResult({ score: 0.85 }, { filename: 'result-1.jpg' }),
+			createMockSearchResult({ score: 0.75 }, { filename: 'result-2.jpg' })
+		];
+
+		await setupSearchModeMocks(page, 'test', { results });
+		await page.goto('/search?q=test');
+
+		// Then: Filenames should be visible
+		await expect(page.getByText('result-1.jpg')).toBeVisible();
+		await expect(page.getByText('result-2.jpg')).toBeVisible();
+	});
+
+	test('When photo has no thumbnail in search, Then placeholder is shown', async ({ page }) => {
+		// Given: Search result without thumbnail
+		const noThumbPhoto = photoWithoutThumbnail;
+		await setupSearchPageMocks(page, { photos: [noThumbPhoto] });
+		await page.goto('/search');
+
+		// Then: Photo card should be clickable with placeholder
+		const photoCard = page.getByTestId('photo-card');
+		await expect(photoCard).toBeVisible();
+
+		const hasPlaceholder = await photoCard.first().locator('.bg-gray-100').count();
+		expect(hasPlaceholder).toBeGreaterThan(0);
+	});
+
+	test('When search page loads, Then filter options are available', async ({ page }) => {
+		// Given: Search page with photos
+		await setupSearchPageMocks(page, { photos: createMockPhotos(1) });
+		await page.goto('/search');
+
+		// Then: Filter dropdowns should be visible
+		await expect(page.getByText('Source:')).toBeVisible();
+		await expect(page.getByText('Album:')).toBeVisible();
+	});
+
+	test('When browse mode shows many photos, Then pagination appears', async ({ page }) => {
+		// Given: Many photos exist (triggers pagination)
+		const manyPhotos = createMockPhotos(24);
+		await mockPhotosAPI.withPhotos(page, manyPhotos, { page: 1, perPage: 24, total: 100 });
+		await page.goto('/search');
+
+		// Then: Pagination should be visible
+		await expect(page.getByText('Showing 1-24 of 100 photos')).toBeVisible();
+		await expect(page.getByText('Next')).toBeVisible();
 	});
 });

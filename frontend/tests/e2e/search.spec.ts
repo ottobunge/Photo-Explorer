@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockSearchAPI } from '../helpers/api-mocks';
 
 test.describe('Photo Search', () => {
 	test.beforeEach(async ({ page }) => {
@@ -22,18 +23,8 @@ test.describe('Photo Search', () => {
 	});
 
 	test('shows no results message when search returns empty', async ({ page }) => {
-		// Mock empty API response
-		await page.route('**/api/v1/search', async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					success: true,
-					data: { results: [], query_embedding_time_ms: 10, search_time_ms: 5 },
-					meta: { total: 0, limit: 20, offset: 0 }
-				})
-			});
-		});
+		// Mock empty search results using helper
+		await mockSearchAPI.withEmpty(page, 'nonexistent');
 
 		await page.fill('[data-testid="search-input"]', 'nonexistent');
 		await page.click('[data-testid="search-button"]');
