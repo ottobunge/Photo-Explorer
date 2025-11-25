@@ -2,6 +2,7 @@ version: '3'
 
 vars:
   DOCKER_COMPOSE: podman-compose
+  DOCKER: podman
 
 includes:
   backend:
@@ -115,9 +116,46 @@ tasks:
       - "{{.DOCKER_COMPOSE}} logs -f"
 
   docker:rebuild:
-    desc: Rebuild and restart services
+    desc: Rebuild and restart services (checks for base image first)
     cmds:
-      - "{{.DOCKER_COMPOSE}} up -d --build --force-recreate"
+      - task: docker:rebuild:check-base
+      - cmd: 'echo "🔨 Rebuilding services (backend, worker, frontend)..."'
+        silent: true
+      - "{{.DOCKER_COMPOSE}} up -d --build --force-recreate backend worker frontend"
+      - cmd: 'echo "✅ Services rebuilt successfully"'
+        silent: true
+
+  docker:rebuild:check-base:
+    desc: Check if base image exists, build if missing
+    internal: true
+    cmds:
+      - |
+        if {{.DOCKER}} images photo-explorer-base:latest --format "{{{{.Repository}}}" | grep -q "photo-explorer-base"; then
+          echo "✓ Base image exists, skipping base rebuild"
+        else
+          echo "⚠️  Base image not found, building it first..."
+          echo "   This may take 10-15 minutes (only needed once)"
+          task docker:rebuild:base
+        fi
+
+  docker:rebuild:base:
+    desc: Rebuild the base image (includes all dependencies and ML models)
+    cmds:
+      - cmd: 'echo "🏗️  Building base image with all dependencies..."'
+        silent: true
+      - cmd: 'echo "   This includes: Python 3.12, Poetry, PyTorch, CLIP, InsightFace"'
+        silent: true
+      - cmd: 'echo "   Expected time: 10-15 minutes"'
+        silent: true
+      - cmd: echo ""
+        silent: true
+      - cd backend && {{.DOCKER}} build -f Dockerfile.base -t photo-explorer-base:latest .
+      - cmd: echo ""
+        silent: true
+      - cmd: 'echo "✅ Base image built successfully"'
+        silent: true
+      - cmd: 'echo "   Future rebuilds will be much faster (30-60 seconds)"'
+        silent: true
 
   # ===================
   # Testing

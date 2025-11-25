@@ -63,9 +63,17 @@ task docker:up
 
 # Or in detached mode
 task docker:up:detached
+
+# Rebuild services after code changes (smart rebuild - checks base image)
+task docker:rebuild
+
+# Force rebuild base image (only when dependencies change in pyproject.toml)
+task docker:rebuild:base
 ```
 
 Use this for testing Docker builds or production-like environment.
+
+**Note on rebuilds**: The `docker:rebuild` task automatically checks if the base image exists. If not found, it builds the base image first (~10-15 minutes, includes all ML dependencies), then builds the application services (~30-60 seconds). Subsequent rebuilds only rebuild the application services since the base image is cached.
 
 ### Access the Application
 
