@@ -8,7 +8,7 @@ from typing import Optional, Union
 import numpy as np
 from PIL import Image
 
-from .config import ModelConfig, get_model_config
+from .config import ModelConfig, FaceConfig, get_model_config
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,18 @@ class FaceModelLoader:
     Uses InsightFace for detection and recognition.
     """
 
-    def __init__(self, config: Optional[ModelConfig] = None):
-        self.config = config or get_model_config()
+    def __init__(self, config: Optional[Union[ModelConfig, FaceConfig]] = None):
+        # Handle both ModelConfig and FaceConfig
+        if config is None:
+            self._model_config = get_model_config()
+            self._face_config = self._model_config.face
+        elif isinstance(config, FaceConfig):
+            self._face_config = config
+            self._model_config = get_model_config()
+        else:
+            self._model_config = config
+            self._face_config = config.face
+
         self._app = None
         self._device = None
 
@@ -98,13 +108,13 @@ class FaceModelLoader:
             import insightface
             from insightface.app import FaceAnalysis
 
-            model_name = self.config.face.detection_model
-            models_dir = str(self.config.face_dir / "models")
+            model_name = self._face_config.detection_model
+            models_dir = str(self._model_config.face_dir / "models")
 
             logger.info(f"Loading face model: {model_name}")
 
             # Determine providers based on device
-            if self.config.face.device == "cuda":
+            if self._face_config.device == "cuda":
                 providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
                 self._device = "cuda"
             else:
@@ -121,7 +131,7 @@ class FaceModelLoader:
             # Prepare with detection size
             self._app.prepare(
                 ctx_id=0 if self._device == "cuda" else -1,
-                det_thresh=self.config.face.det_thresh,
+                det_thresh=self._face_config.det_thresh,
                 det_size=(640, 640),
             )
 
@@ -189,7 +199,7 @@ class FaceModelLoader:
             faces = self._app.get(img_array)
 
             # Filter by minimum face size
-            min_size = min_face_size or self.config.face.min_face_size
+            min_size = min_face_size or self._face_config.min_face_size
             faces = [f for f in faces if (f.bbox[2] - f.bbox[0]) >= min_size]
 
             # Sort by face size (largest first)
