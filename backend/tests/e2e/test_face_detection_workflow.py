@@ -10,6 +10,7 @@ These tests would have caught the bugs from the face detection implementation:
 7. find_faces_by_cluster missing pagination support
 """
 
+import io
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ from app.adapters.outbound.persistence.postgres import (
     PhotoRepositoryPostgres,
 )
 from app.domain.entities import ConnectorType, Photo
+from tests.e2e.conftest import crop_face_from_image, generate_thumbnail
 
 
 @pytest.mark.asyncio
@@ -65,20 +67,16 @@ class TestFaceDetectionWorkflowE2E:
 
         # Save image to storage
         storage_path = await file_storage.save_photo(
-            photo_id=str(photo.id.value),
-            file_data=image_data,
+            file=io.BytesIO(image_data),
             filename=source_path.name,
         )
         photo.storage_path = storage_path
 
         # Generate thumbnail
-        thumbnail_data = await file_storage.generate_thumbnail(
-            image_data=image_data,
-            max_size=(300, 300),
-        )
+        thumbnail_data = await generate_thumbnail(image_data, max_size=(300, 300))
         thumbnail_path = await file_storage.save_thumbnail(
+            image_data=thumbnail_data,
             photo_id=str(photo.id.value),
-            thumbnail_data=thumbnail_data,
         )
         photo.thumbnail_path = thumbnail_path
 
@@ -104,12 +102,12 @@ class TestFaceDetectionWorkflowE2E:
             )
 
             # Save face crop
-            crop_data = await file_storage.crop_and_save_face(
-                image_data=image_data,
-                bbox=detected_face.bbox,
+            crop_data = await crop_face_from_image(image_data, detected_face.bbox)
+            crop_path = await file_storage.save_face_crop(
+                image_data=crop_data,
                 face_id=str(face.id.value),
             )
-            face.crop_path = str(crop_data)
+            face.crop_path = crop_path
 
             saved_face = await face_repo.save_face(face)
             saved_faces.append(saved_face)
@@ -252,8 +250,7 @@ class TestFaceDetectionWorkflowE2E:
             )
 
             storage_path = await file_storage.save_photo(
-                photo_id=str(photo.id.value),
-                file_data=image_data,
+                file=io.BytesIO(image_data),
                 filename=img_path.name,
             )
             photo.storage_path = storage_path
@@ -273,12 +270,12 @@ class TestFaceDetectionWorkflowE2E:
                     detection_confidence=detected_faces[0].detection_confidence,
                 )
 
-                crop_path = await file_storage.crop_and_save_face(
-                    image_data=image_data,
-                    bbox=detected_faces[0].bbox,
+                crop_data = await crop_face_from_image(image_data, detected_faces[0].bbox)
+                crop_path = await file_storage.save_face_crop(
+                    image_data=crop_data,
                     face_id=str(face.id.value),
                 )
-                face.crop_path = str(crop_path)
+                face.crop_path = crop_path
 
                 saved_face = await face_repo.save_face(face)
                 face_ids.append(saved_face.id.value)
@@ -351,8 +348,7 @@ class TestFaceDetectionWorkflowE2E:
             )
 
             storage_path = await file_storage.save_photo(
-                photo_id=str(photo.id.value),
-                file_data=image_data,
+                file=io.BytesIO(image_data),
                 filename=img_path.name,
             )
             photo.storage_path = storage_path
@@ -372,12 +368,12 @@ class TestFaceDetectionWorkflowE2E:
                     detection_confidence=detected_faces[0].detection_confidence,
                 )
 
-                crop_path = await file_storage.crop_and_save_face(
-                    image_data=image_data,
-                    bbox=detected_faces[0].bbox,
+                crop_data = await crop_face_from_image(image_data, detected_faces[0].bbox)
+                crop_path = await file_storage.save_face_crop(
+                    image_data=crop_data,
                     face_id=str(face.id.value),
                 )
-                face.crop_path = str(crop_path)
+                face.crop_path = crop_path
 
                 # Assign to cluster
                 face.cluster_id = saved_cluster.id.value
@@ -455,8 +451,7 @@ class TestFaceDetectionWorkflowE2E:
         )
 
         storage_path = await file_storage.save_photo(
-            photo_id=str(photo.id.value),
-            file_data=image_data,
+            file=io.BytesIO(image_data),
             filename=source_path.name,
         )
         photo.storage_path = storage_path
@@ -489,12 +484,12 @@ class TestFaceDetectionWorkflowE2E:
                 detection_confidence=detected_face.detection_confidence,
             )
 
-            crop_path = await file_storage.crop_and_save_face(
-                image_data=image_data,
-                bbox=detected_face.bbox,
+            crop_data = await crop_face_from_image(image_data, detected_face.bbox)
+            crop_path = await file_storage.save_face_crop(
+                image_data=crop_data,
                 face_id=str(face.id.value),
             )
-            face.crop_path = str(crop_path)
+            face.crop_path = crop_path
 
             await face_repo.save_face(face)
 
@@ -533,8 +528,7 @@ class TestFaceDetectionWorkflowE2E:
         )
 
         storage_path = await file_storage.save_photo(
-            photo_id=str(photo.id.value),
-            file_data=image_data,
+            file=io.BytesIO(image_data),
             filename=source_path.name,
         )
         photo.storage_path = storage_path
@@ -561,12 +555,12 @@ class TestFaceDetectionWorkflowE2E:
                 detection_confidence=detected_face.detection_confidence,
             )
 
-            crop_path = await file_storage.crop_and_save_face(
-                image_data=image_data,
-                bbox=detected_face.bbox,
+            crop_data = await crop_face_from_image(image_data, detected_face.bbox)
+            crop_path = await file_storage.save_face_crop(
+                image_data=crop_data,
                 face_id=str(face.id.value),
             )
-            face.crop_path = str(crop_path)
+            face.crop_path = crop_path
 
             await face_repo.save_face(face)
 

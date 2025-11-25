@@ -11,7 +11,13 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.adapters.outbound.persistence.postgres.models import Base
+from app.adapters.outbound.persistence.postgres.models import (
+    Base,
+    ConnectorModel,  # noqa: F401
+    FaceClusterModel,  # noqa: F401
+    FaceModel,  # noqa: F401
+    PhotoModel,  # noqa: F401
+)
 from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
 from app.adapters.outbound.storage import LocalFileStorage
 from app.config import get_settings

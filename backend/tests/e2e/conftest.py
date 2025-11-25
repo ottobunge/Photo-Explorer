@@ -1,13 +1,15 @@
 """E2E test fixtures and helper utilities."""
 
 import asyncio
+import io
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, List
 
 import pytest
 import pytest_asyncio
+from PIL import Image
 
 # Import common fixtures from integration tests
 from tests.integration.conftest import (
@@ -16,6 +18,71 @@ from tests.integration.conftest import (
     test_session,
     test_vector_store,
 )
+
+
+# ===== Fixture Aliases =====
+
+
+@pytest.fixture
+def db_session(test_session):
+    """Alias for test_session for consistency with API tests."""
+    return test_session
+
+
+# ===== Image Processing Helpers =====
+
+
+async def generate_thumbnail(image_data: bytes, max_size: tuple[int, int] = (300, 300)) -> bytes:
+    """
+    Generate a thumbnail from image data.
+
+    Args:
+        image_data: Original image bytes
+        max_size: Maximum dimensions (width, height)
+
+    Returns:
+        Thumbnail image bytes (JPEG format)
+    """
+    with Image.open(io.BytesIO(image_data)) as img:
+        # Convert to RGB if needed (handles RGBA, P, etc.)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+
+        # Generate thumbnail (preserves aspect ratio)
+        img.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+        # Save to bytes
+        thumb_buffer = io.BytesIO()
+        img.save(thumb_buffer, format="JPEG", quality=85)
+        return thumb_buffer.getvalue()
+
+
+async def crop_face_from_image(
+    image_data: bytes,
+    bbox: "BoundingBox",  # type: ignore[name-defined]
+) -> bytes:
+    """
+    Crop a face region from image data.
+
+    Args:
+        image_data: Original image bytes
+        bbox: Bounding box with x, y, width, height attributes
+
+    Returns:
+        Cropped face image bytes (JPEG format)
+    """
+    with Image.open(io.BytesIO(image_data)) as img:
+        # Crop using bbox coordinates
+        cropped = img.crop((bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height))
+
+        # Convert to RGB if needed
+        if cropped.mode != "RGB":
+            cropped = cropped.convert("RGB")
+
+        # Save to bytes
+        crop_buffer = io.BytesIO()
+        cropped.save(crop_buffer, format="JPEG", quality=90)
+        return crop_buffer.getvalue()
 
 
 # ===== Helper Utilities for Async Task Testing =====
@@ -170,7 +237,7 @@ async def wait_for_cluster_assignment(
 
 
 @pytest.fixture(scope="session")
-def face_test_images_dir():
+def face_test_images_dir() -> Path:
     """
     Ensure face test images are downloaded before running tests.
 
@@ -188,7 +255,7 @@ def face_test_images_dir():
     )
 
     if not images_exist:
-        print("\n👤 Face test images not found. Downloading from Unsplash...")
+        print("\nFace test images not found. Downloading from Unsplash...")
         result = subprocess.run(
             [sys.executable, str(download_script)],
             capture_output=True,
@@ -197,7 +264,15 @@ def face_test_images_dir():
         )
 
         if result.returncode != 0:
-            pytest.fail(f"Failed to download face test images:\n{result.stdout}\n{result.stderr}")
+            error_msg = (
+                "Failed to download face test images.\n"
+                f"Script output:\n{result.stdout}\n{result.stderr}\n\n"
+                "To fix:\n"
+                "1. Check your internet connection\n"
+                "2. Verify Unsplash API access\n"
+                "3. Run manually: python tests/fixtures/download_face_test_images.py"
+            )
+            pytest.fail(error_msg)
 
         print(result.stdout)
 
@@ -205,7 +280,7 @@ def face_test_images_dir():
 
 
 @pytest.fixture(scope="session")
-def single_face_images(face_test_images_dir):
+def single_face_images(face_test_images_dir: Path) -> List[Path]:
     """Return list of single portrait images (face_001 to face_010)."""
     return sorted(face_test_images_dir.glob("face_00[1-9].jpg")) + sorted(
         face_test_images_dir.glob("face_010.jpg")
@@ -213,18 +288,18 @@ def single_face_images(face_test_images_dir):
 
 
 @pytest.fixture(scope="session")
-def multi_face_images(face_test_images_dir):
+def multi_face_images(face_test_images_dir: Path) -> List[Path]:
     """Return list of group photos with multiple faces (face_011 to face_015)."""
     return sorted(face_test_images_dir.glob("face_01[1-5].jpg"))
 
 
 @pytest.fixture(scope="session")
-def profile_face_images(face_test_images_dir):
+def profile_face_images(face_test_images_dir: Path) -> List[Path]:
     """Return list of profile/angled face images (face_016 to face_018)."""
     return sorted(face_test_images_dir.glob("face_01[6-8].jpg"))
 
 
 @pytest.fixture(scope="session")
-def all_face_images(face_test_images_dir):
+def all_face_images(face_test_images_dir: Path) -> List[Path]:
     """Return list of all face test images."""
     return sorted(face_test_images_dir.glob("face_*.jpg"))
