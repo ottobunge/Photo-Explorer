@@ -1,5 +1,7 @@
 # Photo Explorer
 
+[![Demo Video](https://img.youtube.com/vi/f4SCR1Lbo6k/0.jpg)](https://www.youtube.com/watch?v=f4SCR1Lbo6k)
+
 AI-powered photo organization and semantic search application.
 
 ## Features
