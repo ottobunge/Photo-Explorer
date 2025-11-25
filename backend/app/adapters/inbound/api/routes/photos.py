@@ -204,7 +204,7 @@ async def upload_photos(
                 f"Photo uploaded and queued for processing",
                 extra={
                     "photo_id": str(photo.id.value),
-                    "filename": photo.filename,
+                    "photo_filename": photo.filename,
                     "album_id": str(album_id) if album_id else None,
                 },
             )
@@ -219,7 +219,7 @@ async def upload_photos(
             logger.error(
                 f"Failed to upload photo",
                 extra={
-                    "filename": file.filename or "unknown",
+                    "photo_filename": file.filename or "unknown",
                     "error": str(e),
                 },
                 exc_info=True,
