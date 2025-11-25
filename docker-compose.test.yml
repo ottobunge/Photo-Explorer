@@ -1,0 +1,69 @@
+version: '3.8'
+
+# Test infrastructure - uses non-standard ports to avoid conflicts
+# Postgres: 5433 (main: 5432)
+# Qdrant: 6334 (main: 6333)
+# Redis: 6380 (main: 6379)
+
+services:
+  postgres-test:
+    image: postgres:16
+    container_name: photo-explorer-postgres-test
+    environment:
+      POSTGRES_DB: photo_explorer_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  qdrant-test:
+    image: qdrant/qdrant:v1.7.4
+    container_name: photo-explorer-qdrant-test
+    ports:
+      - "6334:6333"
+    volumes:
+      - qdrant-test-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:6333/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: photo-explorer-redis-test
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-test-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+volumes:
+  postgres-test-data:
+    name: photo-explorer-test-postgres-data
+  qdrant-test-data:
+    name: photo-explorer-test-qdrant-data
+  redis-test-data:
+    name: photo-explorer-test-redis-data
+
+networks:
+  test-network:
+    name: photo-explorer-test-network
+    driver: bridge

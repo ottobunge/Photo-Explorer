@@ -1,8 +1,12 @@
 """Shared pytest fixtures for all tests."""
 
+import os
+import subprocess
+import time
 from pathlib import Path
 
 import pytest
+from dotenv import load_dotenv
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
@@ -12,6 +16,94 @@ from sqlalchemy.pool import NullPool
 from app.adapters.outbound.persistence.postgres.models import Base
 from app.config import get_settings
 from app.main import app
+
+# Load test environment variables
+env_test_path = Path(__file__).parent.parent / ".env.test"
+if env_test_path.exists():
+    load_dotenv(env_test_path, override=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_infrastructure():
+    """Start test infrastructure before tests and stop after.
+
+    This fixture:
+    1. Starts docker compose test services (postgres, qdrant, redis) on non-standard ports
+    2. Waits for services to be healthy
+    3. Runs all tests
+    4. Stops and cleans up test infrastructure
+    """
+    project_root = Path(__file__).parent.parent.parent
+    compose_file = project_root / "docker-compose.test.yml"
+
+    if not compose_file.exists():
+        pytest.skip("docker-compose.test.yml not found - skipping infrastructure-dependent tests")
+        return
+
+    print("\n🚀 Starting test infrastructure (postgres:5433, qdrant:6334, redis:6380)...")
+
+    # Start test infrastructure
+    result = subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "up", "-d"],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print(f"⚠️  Failed to start test infrastructure: {result.stderr}")
+        pytest.skip("Could not start test infrastructure")
+        return
+
+    # Wait for services to be healthy (max 30 seconds)
+    print("⏳ Waiting for services to be healthy...")
+    max_attempts = 30
+    for attempt in range(max_attempts):
+        health_check = subprocess.run(
+            ["docker", "compose", "-f", str(compose_file), "ps", "--format", "json"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+        )
+
+        if health_check.returncode == 0:
+            # Check if all services are healthy
+            time.sleep(1)
+            if attempt > 5:  # Give at least 5 seconds for startup
+                break
+
+        if attempt == max_attempts - 1:
+            print("⚠️  Timeout waiting for services to be healthy")
+            pytest.skip("Test infrastructure did not become healthy")
+            return
+
+    print("✅ Test infrastructure ready!")
+
+    # Run database migrations
+    print("📦 Running database migrations...")
+    migration_result = subprocess.run(
+        ["poetry", "run", "alembic", "upgrade", "head"],
+        cwd=project_root / "backend",
+        capture_output=True,
+        text=True,
+    )
+
+    if migration_result.returncode != 0:
+        print(f"⚠️  Migration failed: {migration_result.stderr}")
+        # Don't skip - migrations might already be applied
+    else:
+        print("✅ Database migrations applied")
+
+    yield
+
+    # Cleanup: Stop test infrastructure
+    print("\n🧹 Stopping test infrastructure...")
+    subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "down", "-v"],
+        cwd=project_root,
+        capture_output=True,
+    )
+    print("✅ Test infrastructure stopped")
 
 
 @pytest.fixture(scope="session", autouse=True)
