@@ -6,6 +6,7 @@
 		{ href: '/', label: 'Home', icon: 'home' },
 		{ href: '/upload', label: 'Upload', icon: 'upload' },
 		{ href: '/search', label: 'Search', icon: 'search' },
+		{ href: '/connectors', label: 'Connectors', icon: 'link' },
 		{ href: '/albums', label: 'Albums', icon: 'folder' },
 		{ href: '/faces', label: 'Faces', icon: 'users' },
 		{ href: '/settings', label: 'Settings', icon: 'settings' }
@@ -34,7 +35,7 @@
 						class:font-medium={isActive(item.href, $page.url.pathname)}
 					>
 						<span class="text-lg">
-							{#if item.icon === 'home'}📷{:else if item.icon === 'upload'}⬆️{:else if item.icon === 'search'}🔍{:else if item.icon === 'folder'}📁{:else if item.icon === 'users'}👥{:else if item.icon === 'settings'}⚙️{/if}
+							{#if item.icon === 'home'}📷{:else if item.icon === 'upload'}⬆️{:else if item.icon === 'search'}🔍{:else if item.icon === 'link'}🔗{:else if item.icon === 'folder'}📁{:else if item.icon === 'users'}👥{:else if item.icon === 'settings'}⚙️{/if}
 						</span>
 						{item.label}
 					</a>

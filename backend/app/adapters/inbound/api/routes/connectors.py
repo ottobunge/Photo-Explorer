@@ -147,10 +147,15 @@ async def get_connector_photos(
     ]
 
     return {
-        "photos": photo_list,
-        "total": total,
-        "page": page,
-        "per_page": per_page,
+        "success": True,
+        "data": {
+            "photos": photo_list,
+        },
+        "meta": {
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+        },
     }
 
 
