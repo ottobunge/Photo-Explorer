@@ -326,10 +326,14 @@ tasks:
       - cmd: echo "📸 Downloading example photos..."
         silent: true
       - |
-        if [ -d "backend/tests/fixtures/images" ] && [ -n "$(ls -A backend/tests/fixtures/images 2>/dev/null)" ]; then
+        # Create data directory for example photos
+        mkdir -p backend/data/example-photos
+
+        if [ -d "backend/data/example-photos" ] && [ -n "$(ls -A backend/data/example-photos 2>/dev/null)" ]; then
           echo "  Example photos already exist, skipping download"
         else
-          cd backend && python tests/fixtures/download_test_images.py
+          # Download to data/example-photos (relative to backend directory)
+          cd backend && python tests/fixtures/download_test_images.py data/example-photos
         fi
       - cmd: echo "✓ Example photos ready (20 images)"
         silent: true
@@ -344,7 +348,7 @@ tasks:
         connector_id=$(curl -s -X POST http://localhost:8000/api/v1/connectors/local \
           -H "Content-Type: application/json" \
           -d '{
-            "path": "/app/tests/fixtures/images",
+            "path": "/app/data/example-photos",
             "name": "Example Photos",
             "recursive": true,
             "watch": false,
@@ -365,8 +369,8 @@ tasks:
       - cmd: echo "🔌 Creating example connector (local)..."
         silent: true
       - |
-        # Get absolute path to images directory
-        images_path=$(cd backend/tests/fixtures/images 2>/dev/null && pwd || echo "")
+        # Get absolute path to example photos directory
+        images_path=$(cd backend/data/example-photos 2>/dev/null && pwd || echo "")
 
         if [ -z "$images_path" ]; then
           echo "❌ Images directory not found. Run download task first."

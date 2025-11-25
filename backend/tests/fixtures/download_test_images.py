@@ -87,12 +87,16 @@ def download_file(url: str, dest_path: Path, retries: int = 3) -> bool:
 
 def main():
     """Download all test images."""
-    # Get the fixtures directory
-    fixtures_dir = Path(__file__).parent
-    images_dir = fixtures_dir / "images"
+    # Allow custom target directory via command line argument
+    if len(sys.argv) > 1:
+        images_dir = Path(sys.argv[1]).resolve()
+    else:
+        # Default to fixtures directory
+        fixtures_dir = Path(__file__).parent
+        images_dir = fixtures_dir / "images"
 
     # Create directories
-    images_dir.mkdir(exist_ok=True)
+    images_dir.mkdir(parents=True, exist_ok=True)
 
     print("📸 Downloading test images for semantic search...")
     print(f"   Target directory: {images_dir}")

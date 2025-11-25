@@ -91,8 +91,8 @@ Want to try out the app immediately with sample photos?
 nix-shell -p go-task --run "task setup:example:docker"
 ```
 - ✨ Starts all services in Docker (backend, frontend, worker, databases)
-- 📸 Downloads 20 example animal photos from Unsplash
-- 🔌 Creates "Example Photos" connector with Docker container path
+- 📸 Downloads 20 example animal photos to `backend/data/example-photos/`
+- 🔌 Creates "Example Photos" connector pointing to `/app/data/example-photos` (mounted from host)
 - 🔍 Indexes photos for semantic search
 - ⚡ Takes 2-3 minutes total
 - Perfect for: Quick testing, demos, CI/CD
@@ -106,8 +106,8 @@ task dev:local
 nix-shell -p go-task --run "task setup:example:local"
 ```
 - 🚀 Uses local dev services (faster iteration, hot reload)
-- 📸 Downloads 20 example animal photos
-- 🔌 Creates connector with local filesystem path
+- 📸 Downloads 20 example animal photos to `backend/data/example-photos/`
+- 🔌 Creates connector with absolute filesystem path to data directory
 - 🔍 Indexes photos via local worker
 - ⚡ Takes 1-2 minutes (infrastructure already running)
 - Perfect for: Active development, debugging, testing local changes

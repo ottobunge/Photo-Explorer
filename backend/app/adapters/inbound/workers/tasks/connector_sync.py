@@ -91,19 +91,23 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
             existing_photos = await photo_repo.find_by_connector(connector_uuid, limit=100000)
             known_files = {p.source_path: p.id.value for p in existing_photos if p.source_path}
 
-            stats = SyncStats(started_at=started_at)
+            # Track stats with mutable variables
+            total_items = 0
+            indexed = 0
+            skipped = 0
+            failed = 0
             albums_cache: dict[str, UUID] = {}  # subfolder -> album_id
 
             # Scan for files
             async for metadata in scanner.scan():
-                stats.total_items += 1
+                total_items += 1
                 source_path = metadata["source_path"]
 
                 # Check if photo already exists
                 if source_path in known_files:
                     # Photo exists - check if modified
                     # For now, skip existing photos
-                    stats.skipped += 1
+                    skipped += 1
                     continue
 
                 try:
@@ -135,7 +139,7 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
 
                     # Save photo
                     photo = await photo_repo.save(photo)
-                    stats.indexed += 1
+                    indexed += 1
 
                     logger.debug(f"Indexed photo: {source_path}")
 
@@ -145,7 +149,7 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
 
                 except Exception as e:
                     logger.error(f"Error indexing {source_path}: {e}")
-                    stats.failed += 1
+                    failed += 1
 
             # Check for deleted files
             current_paths = set()
@@ -161,23 +165,32 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
                         await photo_repo.save(photo)
                         logger.debug(f"Marked as deleted: {source_path}")
 
+            # Create immutable SyncStats value object with final counts
+            stats = SyncStats(
+                total_items=total_items,
+                indexed=indexed,
+                skipped=skipped,
+                failed=failed,
+                started_at=started_at,
+                completed_at=datetime.utcnow(),
+            )
+
             # Update connector with sync stats
-            stats.completed_at = datetime.utcnow()
             connector.record_sync(stats)
             await connector_repo.save(connector)
 
             logger.info(
                 f"Sync complete for {connector.name}: "
-                f"{stats.indexed} new, {stats.skipped} skipped, {stats.failed} failed"
+                f"{indexed} new, {skipped} skipped, {failed} failed"
             )
 
             return {
                 "status": "completed",
                 "connector_id": connector_id,
-                "total_items": stats.total_items,
-                "indexed": stats.indexed,
-                "skipped": stats.skipped,
-                "failed": stats.failed,
+                "total_items": total_items,
+                "indexed": indexed,
+                "skipped": skipped,
+                "failed": failed,
                 "duration_seconds": stats.duration_seconds,
             }
 
