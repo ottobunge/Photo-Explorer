@@ -205,16 +205,22 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
                 p.external_id: p.id.value for p in existing_photos if p.external_id
             }
 
-            stats = SyncStats(started_at=started_at)
+            # Use mutable counters during sync (SyncStats is frozen/immutable)
+            sync_counters = {
+                "total_items": 0,
+                "indexed": 0,
+                "skipped": 0,
+                "failed": 0,
+            }
 
             try:
                 # Iterate through all photos from Google Photos
                 async for metadata in client.iter_all_photos():
-                    stats.total_items += 1
+                    sync_counters["total_items"] += 1
 
                     # Check if photo already exists
                     if metadata.external_id in known_external_ids:
-                        stats.skipped += 1
+                        sync_counters["skipped"] += 1
                         continue
 
                     try:
@@ -242,7 +248,7 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
 
                         # Save photo
                         photo = await photo_repo.save(photo)
-                        stats.indexed += 1
+                        sync_counters["indexed"] += 1
 
                         logger.debug(f"Indexed Google Photos item: {metadata.external_id}")
 
@@ -252,7 +258,7 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
 
                     except Exception as e:
                         logger.error(f"Error indexing {metadata.external_id}: {e}")
-                        stats.failed += 1
+                        sync_counters["failed"] += 1
 
                 # If tokens were refreshed, save them
                 if client._access_token != tokens.access_token:
@@ -270,8 +276,17 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
             finally:
                 await client.close()
 
+            # Create final immutable SyncStats value object
+            stats = SyncStats(
+                total_items=sync_counters["total_items"],
+                indexed=sync_counters["indexed"],
+                skipped=sync_counters["skipped"],
+                failed=sync_counters["failed"],
+                started_at=started_at,
+                completed_at=datetime.utcnow(),
+            )
+
             # Update connector with sync stats
-            stats.completed_at = datetime.utcnow()
             connector.record_sync(stats)
             await connector_repo.save(connector)
 
@@ -639,7 +654,13 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
                 p.external_id: p.id.value for p in existing_photos if p.external_id
             }
 
-            stats = SyncStats(started_at=started_at)
+            # Use mutable counters during sync (SyncStats is frozen/immutable)
+            sync_counters = {
+                "total_items": 0,
+                "indexed": 0,
+                "skipped": 0,
+                "failed": 0,
+            }
 
             # Initialize services ONCE for all photos (singletons, no cleanup needed)
             ml_services = get_ml_services()
@@ -649,11 +670,11 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
             try:
                 # Iterate through all selected photos
                 async for item in client.iter_all_media_items(session_id):
-                    stats.total_items += 1
+                    sync_counters["total_items"] += 1
 
                     # Check if photo already exists
                     if item.id in known_external_ids:
-                        stats.skipped += 1
+                        sync_counters["skipped"] += 1
                         continue
 
                     try:
@@ -726,13 +747,13 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
 
                         # Save photo
                         photo = await photo_repo.save(photo)
-                        stats.indexed += 1
+                        sync_counters["indexed"] += 1
 
                         logger.debug(f"Indexed Google Photos item: {item.id}")
 
                     except Exception as e:
                         logger.error(f"Error indexing {item.id}: {e}")
-                        stats.failed += 1
+                        sync_counters["failed"] += 1
 
                 # Clean up the session
                 try:
@@ -743,8 +764,17 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
             finally:
                 await client.close()
 
+            # Create final immutable SyncStats value object
+            stats = SyncStats(
+                total_items=sync_counters["total_items"],
+                indexed=sync_counters["indexed"],
+                skipped=sync_counters["skipped"],
+                failed=sync_counters["failed"],
+                started_at=started_at,
+                completed_at=datetime.utcnow(),
+            )
+
             # Update connector with sync stats
-            stats.completed_at = datetime.utcnow()
             connector.record_sync(stats)
             await connector_repo.save(connector)
 

@@ -24,7 +24,18 @@
       "Bash(poetry run alembic check:*)",
       "Bash(poetry run ruff format:*)",
       "Bash(md5sum:*)",
-      "Bash(poetry run pytest:*)"
+      "Bash(poetry run pytest:*)",
+      "Bash(tree:*)",
+      "Bash(poetry run alembic revision:*)",
+      "Bash(bash:*)",
+      "Bash(poetry run alembic upgrade:*)",
+      "Bash(poetry show:*)",
+      "Bash(test:*)",
+      "Bash(for test in \"test_post_search_returns_photo_metadata\" \"test_post_search_with_pagination\" \"test_get_search_pagination\" \"test_get_search_default_parameters\" \"test_search_handles_vector_store_error\")",
+      "Bash(do echo \"Testing: $test\")",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
