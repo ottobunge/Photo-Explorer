@@ -105,9 +105,19 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
 
                 # Check if photo already exists
                 if source_path in known_files:
-                    # Photo exists - check if modified
-                    # For now, skip existing photos
-                    skipped += 1
+                    # Photo exists - check if it needs processing
+                    photo_id = known_files[source_path]
+                    existing_photo = await photo_repo.find_by_id(photo_id)
+
+                    if existing_photo and existing_photo.processing_status == "pending":
+                        # Queue processing for pending photos
+                        process_photo_task.delay(str(photo_id))
+                        detect_faces_task.delay(str(photo_id))
+                        logger.debug(f"Re-queued pending photo for processing: {source_path}")
+                        indexed += 1  # Count as indexed since we're triggering processing
+                    else:
+                        # Photo already processed or processing, skip
+                        skipped += 1
                     continue
 
                 try:
