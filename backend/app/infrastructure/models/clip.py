@@ -86,11 +86,13 @@ class CLIPModelLoader:
             logger.info(f"Using device: {self._device}")
 
             # Load model - use model config's clip_dir for cache
+            # Use force_quick_gelu for OpenAI pretrained weights (trained with QuickGELU)
             self._model, _, self._preprocess = open_clip.create_model_and_transforms(
                 model_name,
                 pretrained=pretrained,
                 device=self._device,
                 cache_dir=str(self._model_config.clip_dir),
+                force_quick_gelu=True,  # Match pretrained weights activation
             )
             self._tokenizer = open_clip.get_tokenizer(model_name)
 
