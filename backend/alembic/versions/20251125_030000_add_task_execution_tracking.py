@@ -5,7 +5,7 @@ Add task_executions table for tracking Celery task executions and ensuring idemp
 This table allows tasks to check if they've already completed successfully before
 running again, preventing duplicate processing when tasks are retried.
 
-Revision ID: add_task_execution_tracking
+Revision ID: 8c4d9f2a5b1e
 Revises: 0f9f526b61c8
 Create Date: 2025-11-25 03:00:00.000000+00:00
 
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "add_task_execution_tracking"
+revision: str = "8c4d9f2a5b1e"
 down_revision: Union[str, None] = "0f9f526b61c8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -28,17 +28,16 @@ def upgrade() -> None:
     op.create_table(
         "task_executions",
         sa.Column("task_id", sa.String(length=255), nullable=False, primary_key=True),
-        sa.Column("task_name", sa.String(length=255), nullable=False, index=True),
+        sa.Column("task_name", sa.String(length=255), nullable=False),
         sa.Column(
             "status",
             sa.String(length=50),
             nullable=False,
             server_default="pending",
-            index=True,
         ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, index=True),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True, index=True),
+        sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("retries", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("result", sa.Text(), nullable=True),

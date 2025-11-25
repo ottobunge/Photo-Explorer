@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.exc import DBAPIError, OperationalError
