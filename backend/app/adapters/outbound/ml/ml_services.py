@@ -268,17 +268,19 @@ class MLServicesAdapter(MLServices):
 
         results = []
         for face in detected:
+            # face.bbox is a tuple (x1, y1, x2, y2)
+            x1, y1, x2, y2 = face.bbox
             results.append(
                 DetectedFace(
                     bbox=BoundingBox(
-                        x=face.bbox.x,
-                        y=face.bbox.y,
-                        width=face.bbox.width,
-                        height=face.bbox.height,
+                        x=x1,
+                        y=y1,
+                        width=x2 - x1,
+                        height=y2 - y1,
                     ),
                     embedding=Embedding(vector=face.embedding.tolist()),
-                    quality_score=face.quality_score,
-                    detection_confidence=face.detection_confidence,
+                    quality_score=face.confidence,  # Use confidence as quality score
+                    detection_confidence=face.confidence,
                 )
             )
 
