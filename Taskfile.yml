@@ -341,7 +341,7 @@ tasks:
       - cmd: echo "🔌 Creating example connector (Docker)..."
         silent: true
       - |
-        connector_id=$(curl -s -X POST http://localhost:8000/connectors/local \
+        connector_id=$(curl -s -X POST http://localhost:8000/api/v1/connectors/local \
           -H "Content-Type: application/json" \
           -d '{
             "path": "/app/tests/fixtures/images",
@@ -373,7 +373,7 @@ tasks:
           exit 1
         fi
 
-        connector_id=$(curl -s -X POST http://localhost:8000/connectors/local \
+        connector_id=$(curl -s -X POST http://localhost:8000/api/v1/connectors/local \
           -H "Content-Type: application/json" \
           -d "{
             \"path\": \"$images_path\",
@@ -401,7 +401,7 @@ tasks:
           connector_id=$(cat .example-connector-id)
         else
           # Try to find existing example connector
-          connector_id=$(curl -s http://localhost:8000/connectors | jq -r '.data.connectors[] | select(.name == "Example Photos") | .id' | head -1)
+          connector_id=$(curl -s http://localhost:8000/api/v1/connectors | jq -r '.data.connectors[] | select(.name == "Example Photos") | .id' | head -1)
         fi
 
         if [ -z "$connector_id" ] || [ "$connector_id" = "null" ]; then
@@ -409,7 +409,7 @@ tasks:
           exit 1
         fi
 
-        response=$(curl -s -X POST http://localhost:8000/connectors/$connector_id/sync)
+        response=$(curl -s -X POST http://localhost:8000/api/v1/connectors/$connector_id/sync)
         if echo "$response" | jq -e '.success' >/dev/null 2>&1; then
           task_id=$(echo "$response" | jq -r '.data.task_id')
           echo "✓ Indexing started (task: $task_id)"
