@@ -560,11 +560,12 @@ async def _reprocess_connector_photos_async(connector_id: str) -> dict:
         queued = 0
         for photo in photos:
             if photo.thumbnail_path:
-                # Queue embedding generation for each photo with thumbnail
+                # Queue embedding generation and face detection for each photo with thumbnail
                 generate_embedding_from_thumbnail_task.delay(str(photo.id.value))
+                detect_faces_task.delay(str(photo.id.value))
                 queued += 1
 
-        logger.info(f"Queued {queued} photos for embedding generation")
+        logger.info(f"Queued {queued} photos for embedding generation and face detection")
         return {
             "status": "completed",
             "connector_id": connector_id,
