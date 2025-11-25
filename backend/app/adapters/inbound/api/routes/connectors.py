@@ -692,6 +692,12 @@ async def get_picker_session_status(
     try:
         session = await client.get_session(session_id)
 
+        logger.info(
+            f"Picker session status: session_id={session.id}, "
+            f"media_items_set={session.media_items_set}, "
+            f"poll_interval={session.poll_interval_seconds}s"
+        )
+
         return PickerSessionStatusResponse(
             success=True,
             data={

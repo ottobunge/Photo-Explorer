@@ -259,6 +259,11 @@ class GooglePhotosPickerClient:
         """
         data = await self._make_picker_request("GET", f"sessions/{session_id}")
 
+        # Debug logging to see what Google returns
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Google Picker API response for session {session_id}: {data}")
+
         expire_time = None
         if expire_str := data.get("expireTime"):
             try:
