@@ -393,7 +393,7 @@ async def _detect_faces_async(photo_id: str) -> dict:
 
                 # Trigger incremental clustering for newly detected faces
                 if face_ids:
-                    update_clusters_task.delay()
+                    update_clusters_task.delay(face_ids)
 
                 logger.info(f"Detected {len(face_ids)} faces in photo {photo_id}")
                 return {
