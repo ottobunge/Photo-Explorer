@@ -4,7 +4,10 @@ import asyncio
 import logging
 from uuid import UUID
 
+from sqlalchemy.exc import OperationalError
+
 from app.adapters.inbound.workers.celery_app import celery_app
+from app.adapters.inbound.workers.exceptions import TransientError
 from app.adapters.outbound.ml import get_ml_services
 from app.adapters.outbound.persistence.postgres import PhotoRepositoryPostgres
 from app.adapters.outbound.persistence.postgres.database import get_worker_session_context
@@ -26,7 +29,13 @@ def run_async(coro):
         loop.close()
 
 
-@celery_app.task(bind=True, name="photo_analysis.analyze_photo")
+@celery_app.task(
+    bind=True,
+    name="photo_analysis.analyze_photo",
+    autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def analyze_photo_task(self, photo_id: str) -> dict:
     """
     Run full photo analysis including description, objects, and scene.
@@ -70,6 +79,7 @@ async def _analyze_photo_async(photo_id: str) -> dict:
         if not image_bytes and photo.source_path:
             try:
                 import aiofiles
+
                 async with aiofiles.open(photo.source_path, "rb") as f:
                     image_bytes = await f.read()
             except Exception as e:
@@ -105,7 +115,9 @@ async def _analyze_photo_async(photo_id: str) -> dict:
 
             await photo_repo.save(photo)
 
-            logger.info(f"Analyzed photo {photo_id}: {analysis.description[:50] if analysis.description else 'No description'}...")
+            logger.info(
+                f"Analyzed photo {photo_id}: {analysis.description[:50] if analysis.description else 'No description'}..."
+            )
 
             return {
                 "status": "completed",
@@ -121,7 +133,13 @@ async def _analyze_photo_async(photo_id: str) -> dict:
             return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(bind=True, name="photo_analysis.generate_description")
+@celery_app.task(
+    bind=True,
+    name="photo_analysis.generate_description",
+    autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def generate_description_task(self, photo_id: str, prompt: str = None) -> dict:
     """
     Generate a description for a photo using vision LLM.
@@ -162,6 +180,7 @@ async def _generate_description_async(photo_id: str, prompt: str = None) -> dict
         if not image_bytes and photo.source_path:
             try:
                 import aiofiles
+
                 async with aiofiles.open(photo.source_path, "rb") as f:
                     image_bytes = await f.read()
             except Exception:
@@ -188,7 +207,13 @@ async def _generate_description_async(photo_id: str, prompt: str = None) -> dict
             return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(bind=True, name="photo_analysis.answer_question")
+@celery_app.task(
+    bind=True,
+    name="photo_analysis.answer_question",
+    autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def answer_question_task(self, photo_id: str, question: str) -> dict:
     """
     Answer a question about a photo using visual question answering.
@@ -229,6 +254,7 @@ async def _answer_question_async(photo_id: str, question: str) -> dict:
         if not image_bytes and photo.source_path:
             try:
                 import aiofiles
+
                 async with aiofiles.open(photo.source_path, "rb") as f:
                     image_bytes = await f.read()
             except Exception:
@@ -252,7 +278,13 @@ async def _answer_question_async(photo_id: str, question: str) -> dict:
             return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(bind=True, name="photo_analysis.batch_analyze")
+@celery_app.task(
+    bind=True,
+    name="photo_analysis.batch_analyze",
+    autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def batch_analyze_task(self, photo_ids: list[str]) -> dict:
     """
     Analyze multiple photos in batch.
@@ -276,15 +308,22 @@ def batch_analyze_task(self, photo_ids: list[str]) -> dict:
             results["completed"] += 1
         else:
             results["failed"] += 1
-            results["errors"].append({
-                "photo_id": photo_id,
-                "error": result.get("message", "Unknown error"),
-            })
+            results["errors"].append(
+                {
+                    "photo_id": photo_id,
+                    "error": result.get("message", "Unknown error"),
+                }
+            )
 
     return results
 
 
-@celery_app.task(name="photo_analysis.analyze_pending_photos")
+@celery_app.task(
+    name="photo_analysis.analyze_pending_photos",
+    autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},  # Fewer retries for scheduled task
+)
 def analyze_pending_photos() -> dict:
     """
     Analyze all photos that haven't been analyzed yet.
@@ -297,17 +336,20 @@ def analyze_pending_photos() -> dict:
 async def _analyze_pending_photos_async() -> dict:
     """Find and queue analysis for pending photos."""
     async with get_worker_session_context() as session:
-
         # Find photos without descriptions
         # Note: This would need a custom repository method
         # For now, we'll use a placeholder approach
         from sqlalchemy import select
         from app.adapters.outbound.persistence.postgres.models import PhotoModel
 
-        stmt = select(PhotoModel).where(
-            PhotoModel.description.is_(None),
-            PhotoModel.processing_status == "completed",
-        ).limit(100)
+        stmt = (
+            select(PhotoModel)
+            .where(
+                PhotoModel.description.is_(None),
+                PhotoModel.processing_status == "completed",
+            )
+            .limit(100)
+        )
 
         result = await session.execute(stmt)
         photos = result.scalars().all()

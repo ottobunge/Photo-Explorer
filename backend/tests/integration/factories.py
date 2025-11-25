@@ -166,8 +166,8 @@ class ConnectorFactory:
     def create(
         id: Optional[UUID] = None,
         name: str = "Test Connector",
-        connector_type: ConnectorType = ConnectorType.LOCAL_FOLDER,
-        status: ConnectorStatus = ConnectorStatus.ACTIVE,
+        connector_type: ConnectorType = ConnectorType.LOCAL,
+        status: ConnectorStatus = ConnectorStatus.CONNECTED,
         config: Optional[dict] = None,
         created_at: Optional[datetime] = None,
         last_sync: Optional[datetime] = None,
@@ -199,7 +199,7 @@ class ConnectorFactory:
         return ConnectorFactory.create(
             id=id,
             name=name,
-            connector_type=ConnectorType.LOCAL_FOLDER,
+            connector_type=ConnectorType.LOCAL,
             config=config,
             **kwargs,
         )

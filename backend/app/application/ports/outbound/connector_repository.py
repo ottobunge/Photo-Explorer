@@ -70,6 +70,19 @@ class ConnectorRepository(ABC):
         pass
 
     @abstractmethod
+    async def find_by_path(self, path: str) -> Optional[Connector]:
+        """
+        Find a local connector by its filesystem path.
+
+        Args:
+            path: The filesystem path configured for the connector
+
+        Returns:
+            The Connector entity or None if not found
+        """
+        pass
+
+    @abstractmethod
     async def delete(self, connector_id: UUID) -> bool:
         """
         Delete a connector.

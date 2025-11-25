@@ -121,6 +121,9 @@ async def semantic_search(
 @router.get("")
 async def search_photos_get(
     q: Annotated[str, Query(min_length=1, max_length=500, description="Search query")],
+    ml_services: MLServicesDep,
+    vector_store: VectorStoreDep,
+    photo_repo: PhotoRepoDep,
     limit: Annotated[int, Query(ge=1, le=100, description="Maximum results (1-100)")] = 20,
     offset: Annotated[int, Query(ge=0, le=10000, description="Results to skip")] = 0,
     connector_id: Annotated[Optional[str], Query(description="Filter by connector ID")] = None,
@@ -140,4 +143,4 @@ async def search_photos_get(
         )
 
     request = SearchRequest(query=q, limit=limit, offset=offset, filters=filters)
-    return await semantic_search(request)
+    return await semantic_search(request, ml_services, vector_store, photo_repo)

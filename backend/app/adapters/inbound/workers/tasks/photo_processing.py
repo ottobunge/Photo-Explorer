@@ -140,7 +140,9 @@ async def _process_photo_async(photo_id: str) -> dict:
                         image_data = await file_storage.get_file(photo.storage_path)
                     except (IOError, OSError, PermissionError) as e:
                         logger.error(f"Storage error loading photo {photo_id}: {e}")
-                        raise StorageError(f"Failed to load from storage: {str(e)}", {"photo_id": photo_id})
+                        raise StorageError(
+                            f"Failed to load from storage: {str(e)}", {"photo_id": photo_id}
+                        )
                 elif photo.source_path:
                     try:
                         # For local connector, read from source path
@@ -148,7 +150,9 @@ async def _process_photo_async(photo_id: str) -> dict:
                             image_data = f.read()
                     except (IOError, OSError, PermissionError, FileNotFoundError) as e:
                         logger.error(f"File error loading photo {photo_id}: {e}")
-                        raise StorageError(f"Failed to load from source: {str(e)}", {"photo_id": photo_id})
+                        raise StorageError(
+                            f"Failed to load from source: {str(e)}", {"photo_id": photo_id}
+                        )
                 else:
                     raise InvalidDataError("No image path available", {"photo_id": photo_id})
 
@@ -164,7 +168,9 @@ async def _process_photo_async(photo_id: str) -> dict:
                     photo.thumbnail_path = thumbnail_path
                 except Exception as e:
                     logger.error(f"Error generating thumbnail for {photo_id}: {e}")
-                    raise ProcessingError(f"Thumbnail generation failed: {str(e)}", {"photo_id": photo_id})
+                    raise ProcessingError(
+                        f"Thumbnail generation failed: {str(e)}", {"photo_id": photo_id}
+                    )
 
                 # Generate CLIP embedding
                 try:
@@ -180,7 +186,9 @@ async def _process_photo_async(photo_id: str) -> dict:
                 except Exception as e:
                     logger.error(f"Error generating embedding for {photo_id}: {e}")
                     # Embedding failure might be transient (vector store down)
-                    raise TransientError(f"Embedding generation failed: {str(e)}", {"photo_id": photo_id})
+                    raise TransientError(
+                        f"Embedding generation failed: {str(e)}", {"photo_id": photo_id}
+                    )
 
                 # Basic image analysis
                 try:
@@ -221,7 +229,9 @@ async def _process_photo_async(photo_id: str) -> dict:
                     await photo_repo.save(photo)
                 except Exception as save_err:
                     logger.error(f"Failed to save error status for photo {photo_id}: {save_err}")
-                raise ProcessingError(f"Unexpected processing error: {str(e)}", {"photo_id": photo_id})
+                raise ProcessingError(
+                    f"Unexpected processing error: {str(e)}", {"photo_id": photo_id}
+                )
 
     except (OperationalError, DBAPIError) as e:
         logger.error(f"Database error during photo processing {photo_id}: {e}")
@@ -314,14 +324,18 @@ async def _detect_faces_async(photo_id: str) -> dict:
                         image_data = await file_storage.get_file(photo.storage_path)
                     except (IOError, OSError, PermissionError) as e:
                         logger.error(f"Storage error loading photo {photo_id}: {e}")
-                        raise StorageError(f"Failed to load from storage: {str(e)}", {"photo_id": photo_id})
+                        raise StorageError(
+                            f"Failed to load from storage: {str(e)}", {"photo_id": photo_id}
+                        )
                 elif photo.source_path:
                     try:
                         with open(photo.source_path, "rb") as f:
                             image_data = f.read()
                     except (IOError, OSError, PermissionError, FileNotFoundError) as e:
                         logger.error(f"File error loading photo {photo_id}: {e}")
-                        raise StorageError(f"Failed to load from source: {str(e)}", {"photo_id": photo_id})
+                        raise StorageError(
+                            f"Failed to load from source: {str(e)}", {"photo_id": photo_id}
+                        )
                 else:
                     raise InvalidDataError("No image path available", {"photo_id": photo_id})
 
@@ -333,7 +347,9 @@ async def _detect_faces_async(photo_id: str) -> dict:
                     detected_faces = await ml_services.detect_faces(image_data)
                 except Exception as e:
                     logger.error(f"Face detection failed for {photo_id}: {e}")
-                    raise ProcessingError(f"Face detection failed: {str(e)}", {"photo_id": photo_id})
+                    raise ProcessingError(
+                        f"Face detection failed: {str(e)}", {"photo_id": photo_id}
+                    )
 
                 face_ids = []
                 for detected in detected_faces:
@@ -348,9 +364,7 @@ async def _detect_faces_async(photo_id: str) -> dict:
 
                         # Generate and save face crop
                         crop_data = await ml_services.crop_face(image_data, detected.bbox)
-                        crop_path = await file_storage.save_face_crop(
-                            crop_data, str(face.id.value)
-                        )
+                        crop_path = await file_storage.save_face_crop(crop_data, str(face.id.value))
                         face.set_crop_path(crop_path)
 
                         # Save face to database
@@ -392,7 +406,9 @@ async def _detect_faces_async(photo_id: str) -> dict:
                 raise
             except Exception as e:
                 logger.exception(f"Unexpected error detecting faces in {photo_id}: {e}")
-                raise ProcessingError(f"Unexpected face detection error: {str(e)}", {"photo_id": photo_id})
+                raise ProcessingError(
+                    f"Unexpected face detection error: {str(e)}", {"photo_id": photo_id}
+                )
 
     except (OperationalError, DBAPIError) as e:
         logger.error(f"Database error during face detection {photo_id}: {e}")
@@ -462,7 +478,9 @@ def generate_embedding_from_thumbnail_task(self, photo_id: str) -> dict:
         )
         raise
     except Exception as e:
-        logger.exception(f"Unexpected error generating embedding for {photo_id}", extra={"photo_id": photo_id})
+        logger.exception(
+            f"Unexpected error generating embedding for {photo_id}", extra={"photo_id": photo_id}
+        )
         raise PermanentError(f"Unexpected error: {str(e)}", {"photo_id": photo_id})
 
 

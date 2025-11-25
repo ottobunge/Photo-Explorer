@@ -76,6 +76,42 @@ class Settings(BaseSettings):
         description="32-byte encryption key for OAuth tokens (base64 encoded)",
         min_length=32,
     )
+    allowed_local_connector_paths: list[str] = Field(
+        default_factory=lambda: [str(Path.home())],
+        description="Allowed base paths for local folder connectors (prevents system directory access)",
+    )
+
+    @field_validator("allowed_local_connector_paths")
+    @classmethod
+    def validate_allowed_paths(cls, v: list[str]) -> list[str]:
+        """Validate allowed paths are absolute and normalized.
+
+        Args:
+            v: List of allowed base paths
+
+        Returns:
+            List of absolute, normalized paths
+
+        Raises:
+            ValueError: If any path is invalid
+        """
+        if not v:
+            msg = "At least one allowed path must be configured"
+            raise ValueError(msg)
+
+        normalized = []
+        for path_str in v:
+            path = Path(path_str).resolve()
+
+            # Block system directories
+            system_dirs = {"/etc", "/var", "/sys", "/proc", "/dev", "/boot", "/root"}
+            if str(path) in system_dirs or any(str(path).startswith(d + "/") for d in system_dirs):
+                msg = f"System directory not allowed: {path}"
+                raise ValueError(msg)
+
+            normalized.append(str(path))
+
+        return normalized
 
     @field_validator("database_url")
     @classmethod
@@ -303,6 +339,46 @@ class Settings(BaseSettings):
             self.models_path,
         ]:
             path.mkdir(parents=True, exist_ok=True)
+
+    def is_path_allowed(self, requested_path: str | Path) -> tuple[bool, str | None]:
+        """Check if a path is within allowed base directories.
+
+        This prevents path traversal attacks by ensuring local connector
+        paths are restricted to configured safe directories.
+
+        Args:
+            requested_path: Path to validate
+
+        Returns:
+            Tuple of (is_allowed, error_message). error_message is None if allowed.
+
+        Examples:
+            >>> settings = Settings()
+            >>> settings.is_path_allowed("/home/user/photos")
+            (True, None)
+            >>> settings.is_path_allowed("/etc/passwd")
+            (False, "Path /etc/passwd is not within allowed directories")
+        """
+        try:
+            # Resolve to absolute path and follow symlinks
+            path = Path(requested_path).resolve()
+        except (OSError, RuntimeError) as e:
+            return False, f"Invalid path: {e}"
+
+        # Check if path is within any allowed base directory
+        for allowed_base in self.allowed_local_connector_paths:
+            allowed = Path(allowed_base).resolve()
+            try:
+                # Use relative_to to check if path is under allowed base
+                # This will raise ValueError if not a subdirectory
+                path.relative_to(allowed)
+                return True, None
+            except ValueError:
+                continue
+
+        # Not within any allowed directory
+        allowed_str = ", ".join(self.allowed_local_connector_paths)
+        return False, f"Path {path} is not within allowed directories: {allowed_str}"
 
 
 @lru_cache

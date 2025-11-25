@@ -57,7 +57,9 @@ def get_google_credentials(connector_config: dict) -> tuple[str, str]:
         ValueError: If credentials are not found
     """
     client_id = connector_config.get("client_id") or os.environ.get("GOOGLE_API_CLIENT_ID")
-    client_secret = connector_config.get("client_secret") or os.environ.get("GOOGLE_API_CLIENT_SECRET")
+    client_secret = connector_config.get("client_secret") or os.environ.get(
+        "GOOGLE_API_CLIENT_SECRET"
+    )
 
     if not client_id or not client_secret:
         raise ValueError(
@@ -85,7 +87,13 @@ def run_async(coro):
 @celery_app.task(
     bind=True,
     name="google_photos_sync.sync_google_photos",
-    autoretry_for=(TransientError, NetworkError, RateLimitError, TokenRefreshError, OperationalError),
+    autoretry_for=(
+        TransientError,
+        NetworkError,
+        RateLimitError,
+        TokenRefreshError,
+        OperationalError,
+    ),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
     retry_backoff_max=600,
@@ -192,13 +200,9 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
             )
 
             # Get existing photos for this connector
-            existing_photos = await photo_repo.find_by_connector(
-                connector_uuid, limit=100000
-            )
+            existing_photos = await photo_repo.find_by_connector(connector_uuid, limit=100000)
             known_external_ids = {
-                p.external_id: p.id.value
-                for p in existing_photos
-                if p.external_id
+                p.external_id: p.id.value for p in existing_photos if p.external_id
             }
 
             stats = SyncStats(started_at=started_at)
@@ -261,9 +265,7 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
                         expires_at=client._token_expires_at,
                         scopes=GooglePhotosClient.SCOPES,
                     )
-                    await token_storage.save_tokens(
-                        f"google_photos_{connector_id}", new_tokens
-                    )
+                    await token_storage.save_tokens(f"google_photos_{connector_id}", new_tokens)
 
             finally:
                 await client.close()
@@ -295,14 +297,26 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
                     "connector_id": connector_id,
                     "connector_name": connector.name if connector else "unknown",
                     "error_type": type(e).__name__,
-                }
+                },
             )
             connector.set_error(str(e))
             await connector_repo.save(connector)
             return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(bind=True, name="google_photos_sync.refresh_photo_url")
+@celery_app.task(
+    bind=True,
+    name="google_photos_sync.refresh_photo_url",
+    autoretry_for=(
+        TransientError,
+        NetworkError,
+        RateLimitError,
+        TokenRefreshError,
+        OperationalError,
+    ),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def refresh_photo_url_task(self, photo_id: str) -> dict:
     """
     Refresh the baseUrl for a Google Photos image.
@@ -386,7 +400,20 @@ async def _refresh_photo_url_async(photo_id: str) -> dict:
             return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(bind=True, name="google_photos_sync.fetch_photo_bytes")
+@celery_app.task(
+    bind=True,
+    name="google_photos_sync.fetch_photo_bytes",
+    autoretry_for=(
+        TransientError,
+        NetworkError,
+        RateLimitError,
+        TokenRefreshError,
+        OperationalError,
+        OSError,
+    ),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def fetch_google_photo_bytes_task(self, photo_id: str) -> dict:
     """
     Fetch and store photo bytes from Google Photos.
@@ -482,7 +509,12 @@ async def _fetch_photo_bytes_async(photo_id: str) -> dict:
             return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(name="google_photos_sync.schedule_periodic_sync")
+@celery_app.task(
+    name="google_photos_sync.schedule_periodic_sync",
+    autoretry_for=(TransientError, OperationalError, ConnectionError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},  # Fewer retries for scheduled task
+)
 def schedule_google_photos_sync() -> dict:
     """
     Scheduled task to sync all enabled Google Photos connectors.
@@ -521,7 +553,20 @@ async def _schedule_periodic_sync_async() -> dict:
 # ===================
 
 
-@celery_app.task(bind=True, name="google_photos_sync.import_picker_photos")
+@celery_app.task(
+    bind=True,
+    name="google_photos_sync.import_picker_photos",
+    autoretry_for=(
+        TransientError,
+        NetworkError,
+        RateLimitError,
+        TokenRefreshError,
+        OperationalError,
+        OSError,
+    ),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def import_picker_photos_task(self, connector_id: str, session_id: str) -> dict:
     """
     Import photos from a Google Photos Picker session.
@@ -589,13 +634,9 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
             )
 
             # Get existing photos for this connector to avoid duplicates
-            existing_photos = await photo_repo.find_by_connector(
-                connector_uuid, limit=100000
-            )
+            existing_photos = await photo_repo.find_by_connector(connector_uuid, limit=100000)
             known_external_ids = {
-                p.external_id: p.id.value
-                for p in existing_photos
-                if p.external_id
+                p.external_id: p.id.value for p in existing_photos if p.external_id
             }
 
             stats = SyncStats(started_at=started_at)
@@ -643,15 +684,11 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
                                 image_url = f"{item.base_url}=w512-h512"
 
                                 # Need to include auth token for accessing the image
-                                headers = {
-                                    "Authorization": f"Bearer {client._access_token}"
-                                }
+                                headers = {"Authorization": f"Bearer {client._access_token}"}
 
                                 async with httpx.AsyncClient() as http_client:
                                     response = await http_client.get(
-                                        image_url,
-                                        headers=headers,
-                                        timeout=30.0
+                                        image_url, headers=headers, timeout=30.0
                                     )
                                     response.raise_for_status()
                                     image_data = response.content
@@ -682,7 +719,9 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
                                     photo.set_processing_status("completed")
                                     logger.debug(f"Generated embedding for {item.id}")
                                 except Exception as emb_err:
-                                    logger.warning(f"Failed to generate embedding for {item.id}: {emb_err}")
+                                    logger.warning(
+                                        f"Failed to generate embedding for {item.id}: {emb_err}"
+                                    )
                                     # Continue without embedding
 
                         # Save photo
@@ -732,7 +771,7 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
                     "connector_id": connector_id,
                     "session_id": session_id,
                     "error_type": type(e).__name__,
-                }
+                },
             )
             connector.set_error(str(e))
             await connector_repo.save(connector)

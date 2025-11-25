@@ -44,7 +44,9 @@ class TestCreateLocalConnector:
 
         # Then
         assert response.status_code == 201
-        data = response.json()
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
 
         assert data["type"] == "local"
         assert data["name"] == "My Photos"
@@ -74,7 +76,9 @@ class TestCreateLocalConnector:
 
         # Then
         assert response.status_code == 201
-        data = response.json()
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
 
         # Should have sensible defaults
         assert data["config"]["path"] == folder_path
@@ -83,11 +87,11 @@ class TestCreateLocalConnector:
 
     @pytest.mark.asyncio
     async def test_create_local_connector_validates_path_exists(
-        self, client: AsyncClient
+        self, client: AsyncClient, temp_photos_dir
     ):
         """Should validate that path exists."""
-        # Given: non-existent path
-        invalid_path = "/this/path/does/not/exist/at/all"
+        # Given: non-existent path within allowed directory
+        invalid_path = str(temp_photos_dir.parent / "non_existent_folder")
 
         # When
         response = await client.post(
@@ -97,7 +101,7 @@ class TestCreateLocalConnector:
 
         # Then
         assert response.status_code == 400
-        assert "path" in response.json()["detail"].lower() or "not found" in response.json()["detail"].lower()
+        assert "path" in response.json()["error"]["message"].lower() or "not found" in response.json()["error"]["message"].lower() or "not exist" in response.json()["error"]["message"].lower()
 
     @pytest.mark.asyncio
     async def test_create_local_connector_validates_path_is_directory(
@@ -116,17 +120,19 @@ class TestCreateLocalConnector:
 
         # Then
         assert response.status_code == 400
-        assert "directory" in response.json()["detail"].lower()
+        assert "directory" in response.json()["error"]["message"].lower()
 
     @pytest.mark.asyncio
     async def test_create_local_connector_prevents_duplicates(
-        self, client: AsyncClient, connector_repo, temp_photos_dir
+        self, client: AsyncClient, connector_repo, temp_photos_dir, db_session
     ):
         """Should prevent creating duplicate connector for same path."""
         # Given: existing connector for path
-        folder_path = str(temp_photos_dir)
+        from pathlib import Path
+        folder_path = str(Path(temp_photos_dir).resolve())
         existing = Connector.create_local(path=folder_path, name="Existing")
         await connector_repo.save(existing)
+        await db_session.flush()  # Ensure it's in the database
 
         # When: try to create another for same path
         response = await client.post(
@@ -136,7 +142,7 @@ class TestCreateLocalConnector:
 
         # Then
         assert response.status_code == 409  # Conflict
-        assert "already exists" in response.json()["detail"].lower()
+        assert "already exists" in response.json()["error"]["message"].lower()
 
     @pytest.mark.asyncio
     async def test_create_local_connector_generates_default_name(
@@ -154,7 +160,9 @@ class TestCreateLocalConnector:
 
         # Then
         assert response.status_code == 201
-        data = response.json()
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
 
         # Should have a name (derived from path or default)
         assert data["name"] is not None
@@ -177,9 +185,11 @@ class TestCreateLocalConnector:
 
         # Then
         assert response.status_code == 201
-        data = response.json()
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
 
-        # Check all expected fields
+        # Check all expected fields (using snake_case)
         required_fields = [
             "id",
             "type",
@@ -187,10 +197,83 @@ class TestCreateLocalConnector:
             "enabled",
             "status",
             "config",
-            "createdAt",
+            "created_at",
         ]
         for field in required_fields:
             assert field in data, f"Missing field: {field}"
+
+    @pytest.mark.asyncio
+    async def test_create_local_connector_blocks_system_directories(
+        self, client: AsyncClient
+    ):
+        """SECURITY: Should block access to system directories."""
+        # Given: system directory paths
+        system_paths = ["/etc", "/var", "/sys", "/proc", "/dev", "/boot", "/root"]
+
+        for system_path in system_paths:
+            # When: try to create connector for system directory
+            response = await client.post(
+                "/api/v1/connectors/local",
+                json={"path": system_path, "name": f"Attack {system_path}"},
+            )
+
+            # Then: should be forbidden
+            assert response.status_code == 403, f"System path {system_path} should be blocked"
+            error_msg = response.json()["error"]["message"].lower()
+            assert "not within allowed" in error_msg or "not allowed" in error_msg
+
+    @pytest.mark.asyncio
+    async def test_create_local_connector_blocks_paths_outside_allowed(
+        self, client: AsyncClient
+    ):
+        """SECURITY: Should only allow paths within configured allowed directories."""
+        # Given: path outside user home (default allowed path)
+        # Note: This assumes default config allows only home directory
+        forbidden_path = "/tmp/malicious"
+
+        # When
+        response = await client.post(
+            "/api/v1/connectors/local",
+            json={"path": forbidden_path, "name": "Attack"},
+        )
+
+        # Then: should be forbidden (403) or not found (400)
+        # 403 if path exists but not allowed, 400 if doesn't exist
+        assert response.status_code in [400, 403]
+        if response.status_code == 403:
+            error_msg = response.json()["error"]["message"].lower()
+            assert "not within allowed" in error_msg or "not allowed" in error_msg
+
+    @pytest.mark.asyncio
+    async def test_create_local_connector_resolves_symlinks(
+        self, client: AsyncClient, temp_photos_dir
+    ):
+        """SECURITY: Should resolve symlinks to prevent bypass."""
+        import os
+
+        # Given: symlink pointing to /etc (blocked directory)
+        if not os.path.exists("/etc"):
+            pytest.skip("Test requires /etc directory")
+
+        symlink_path = temp_photos_dir / "etc_link"
+        try:
+            symlink_path.symlink_to("/etc")
+
+            # When: try to create connector using symlink
+            response = await client.post(
+                "/api/v1/connectors/local",
+                json={"path": str(symlink_path), "name": "Symlink Attack"},
+            )
+
+            # Then: should be blocked (symlink resolves to /etc)
+            assert response.status_code == 403
+            error_msg = response.json()["error"]["message"].lower()
+            assert "not within allowed" in error_msg or "not allowed" in error_msg
+
+        finally:
+            # Cleanup
+            if symlink_path.exists():
+                symlink_path.unlink()
 
 
 class TestUpdateLocalConnectorPath:
@@ -459,7 +542,7 @@ def temp_photos_dir(tmp_path):
 async def connector_repo(db_session):
     """Provide ConnectorRepository instance."""
     from app.adapters.outbound.persistence.postgres.repositories.connector_repository import (
-        PostgresConnectorRepository,
+        ConnectorRepositoryPostgres,
     )
 
-    return PostgresConnectorRepository(db_session)
+    return ConnectorRepositoryPostgres(db_session)

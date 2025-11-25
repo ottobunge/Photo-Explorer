@@ -1,23 +1,60 @@
 """Shared pytest fixtures for all tests."""
 
 import pytest
+import os
+from pathlib import Path
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
+from sqlalchemy.dialects import postgresql
+from sqlalchemy import text
 
 from app.main import app
 from app.adapters.outbound.persistence.postgres.models import Base
-from app.config import get_settings
+from app.config import get_settings, Settings
+
+
+@pytest.fixture(scope="session", autouse=True)
+def configure_test_settings():
+    """Configure settings for test environment.
+
+    Overrides allowed_local_connector_paths to allow both user home
+    and /tmp directory for tests.
+    """
+    # Clear the cache and get fresh settings
+    get_settings.cache_clear()
+    settings = get_settings()
+
+    # Allow both home directory and /tmp for tests
+    # This override persists for the session since settings is cached
+    test_allowed_paths = [str(Path.home()), "/tmp"]
+    settings.allowed_local_connector_paths = test_allowed_paths
+
+    yield
+
+    # Cleanup: restore cache
+    get_settings.cache_clear()
 
 
 @pytest.fixture
-async def client():
-    """Async HTTP client for API testing."""
+async def client(db_session):
+    """Async HTTP client for API testing with database override."""
+    from app.dependencies import get_db
+
+    # Override the database dependency to use test database
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
         yield client
+
+    # Clean up dependency overrides
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -33,15 +70,37 @@ async def db_engine():
         poolclass=NullPool,
     )
 
-    # Create all tables
+    # Create enum types and tables
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        def create_enums_and_tables(connection):
+            # Create PostgreSQL enum types that models need
+            connector_type_enum = postgresql.ENUM(
+                "google_photos", "local", "upload", name="connectortype", create_type=False
+            )
+            connector_status_enum = postgresql.ENUM(
+                "disconnected", "connected", "syncing", "error", name="connectorstatus", create_type=False
+            )
+
+            # Create enums if they don't exist
+            connector_type_enum.create(connection, checkfirst=True)
+            connector_status_enum.create(connection, checkfirst=True)
+
+            # Create all tables
+            Base.metadata.create_all(connection)
+
+        await conn.run_sync(create_enums_and_tables)
 
     yield engine
 
-    # Drop all tables
+    # Drop all tables and enums
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        def drop_all(connection):
+            Base.metadata.drop_all(connection)
+            # Drop enums
+            connection.execute(text("DROP TYPE IF EXISTS connectortype CASCADE"))
+            connection.execute(text("DROP TYPE IF EXISTS connectorstatus CASCADE"))
+
+        await conn.run_sync(drop_all)
 
     await engine.dispose()
 

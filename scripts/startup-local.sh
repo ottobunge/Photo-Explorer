@@ -81,9 +81,68 @@ exit(0 if asyncio.run(check_qdrant()) else 1)
 done
 
 # Run database migrations
-echo "📊 Running database migrations..."
+echo "📊 Checking database migrations..."
+
+# Get current version
+CURRENT=$(poetry run alembic current 2>/dev/null | grep -o '^[a-f0-9]*' | head -1)
+echo "   Current version: ${CURRENT:-<empty database>}"
+
+# Verify critical tables exist (safety check)
+TABLES_EXIST=$(poetry run python << 'PYTHON_EOF'
+import asyncio
+from app.config import get_settings
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
+
+async def check():
+    settings = get_settings()
+    engine = create_async_engine(settings.database_url)
+    try:
+        async with engine.begin() as conn:
+            result = await conn.execute(text(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name IN ('connectors', 'photos', 'albums')"
+            ))
+            count = result.scalar()
+            print(count)
+    finally:
+        await engine.dispose()
+
+asyncio.run(check())
+PYTHON_EOF
+)
+
+if [ "$CURRENT" != "" ] && [ "$TABLES_EXIST" != "3" ]; then
+    echo "⚠️  WARNING: Alembic shows migrations applied but tables are missing!"
+    echo "   Resetting alembic version and re-running migrations..."
+    poetry run python << 'PYTHON_EOF'
+import asyncio
+from app.config import get_settings
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
+
+async def reset():
+    settings = get_settings()
+    engine = create_async_engine(settings.database_url)
+    async with engine.begin() as conn:
+        await conn.execute(text('DELETE FROM alembic_version'))
+    await engine.dispose()
+
+asyncio.run(reset())
+PYTHON_EOF
+    CURRENT=""
+fi
+
+# Run migrations
 if poetry run alembic upgrade head; then
-    echo "✅ Database migrations completed"
+    # Get new version
+    NEW=$(poetry run alembic current 2>/dev/null | grep -o '^[a-f0-9]*' | head -1)
+
+    if [ "$CURRENT" = "$NEW" ]; then
+        echo "✅ Database is up to date (no migrations needed)"
+    else
+        echo "✅ Database migrations applied: $CURRENT → $NEW"
+    fi
 else
     echo "❌ Database migrations failed"
     exit 1
@@ -94,13 +153,12 @@ echo "🔍 Creating Qdrant collections (if missing)..."
 if poetry run python -c "
 import asyncio
 from app.config import get_settings
-from app.adapters.outbound.vector_store import QdrantVectorStore
+from app.adapters.outbound.persistence.qdrant.vector_store import QdrantVectorStore
 
 async def create_collections():
     settings = get_settings()
     vector_store = QdrantVectorStore(
-        url=settings.qdrant_url,
-        embedding_dim=512  # CLIP ViT-B-32 dimension
+        url=settings.qdrant_url
     )
 
     try:

@@ -1,3 +1,5 @@
+# Agentic settings
+.claude/
 # Environment files (contain secrets)
 .env
 .env.local
@@ -36,6 +38,7 @@ eggs/
 # Ignore Python lib/ but not frontend/src/lib/
 /lib/
 /lib64/
+backend/data/
 backend/lib/
 backend/lib64/
 parts/

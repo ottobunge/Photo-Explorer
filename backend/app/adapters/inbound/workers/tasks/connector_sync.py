@@ -5,7 +5,10 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy.exc import OperationalError
+
 from app.adapters.inbound.workers.celery_app import celery_app
+from app.adapters.inbound.workers.exceptions import TransientError
 from app.adapters.inbound.workers.tasks.photo_processing import (
     detect_faces_task,
     process_photo_task,
@@ -37,7 +40,13 @@ def run_async(coro):
         loop.close()
 
 
-@celery_app.task(bind=True, name="connector_sync.sync_local_folder")
+@celery_app.task(
+    bind=True,
+    name="connector_sync.sync_local_folder",
+    autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def sync_local_folder_task(self, connector_id: str) -> dict:
     """
     Sync a local folder connector.
@@ -79,14 +88,8 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
             scanner = LocalFolderScanner(connector)
 
             # Get existing photos for this connector
-            existing_photos = await photo_repo.find_by_connector(
-                connector_uuid, limit=100000
-            )
-            known_files = {
-                p.source_path: p.id.value
-                for p in existing_photos
-                if p.source_path
-            }
+            existing_photos = await photo_repo.find_by_connector(connector_uuid, limit=100000)
+            known_files = {p.source_path: p.id.value for p in existing_photos if p.source_path}
 
             stats = SyncStats(started_at=started_at)
             albums_cache: dict[str, UUID] = {}  # subfolder -> album_id
@@ -207,7 +210,13 @@ async def _get_or_create_album(
     return album.id.value
 
 
-@celery_app.task(bind=True, name="connector_sync.index_single_file")
+@celery_app.task(
+    bind=True,
+    name="connector_sync.index_single_file",
+    autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def index_single_file_task(self, connector_id: str, file_path: str) -> dict:
     """
     Index a single file (triggered by filesystem watcher).
@@ -243,6 +252,7 @@ async def _index_single_file_async(connector_id: str, file_path: str) -> dict:
         try:
             scanner = LocalFolderScanner(connector)
             from pathlib import Path
+
             metadata = await scanner._extract_file_metadata(Path(file_path))
 
             # Create photo
@@ -278,7 +288,13 @@ async def _index_single_file_async(connector_id: str, file_path: str) -> dict:
             return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(bind=True, name="connector_sync.handle_file_deleted")
+@celery_app.task(
+    bind=True,
+    name="connector_sync.handle_file_deleted",
+    autoretry_for=(TransientError, OperationalError, ConnectionError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},  # Fewer retries for deletion events
+)
 def handle_file_deleted_task(self, connector_id: str, file_path: str) -> dict:
     """
     Handle a deleted file (triggered by filesystem watcher).
@@ -313,10 +329,14 @@ async def _handle_file_deleted_async(connector_id: str, file_path: str) -> dict:
         }
 
 
-@celery_app.task(bind=True, name="connector_sync.handle_file_moved")
-def handle_file_moved_task(
-    self, connector_id: str, old_path: str, new_path: str
-) -> dict:
+@celery_app.task(
+    bind=True,
+    name="connector_sync.handle_file_moved",
+    autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},  # Fewer retries for move events
+)
+def handle_file_moved_task(self, connector_id: str, old_path: str, new_path: str) -> dict:
     """
     Handle a moved/renamed file (triggered by filesystem watcher).
 
@@ -331,9 +351,7 @@ def handle_file_moved_task(
     return run_async(_handle_file_moved_async(connector_id, old_path, new_path))
 
 
-async def _handle_file_moved_async(
-    connector_id: str, old_path: str, new_path: str
-) -> dict:
+async def _handle_file_moved_async(connector_id: str, old_path: str, new_path: str) -> dict:
     """Async implementation of file move handling."""
     async with get_worker_session_context() as session:
         photo_repo = PhotoRepositoryPostgres(session)

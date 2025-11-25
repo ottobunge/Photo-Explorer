@@ -1,5 +1,6 @@
 """Connectors API routes."""
 
+import logging
 import os
 from datetime import datetime
 from typing import Annotated, Optional
@@ -25,6 +26,7 @@ from app.adapters.outbound.storage import SecureTokenStorage
 from app.dependencies import ConnectorRepoDep, DbSession, PhotoRepoDep
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Get Google OAuth credentials from environment
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_API_CLIENT_ID", "")
@@ -133,7 +135,10 @@ async def get_connector_photos(
         {
             "id": str(photo.id.value),
             "filename": photo.filename,
-            "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail" if photo.thumbnail_path or photo.is_remote else None,
+            "connector_id": str(photo.connector_id) if photo.connector_id else None,
+            "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail"
+            if photo.thumbnail_path or photo.is_remote
+            else None,
             "taken_at": photo.taken_at.isoformat() if photo.taken_at else None,
             "processing_status": photo.processing_status,
             "created_at": photo.created_at.isoformat(),
@@ -142,9 +147,10 @@ async def get_connector_photos(
     ]
 
     return {
-        "success": True,
-        "data": {"photos": photo_list},
-        "meta": {"page": page, "per_page": per_page, "total": total},
+        "photos": photo_list,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
     }
 
 
@@ -155,32 +161,128 @@ async def update_connector(
     connector_repo: ConnectorRepoDep,
 ) -> ConnectorResponse:
     """Update a connector's configuration."""
-    # TODO: Implement connector update logic
-    raise HTTPException(status_code=404, detail="Connector not found")
+    connector = await connector_repo.find_by_id(connector_id)
+    if not connector:
+        raise HTTPException(status_code=404, detail="Connector not found")
+
+    # Update fields using domain methods
+    if request.name is not None:
+        connector.name = request.name
+        connector._touch()  # Update timestamp
+
+    if request.enabled is not None:
+        # Use domain methods instead of direct mutation
+        if request.enabled:
+            connector.enable()
+        else:
+            connector.disable()
+
+    if request.config is not None:
+        # Use domain method for config updates
+        connector.update_config(request.config)
+
+    # Save updated connector (timestamp already updated by domain methods)
+    updated = await connector_repo.save(connector)
+
+    return ConnectorResponse(
+        success=True,
+        data={
+            "id": str(updated.id.value),
+            "type": updated.type.value,
+            "name": updated.name,
+            "enabled": updated.enabled,
+            "status": updated.status.value,
+            "config": updated.config,
+            "last_sync": updated.last_sync.isoformat() if updated.last_sync else None,
+            "error_message": updated.error_message,
+            "created_at": updated.created_at.isoformat(),
+            "updated_at": updated.updated_at.isoformat() if updated.updated_at else None,
+        },
+    )
 
 
 @router.delete("/{connector_id}")
 async def delete_connector(
     connector_id: UUID,
     connector_repo: ConnectorRepoDep,
+    photo_repo: PhotoRepoDep,
+    db_session: DbSession,
     delete_photos: Annotated[bool, Query(description="Also delete indexed photos")] = False,
 ) -> dict:
-    """Delete a connector."""
+    """Delete a connector.
+
+    Uses transaction management to ensure atomic deletion:
+    - All operations succeed together, or all are rolled back
+    - Prevents partial deletions and data corruption
+    """
     from app.domain.entities.connector import ConnectorType
 
-    connector = await connector_repo.find_by_id(connector_id)
-    if not connector:
-        raise HTTPException(status_code=404, detail="Connector not found")
+    try:
+        connector = await connector_repo.find_by_id(connector_id)
+        if not connector:
+            raise HTTPException(status_code=404, detail="Connector not found")
 
-    # Delete associated tokens if it's a Google Photos connector
-    if connector.type == ConnectorType.GOOGLE_PHOTOS:
-        token_storage = SecureTokenStorage()
-        await token_storage.delete_tokens(f"google_photos_{connector_id}")
+        logger.info(
+            "Deleting connector",
+            extra={
+                "connector_id": str(connector_id),
+                "connector_type": connector.type.value,
+                "connector_name": connector.name,
+                "delete_photos": delete_photos,
+            },
+        )
 
-    # TODO: If delete_photos is True, delete associated photos
+        # Delete associated tokens if it's a Google Photos connector
+        # Note: Token deletion is outside transaction (file system operation)
+        # but tokens can be safely re-created if needed
+        if connector.type == ConnectorType.GOOGLE_PHOTOS:
+            token_storage = SecureTokenStorage()
+            await token_storage.delete_tokens(f"google_photos_{connector_id}")
 
-    deleted = await connector_repo.delete(connector_id)
-    return {"success": True, "data": {"deleted": deleted}}
+        # All database operations within transaction
+        # Delete associated photos if requested
+        photo_count = 0
+        if delete_photos:
+            # Get all photos from this connector
+            photos = await photo_repo.find_by_connector(connector_id, limit=10000, offset=0)
+            photo_count = len(photos)
+            for photo in photos:
+                await photo_repo.delete(photo.id.value)
+
+        # Delete the connector (photos will be orphaned if delete_photos=False)
+        deleted = await connector_repo.delete(connector_id)
+
+        # Commit transaction - all operations succeed atomically
+        await db_session.commit()
+
+        logger.info(
+            "Connector deleted successfully",
+            extra={
+                "connector_id": str(connector_id),
+                "photos_deleted": photo_count if delete_photos else 0,
+            },
+        )
+
+        return {
+            "success": True,
+            "message": f"Connector deleted. {'Photos deleted.' if delete_photos else 'Photos orphaned.'}",
+        }
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404)
+        raise
+    except Exception as e:
+        # Rollback transaction on any error
+        await db_session.rollback()
+        logger.error(
+            "Failed to delete connector",
+            extra={
+                "connector_id": str(connector_id),
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail=f"Failed to delete connector: {str(e)}")
 
 
 @router.post("/{connector_id}/sync")
@@ -198,6 +300,7 @@ async def trigger_sync(
     if connector.type == ConnectorType.GOOGLE_PHOTOS:
         # Trigger Google Photos sync task
         from app.adapters.inbound.workers.tasks.google_photos_sync import sync_google_photos_task
+
         task = sync_google_photos_task.delay(str(connector_id))
         return {
             "success": True,
@@ -209,6 +312,7 @@ async def trigger_sync(
     elif connector.type == ConnectorType.LOCAL:
         # Trigger local folder sync task
         from app.adapters.inbound.workers.tasks.connector_sync import sync_local_folder_task
+
         task = sync_local_folder_task.delay(str(connector_id))
         return {
             "success": True,
@@ -237,6 +341,7 @@ async def trigger_reprocess(
 
     # Trigger reprocessing task
     from app.adapters.inbound.workers.tasks.photo_processing import reprocess_connector_photos_task
+
     task = reprocess_connector_photos_task.delay(str(connector_id))
 
     return {
@@ -290,8 +395,12 @@ async def get_sync_status(
 
 @router.get("/google-photos/auth-url", response_model=GooglePhotosAuthUrlResponse)
 async def get_google_photos_auth_url(
-    redirect_uri: Annotated[str, Query(min_length=1, max_length=2048, description="OAuth callback URL")],
-    state: Annotated[Optional[str], Query(max_length=256, description="State parameter for CSRF protection")] = None,
+    redirect_uri: Annotated[
+        str, Query(min_length=1, max_length=2048, description="OAuth callback URL")
+    ],
+    state: Annotated[
+        Optional[str], Query(max_length=256, description="State parameter for CSRF protection")
+    ] = None,
 ) -> GooglePhotosAuthUrlResponse:
     """Get the OAuth authorization URL for Google Photos (using Picker API)."""
     if not GOOGLE_CLIENT_ID:
@@ -372,6 +481,15 @@ async def google_photos_oauth_callback(
         token_storage = SecureTokenStorage()
         await token_storage.save_tokens(f"google_photos_{connector.id.value}", tokens)
 
+        logger.info(
+            "Google Photos connector created successfully",
+            extra={
+                "connector_id": str(connector.id.value),
+                "connector_name": connector_name,
+                "email": email,
+            },
+        )
+
         return {
             "success": True,
             "data": {
@@ -382,8 +500,14 @@ async def google_photos_oauth_callback(
         }
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.error(
+            "OAuth exchange failed",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+            exc_info=True,
+        )
         raise HTTPException(status_code=400, detail=f"OAuth exchange failed: {str(e)}")
     finally:
         await client.close()
@@ -391,8 +515,15 @@ async def google_photos_oauth_callback(
 
 @router.get("/google-photos/callback")
 async def google_photos_oauth_callback_redirect(
-    code: Annotated[str, Query(min_length=1, max_length=2048, description="Authorization code from Google")],
-    redirect_uri: Annotated[str, Query(min_length=1, max_length=2048, description="The redirect URI used in the auth request")],
+    code: Annotated[
+        str, Query(min_length=1, max_length=2048, description="Authorization code from Google")
+    ],
+    redirect_uri: Annotated[
+        str,
+        Query(
+            min_length=1, max_length=2048, description="The redirect URI used in the auth request"
+        ),
+    ],
     state: Annotated[Optional[str], Query(max_length=256, description="State parameter")] = None,
 ) -> RedirectResponse:
     """
@@ -403,6 +534,7 @@ async def google_photos_oauth_callback_redirect(
     """
     # Extract frontend origin from redirect_uri (e.g., http://localhost:5173)
     from urllib.parse import urlparse, quote
+
     parsed = urlparse(redirect_uri)
     frontend_origin = f"{parsed.scheme}://{parsed.netloc}"
 
@@ -529,7 +661,9 @@ async def create_picker_session(
         await client.close()
 
 
-@router.get("/{connector_id}/picker/session/{session_id}", response_model=PickerSessionStatusResponse)
+@router.get(
+    "/{connector_id}/picker/session/{session_id}", response_model=PickerSessionStatusResponse
+)
 async def get_picker_session_status(
     connector_id: UUID,
     session_id: str,
@@ -673,22 +807,60 @@ async def create_local_folder_connector(
     connector_repo: ConnectorRepoDep,
 ) -> ConnectorResponse:
     """Add a local folder for indexing."""
-    # TODO: Implement local folder connector creation logic
+    from pathlib import Path
+    from app.domain.entities.connector import Connector
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    # Security: Validate path is within allowed directories
+    is_allowed, error_msg = settings.is_path_allowed(request.path)
+    if not is_allowed:
+        raise HTTPException(status_code=403, detail=error_msg or "Path not allowed")
+
+    # Validate path exists
+    path = Path(request.path).resolve()
+    if not path.exists():
+        raise HTTPException(status_code=400, detail=f"Path does not exist: {request.path}")
+
+    # Validate path is a directory
+    if not path.is_dir():
+        raise HTTPException(status_code=400, detail=f"Path is not a directory: {request.path}")
+
+    # Check for duplicate connector with same path
+    existing = await connector_repo.find_by_path(str(path.absolute()))
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"Connector already exists for path: {request.path}"
+        )
+
+    # Generate default name if not provided
+    connector_name = request.name or path.name or "Local Folder"
+
+    # Create connector
+    connector = Connector.create_local(
+        path=str(path.absolute()),
+        name=connector_name,
+        recursive=request.recursive if request.recursive is not None else True,
+        watch=request.watch if request.watch is not None else False,
+        auto_album=request.auto_album if request.auto_album is not None else False,
+    )
+
+    # Save connector
+    saved = await connector_repo.save(connector)
+
     return ConnectorResponse(
         success=True,
         data={
-            "id": "placeholder-uuid",
-            "type": "local",
-            "name": request.name or request.path,
-            "enabled": True,
-            "status": "connected",
-            "config": {
-                "path": request.path,
-                "recursive": request.recursive,
-                "watch": request.watch,
-                "auto_album": request.auto_album,
-            },
-            "last_sync": None,
-            "created_at": "2024-01-01T00:00:00Z",
+            "id": str(saved.id.value),
+            "type": saved.type.value,
+            "name": saved.name,
+            "enabled": saved.enabled,
+            "status": saved.status.value,
+            "config": saved.config,
+            "last_sync": saved.last_sync.isoformat() if saved.last_sync else None,
+            "error_message": saved.error_message,
+            "created_at": saved.created_at.isoformat(),
+            "updated_at": saved.updated_at.isoformat() if saved.updated_at else None,
         },
     )

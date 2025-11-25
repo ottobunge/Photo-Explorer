@@ -41,7 +41,9 @@ class TestGetConnectorDetail:
 
         # Then
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
 
         assert data["id"] == str(saved.id.value)
         assert data["type"] == "upload"
@@ -49,8 +51,8 @@ class TestGetConnectorDetail:
         assert data["enabled"] is True
         assert data["status"] == "connected"
         assert "config" in data
-        assert "lastSync" in data
-        assert "createdAt" in data
+        assert "last_sync" in data
+        assert "created_at" in data
 
     @pytest.mark.asyncio
     async def test_get_connector_not_found(self, client: AsyncClient):
@@ -63,7 +65,7 @@ class TestGetConnectorDetail:
 
         # Then
         assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
+        assert "not found" in response.json()["error"]["message"].lower()
 
     @pytest.mark.asyncio
     async def test_get_connector_returns_config(
@@ -85,12 +87,14 @@ class TestGetConnectorDetail:
 
         # Then
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
 
         assert data["config"]["path"] == "/my/photos"
         assert data["config"]["recursive"] is True
         assert data["config"]["watch"] is False
-        assert data["config"]["autoAlbum"] is True
+        assert data["config"]["auto_album"] is True
 
 
 class TestGetConnectorPhotos:
@@ -164,9 +168,9 @@ class TestGetConnectorPhotos:
             )
             await photo_repo.save(photo)
 
-        # When: first page (limit=2)
+        # When: first page (per_page=2, page=1)
         response1 = await client.get(
-            f"/api/v1/connectors/{saved_connector.id.value}/photos?limit=2&offset=0"
+            f"/api/v1/connectors/{saved_connector.id.value}/photos?per_page=2&page=1"
         )
 
         # Then
@@ -177,7 +181,7 @@ class TestGetConnectorPhotos:
 
         # When: second page
         response2 = await client.get(
-            f"/api/v1/connectors/{saved_connector.id.value}/photos?limit=2&offset=2"
+            f"/api/v1/connectors/{saved_connector.id.value}/photos?per_page=2&page=2"
         )
 
         # Then
@@ -207,9 +211,9 @@ class TestGetConnectorPhotos:
             )
             await photo_repo.save(photo)
 
-        # When: request with limit
+        # When: request with per_page limit
         response = await client.get(
-            f"/api/v1/connectors/{saved_connector.id.value}/photos?limit=10"
+            f"/api/v1/connectors/{saved_connector.id.value}/photos?per_page=10"
         )
 
         # Then
@@ -251,7 +255,9 @@ class TestUpdateConnectorConfig:
 
         # Then
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
 
         assert data["name"] == "New Name"
         assert data["config"]["path"] == "/new/path"
@@ -281,7 +287,9 @@ class TestUpdateConnectorConfig:
 
         # Then
         assert response.status_code == 200
-        data = response.json()
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
         assert data["enabled"] is False
 
         # Verify in database
@@ -635,17 +643,17 @@ class TestGetSyncStatus:
 async def connector_repo(db_session):
     """Provide ConnectorRepository instance."""
     from app.adapters.outbound.persistence.postgres.repositories.connector_repository import (
-        PostgresConnectorRepository,
+        ConnectorRepositoryPostgres,
     )
 
-    return PostgresConnectorRepository(db_session)
+    return ConnectorRepositoryPostgres(db_session)
 
 
 @pytest.fixture
 async def photo_repo(db_session):
     """Provide PhotoRepository instance."""
     from app.adapters.outbound.persistence.postgres.repositories.photo_repository import (
-        PostgresPhotoRepository,
+        PhotoRepositoryPostgres,
     )
 
-    return PostgresPhotoRepository(db_session)
+    return PhotoRepositoryPostgres(db_session)

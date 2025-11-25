@@ -20,6 +20,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Add 'upload' value to ConnectorType enum."""
+    from sqlalchemy.dialects import postgresql
+
+    # Ensure connector enums exist (defensive - should have been created in 0001)
+    connector_type_enum = postgresql.ENUM(
+        "google_photos", "local", name="connectortype", create_type=False
+    )
+    connector_status_enum = postgresql.ENUM(
+        "disconnected", "connected", "syncing", "error", name="connectorstatus", create_type=False
+    )
+
+    # Create enums if they don't exist
+    connector_type_enum.create(op.get_bind(), checkfirst=True)
+    connector_status_enum.create(op.get_bind(), checkfirst=True)
+
     # Add 'upload' to the connectortype enum
     op.execute("ALTER TYPE connectortype ADD VALUE IF NOT EXISTS 'upload'")
 

@@ -6,8 +6,10 @@ from collections import defaultdict
 from uuid import UUID, uuid4
 
 from celery import shared_task
+from sqlalchemy.exc import OperationalError
 
 from app.adapters.inbound.workers.celery_app import celery_app
+from app.adapters.inbound.workers.exceptions import TransientError
 from app.adapters.outbound.persistence.postgres import (
     FaceRepositoryPostgres,
 )
@@ -32,7 +34,13 @@ def run_async(coro):
         loop.close()
 
 
-@celery_app.task(bind=True, name="face_clustering.cluster_faces")
+@celery_app.task(
+    bind=True,
+    name="face_clustering.cluster_faces",
+    autoretry_for=(TransientError, OperationalError, ConnectionError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def cluster_faces_task(self, similarity_threshold: float = 0.6) -> dict:
     """
     Cluster all unclustered faces based on similarity.
@@ -91,9 +99,7 @@ async def _cluster_faces_async(similarity_threshold: float) -> dict:
 
                 # Filter to only unclustered faces not yet assigned
                 similar_face_ids = [
-                    result.id
-                    for result in similar_results
-                    if result.id not in assigned_face_ids
+                    result.id for result in similar_results if result.id not in assigned_face_ids
                 ]
 
                 # Create a new cluster with this face and similar faces
@@ -131,8 +137,7 @@ async def _cluster_faces_async(similarity_threshold: float) -> dict:
                 )
 
             logger.info(
-                f"Clustering complete: {clusters_created} clusters, "
-                f"{faces_clustered} faces"
+                f"Clustering complete: {clusters_created} clusters, " f"{faces_clustered} faces"
             )
 
             return {
@@ -145,7 +150,13 @@ async def _cluster_faces_async(similarity_threshold: float) -> dict:
         return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(bind=True, name="face_clustering.update_clusters")
+@celery_app.task(
+    bind=True,
+    name="face_clustering.update_clusters",
+    autoretry_for=(TransientError, OperationalError, ConnectionError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def update_clusters_task(
     self,
     face_ids: list[str],
@@ -278,7 +289,13 @@ async def _update_clusters_async(
         return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(bind=True, name="face_clustering.merge_clusters")
+@celery_app.task(
+    bind=True,
+    name="face_clustering.merge_clusters",
+    autoretry_for=(TransientError, OperationalError, ConnectionError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def merge_clusters_task(
     self,
     source_cluster_id: str,

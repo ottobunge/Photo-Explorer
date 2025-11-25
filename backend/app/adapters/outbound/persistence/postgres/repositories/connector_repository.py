@@ -124,7 +124,7 @@ class ConnectorRepositoryPostgres(ConnectorRepository):
         """Find a local connector by its path."""
         stmt = select(ConnectorModel).where(
             ConnectorModel.type == ConnectorType.LOCAL,
-            ConnectorModel.config["path"].astext == path,
+            ConnectorModel.config["path"].as_string() == path,
         )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
