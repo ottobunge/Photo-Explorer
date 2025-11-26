@@ -234,3 +234,44 @@ class FaceRepositoryPostgres(FaceRepository):
         result = await self._session.execute(stmt)
         await self._session.flush()
         return result.rowcount
+
+    async def save_faces_batch(self, faces: list[Face]) -> list[Face]:
+        """
+        Persist multiple face entities in a single batch operation.
+
+        This reduces database round-trips from N to 1 for bulk face saves.
+        """
+        if not faces:
+            return []
+
+        # Separate into new and existing faces
+        face_ids = [face.id.value for face in faces]
+        stmt = select(FaceModel).where(FaceModel.id.in_(face_ids))
+        result = await self._session.execute(stmt)
+        existing_models = {model.id: model for model in result.scalars().all()}
+
+        saved_faces = []
+
+        for face in faces:
+            if face.id.value in existing_models:
+                # Update existing face
+                existing = existing_models[face.id.value]
+                existing.photo_id = face.photo_id
+                existing.cluster_id = face.cluster_id
+                existing.bbox_x = face.bbox.x
+                existing.bbox_y = face.bbox.y
+                existing.bbox_width = face.bbox.width
+                existing.bbox_height = face.bbox.height
+                existing.crop_path = face.crop_path
+                existing.quality_score = face.quality_score
+                existing.detection_confidence = face.detection_confidence
+                saved_faces.append(FaceMapper.to_domain(existing))
+            else:
+                # Create new face
+                model = FaceMapper.to_model(face)
+                self._session.add(model)
+                saved_faces.append(face)
+
+        # Single flush for all operations
+        await self._session.flush()
+        return saved_faces

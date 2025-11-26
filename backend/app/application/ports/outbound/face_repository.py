@@ -161,3 +161,17 @@ class FaceRepository(ABC):
         Returns:
             List of photo IDs
         """
+
+    @abstractmethod
+    async def save_faces_batch(self, faces: list[Face]) -> list[Face]:
+        """
+        Persist multiple face entities in a single batch operation.
+
+        This reduces database round-trips from N to 1 for bulk face saves.
+
+        Args:
+            faces: List of faces to save
+
+        Returns:
+            List of saved faces
+        """
