@@ -19,6 +19,7 @@ from app.adapters.inbound.workers.exceptions import (
     TokenRefreshError,
     TransientError,
 )
+from app.adapters.inbound.workers.rate_limiter import RateLimiter
 from app.adapters.outbound.connectors.google_photos import (
     GooglePhotosClient,
     GooglePhotosPickerClient,
@@ -189,6 +190,14 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
         connector.set_syncing()
         await connector_repo.save(connector)
 
+        # Create rate limiter for Google Photos API
+        # Google Photos API limits: 10,000 requests/day, 50 requests/second
+        rate_limiter = RateLimiter(
+            key_prefix="google_photos",
+            per_second_limit=50,
+            per_day_limit=10000,
+        )
+
         try:
             # Create Google Photos client
             client = GooglePhotosClient(
@@ -215,6 +224,20 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
             try:
                 # Iterate through all photos from Google Photos
                 async for metadata in client.iter_all_photos():
+                    # Check rate limit before processing each item
+                    allowed = await rate_limiter.wait_if_limited(
+                        f"connector_{connector_id}", max_retries=3
+                    )
+                    if not allowed:
+                        logger.error(
+                            f"Rate limit exceeded for connector {connector_id}, aborting sync",
+                            extra={"connector_id": connector_id}
+                        )
+                        raise RateLimitError(
+                            "Google Photos API rate limit exceeded",
+                            {"connector_id": connector_id}
+                        )
+
                     sync_counters["total_items"] += 1
 
                     # Check if photo already exists
@@ -287,6 +310,7 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
 
             finally:
                 await client.close()
+                await rate_limiter.close()
 
             # Create final immutable SyncStats value object
             stats = SyncStats(
