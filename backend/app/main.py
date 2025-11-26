@@ -33,6 +33,7 @@ from app.config import get_settings
 from app.logging_config import setup_logging
 from app.middleware import RequestIDMiddleware, setup_rate_limiting
 from app.middleware.error_handlers import setup_error_handlers
+from app.middleware.query_logger import setup_query_logging
 
 # Keep backward compatibility with existing RequestTracingMiddleware if it exists
 try:
@@ -94,6 +95,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         json_logs=not app_settings.debug,
         debug=app_settings.debug,
     )
+
+    # Setup query performance logging
+    setup_query_logging()
 
     logger.info("Starting Photo Explorer application...")
 

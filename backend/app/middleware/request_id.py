@@ -3,6 +3,7 @@
 Generates a unique UUID for each request and propagates it through:
 - Response headers (X-Request-ID)
 - Log context (for structured logging)
+- Database query logging context
 - Enables end-to-end request tracing across services
 """
 
@@ -57,6 +58,16 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Store in request state for access in route handlers
         request.state.request_id = request_id
 
+        # Set query logger context (for database query logging)
+        try:
+            from app.middleware.query_logger import set_request_context, clear_request_context
+
+            endpoint = f"{request.method} {request.url.path}"
+            set_request_context(endpoint=endpoint, request_id=request_id)
+        except ImportError:
+            # Query logger not available, skip
+            pass
+
         # Add to logging context (if using structured logging)
         # This allows all logs within this request to include the request_id
         # Note: LoggerAdapter is not a context manager, just use it for logging
@@ -82,6 +93,14 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                 },
             )
             raise exc
+        finally:
+            # Clear query logger context
+            try:
+                from app.middleware.query_logger import clear_request_context
+
+                clear_request_context()
+            except ImportError:
+                pass
 
 
 def get_request_id(request: Request) -> str:
