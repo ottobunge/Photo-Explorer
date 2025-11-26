@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { settingsStore } from '../stores/settings';
 	import { onMount } from 'svelte';
+	import { STATUS_MESSAGE_TIMEOUT, DEFAULT_THUMBNAIL_QUALITY } from '$lib/constants';
 
 	let saving = false;
 	let error: string | null = null;
 	let successMessage: string | null = null;
 
 	// Local form state
-	let thumbnailQuality = $state(85);
+	let thumbnailQuality = $state(DEFAULT_THUMBNAIL_QUALITY);
 	let clipModel = $state('ViT-B/32');
 	let faceDetectionEnabled = $state(true);
 	let autoIndexNewPhotos = $state(true);
@@ -46,7 +47,7 @@
 				autoIndexNewPhotos
 			});
 			successMessage = 'Settings saved successfully';
-			setTimeout(() => (successMessage = null), 3000);
+			setTimeout(() => (successMessage = null), STATUS_MESSAGE_TIMEOUT);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save settings';
 		} finally {

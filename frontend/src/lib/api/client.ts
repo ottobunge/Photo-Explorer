@@ -1,11 +1,10 @@
 // API client for Photo Explorer backend
 
+import { API_DEFAULT_TIMEOUT } from '$lib/constants';
+
 /** Base API host URL - export for use in components that need direct URLs (images, etc.) */
 export const API_HOST = import.meta.env['PUBLIC_API_URL'] || 'http://localhost:8000';
 const API_BASE = `${API_HOST}/api/v1`;
-
-/** Default request timeout in milliseconds */
-const DEFAULT_TIMEOUT = 30000;
 
 interface ApiResponse<T> {
 	success: boolean;
@@ -40,7 +39,7 @@ class ApiError extends Error {
 async function fetchWithTimeout(
 	url: string,
 	options?: RequestInit,
-	timeout = DEFAULT_TIMEOUT
+	timeout = API_DEFAULT_TIMEOUT
 ): Promise<Response> {
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), timeout);

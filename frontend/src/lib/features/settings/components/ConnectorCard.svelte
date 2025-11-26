@@ -2,6 +2,14 @@
 	import type { Connector, PickerSession } from '../types';
 	import { settingsStore } from '../stores/settings';
 	import { createEventDispatcher, onDestroy } from 'svelte';
+	import { StatusBadge, type StatusType } from '$lib/shared/components';
+	import {
+		MESSAGE_DISMISS_TIMEOUT,
+		PICKER_CLOSE_DELAY,
+		PICKER_POLL_INTERVAL_FALLBACK,
+		PICKER_WINDOW_WIDTH,
+		PICKER_WINDOW_HEIGHT
+	} from '$lib/constants';
 
 	export let connector: Connector;
 
@@ -43,34 +51,9 @@
 		pickerPolling = false;
 	});
 
-	$: statusColor = getStatusColor(connector.status);
-	$: statusLabel = getStatusLabel(connector.status);
-
-	function getStatusColor(status: string): string {
-		switch (status) {
-			case 'connected':
-				return 'bg-green-500';
-			case 'syncing':
-				return 'bg-blue-500';
-			case 'error':
-				return 'bg-red-500';
-			default:
-				return 'bg-gray-400';
-		}
-	}
-
-	function getStatusLabel(status: string): string {
-		switch (status) {
-			case 'connected':
-				return 'Connected';
-			case 'syncing':
-				return 'Syncing...';
-			case 'error':
-				return 'Error';
-			default:
-				return 'Disconnected';
-		}
-	}
+	// Map connector status to StatusBadge status type
+	let status = $derived(connector.status as StatusType);
+	let statusLabel = $derived(connector.status === 'syncing' ? 'Syncing...' : connector.status.charAt(0).toUpperCase() + connector.status.slice(1));
 
 	function getConnectorIcon(type: string): string {
 		switch (type) {
@@ -107,14 +90,14 @@
 		try {
 			const result = await settingsStore.reprocessConnector(connector.id);
 			reprocessMessage = result.message;
-			// Clear message after 5 seconds
+			// Clear message after timeout
 			if (reprocessMessageTimeout !== null) {
 				clearTimeout(reprocessMessageTimeout);
 			}
 			reprocessMessageTimeout = setTimeout(() => {
 				reprocessMessage = null;
 				reprocessMessageTimeout = null;
-			}, 5000);
+			}, MESSAGE_DISMISS_TIMEOUT);
 		} catch (err) {
 			reprocessMessage = err instanceof Error ? err.message : 'Reprocess failed';
 		} finally {
@@ -139,15 +122,13 @@
 			pickerSession = await settingsStore.createPickerSession(connector.id);
 
 			// Open the picker in a popup window
-			const width = 900;
-			const height = 700;
-			const left = window.screenX + (window.outerWidth - width) / 2;
-			const top = window.screenY + (window.outerHeight - height) / 2;
+			const left = window.screenX + (window.outerWidth - PICKER_WINDOW_WIDTH) / 2;
+			const top = window.screenY + (window.outerHeight - PICKER_WINDOW_HEIGHT) / 2;
 
 			pickerWindow = window.open(
 				pickerSession.pickerUri,
 				'GooglePhotosPicker',
-				`width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+				`width=${PICKER_WINDOW_WIDTH},height=${PICKER_WINDOW_HEIGHT},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
 			);
 
 			if (!pickerWindow) {
@@ -168,7 +149,7 @@
 		if (!pickerSession || pickerPolling) return;
 
 		pickerPolling = true;
-		const pollInterval = (pickerSession.pollIntervalSeconds || 3) * 1000;
+		const pollInterval = (pickerSession.pollIntervalSeconds || PICKER_POLL_INTERVAL_FALLBACK) * 1000;
 
 		const poll = async () => {
 			if (!pickerSession || pickerStatus !== 'selecting') {
@@ -179,7 +160,7 @@
 			// Check if popup was closed
 			if (pickerWindow && pickerWindow.closed) {
 				// Give more time for the Google API to register the selection
-				await new Promise((resolve) => setTimeout(resolve, 2000));
+				await new Promise((resolve) => setTimeout(resolve, PICKER_CLOSE_DELAY));
 
 				// Always try to import when popup closes - the API will return
 				// 0 photos if nothing was selected, which is fine
@@ -249,7 +230,7 @@
 				pickerStatus = 'idle';
 				pickerMessage = null;
 				pickerResetTimeout = null;
-			}, 5000);
+			}, MESSAGE_DISMISS_TIMEOUT);
 		} catch (err) {
 			pickerStatus = 'error';
 			pickerMessage = err instanceof Error ? err.message : 'Import failed';
@@ -289,10 +270,7 @@
 			<h3 class="connector-name">{connector.name}</h3>
 			<p class="connector-type">{connector.type === 'google_photos' ? 'Google Photos' : 'Local Folder'}</p>
 		</div>
-		<div class="connector-status">
-			<span class="status-dot {statusColor}"></span>
-			<span class="status-label">{statusLabel}</span>
-		</div>
+		<StatusBadge {status} label={statusLabel} />
 	</div>
 
 	{#if connector.type === 'local' && connector.config.path}
@@ -443,23 +421,6 @@
 		color: var(--text-muted, #6b7280);
 		font-size: 0.875rem;
 		margin: 0;
-	}
-
-	.connector-status {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.status-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-	}
-
-	.status-label {
-		font-size: 0.875rem;
-		color: var(--text-muted, #6b7280);
 	}
 
 	.connector-details {
