@@ -43,6 +43,24 @@ class Settings(BaseSettings):
         description="PostgreSQL database connection URL with asyncpg driver",
         min_length=1,
     )
+    db_pool_size: int = Field(
+        default=20,
+        description="Database connection pool size",
+        gt=0,
+        le=100,
+    )
+    db_max_overflow: int = Field(
+        default=10,
+        description="Maximum number of connections that can be created beyond pool_size",
+        ge=0,
+        le=100,
+    )
+    db_pool_timeout: int = Field(
+        default=30,
+        description="Timeout in seconds for getting a connection from the pool",
+        gt=0,
+        le=300,
+    )
 
     # Vector database
     qdrant_url: str = Field(
