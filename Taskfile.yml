@@ -40,7 +40,7 @@ tasks:
     cmds:
       - cmd: echo "🚀 Starting Photo Explorer in local development mode..."
         silent: true
-      - cmd: echo "📦 Infrastructure (Postgres, Qdrant, Redis) running in Docker"
+      - cmd: echo "📦 Infrastructure (Postgres, Qdrant, Redis, Prometheus, Grafana) running in Docker"
         silent: true
       - cmd: echo "💻 Backend, Frontend, Worker running locally with hot-reload"
         silent: true
@@ -59,6 +59,14 @@ tasks:
         silent: true
       - cmd: echo ""
         silent: true
+      - cmd: echo "📈 Monitoring services (Docker):"
+        silent: true
+      - cmd: echo "   📊 Prometheus - http://localhost:9090"
+        silent: true
+      - cmd: echo "   📉 Grafana - http://localhost:3001 (admin/admin)"
+        silent: true
+      - cmd: echo ""
+        silent: true
       - cmd: echo "⌨️  Press Ctrl+C to stop all services"
         silent: true
       - cmd: echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -72,9 +80,9 @@ tasks:
   # ===================
 
   services:up:
-    desc: Start infrastructure services (Postgres, Qdrant, Redis)
+    desc: Start infrastructure services (Postgres, Qdrant, Redis, Prometheus, Grafana)
     cmds:
-      - "{{.DOCKER_COMPOSE}} up -d postgres qdrant redis"
+      - "{{.DOCKER_COMPOSE}} up -d postgres qdrant redis prometheus grafana"
 
   services:down:
     desc: Stop infrastructure services
@@ -84,7 +92,7 @@ tasks:
   services:logs:
     desc: View logs from infrastructure services
     cmds:
-      - "{{.DOCKER_COMPOSE}} logs -f postgres qdrant redis"
+      - "{{.DOCKER_COMPOSE}} logs -f postgres qdrant redis prometheus grafana"
 
   services:clean:
     desc: Stop services and remove volumes
