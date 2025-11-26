@@ -1,6 +1,7 @@
 // Settings store for managing connectors and app settings
 
 import { client } from '$lib/api/client';
+import { DEFAULT_THUMBNAIL_QUALITY } from '$lib/constants';
 import type {
 	Connector,
 	ConnectorType,
@@ -51,6 +52,7 @@ class SettingsStore {
 	downloadedModels = $state<string[]>([]);
 	recommendedModels = $state<Record<string, HFModel[]>>({});
 	loading = $state<boolean>(false);
+	connecting = $state<boolean>(false);
 	error = $state<string | null>(null);
 
 	// ==================
@@ -109,6 +111,7 @@ class SettingsStore {
 	 */
 	async connectGooglePhotos(): Promise<string> {
 		this.error = null;
+		this.connecting = true;
 
 		try {
 			const redirectUri = `${window.location.origin}/connectors/google-photos/callback`;
@@ -119,6 +122,7 @@ class SettingsStore {
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : 'Failed to get auth URL';
 			this.error = errorMessage;
+			this.connecting = false;
 			console.error('Failed to connect Google Photos:', err);
 			throw err;
 		}
@@ -302,7 +306,7 @@ class SettingsStore {
 		} catch (err) {
 			// Use defaults if settings don't exist yet
 			this.appSettings = {
-				thumbnailQuality: 85,
+				thumbnailQuality: DEFAULT_THUMBNAIL_QUALITY,
 				clipModel: 'ViT-B/32',
 				faceDetectionEnabled: true,
 				autoIndexNewPhotos: true
@@ -680,6 +684,7 @@ class SettingsStore {
 		this.downloadedModels = [];
 		this.recommendedModels = {};
 		this.loading = false;
+		this.connecting = false;
 		this.error = null;
 	}
 }
