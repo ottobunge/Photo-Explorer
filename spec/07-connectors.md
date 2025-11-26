@@ -148,11 +148,85 @@ async def get_photo_url(photo_id: UUID) -> str:
         return f"/api/v1/photos/{photo_id}/file"
 ```
 
+### Photo Picker API Integration
+
+The Google Photos Picker API allows users to selectively import specific photos from their Google Photos library through an interactive UI.
+
+#### Picker Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Google Photos Picker Flow                         │
+└─────────────────────────────────────────────────────────────────────┘
+
+1. User clicks "Import Photos" on connector detail page
+   └── Frontend: POST /api/v1/connectors/{id}/picker/session
+
+2. Backend creates picker session with Google
+   ├── Calls Google Picker API: POST /v1/sessions
+   ├── Configures session: { pickingConfig: { maxItemCount: "1000" } }
+   └── Returns: { sessionId, pickerUri, expireTime, pollInterval }
+
+3. Frontend opens picker in popup window
+   └── Opens pickerUri in centered popup (900x700px)
+
+4. User interacts with Google Photos picker
+   ├── Browses their Google Photos library
+   ├── Selects photos/videos to import
+   └── Clicks "ADD" button in picker
+
+5. Frontend polls backend for session status (every 2 seconds)
+   └── GET /api/v1/connectors/{id}/picker/session/{sessionId}
+
+6. Backend polls Google Picker API for status
+   ├── GET /v1/sessions/{sessionId}
+   └── Returns: { mediaItemsSet: true/false, expireTime }
+
+7. When mediaItemsSet becomes true:
+   ├── Frontend: POST /api/v1/connectors/{id}/picker/session/{sessionId}/import
+   ├── Backend fetches selected media items from Google
+   ├── Creates Celery task to process photos
+   └── Photos are indexed asynchronously
+
+8. Session cleanup:
+   ├── Sessions expire after ~60 minutes (set by Google)
+   ├── Frontend detects expiration via expireTime field
+   └── Shows appropriate message if session expires
+```
+
+#### Implementation Details
+
+**Session Configuration:**
+- Only `pickingConfig.maxItemCount` can be configured
+- Default limit is 2000 items, we set 1000 for reasonable batch sizes
+- No other configuration options exist (like file type filtering)
+
+**State Management:**
+- Backend maintains session state via Google's Picker API
+- Frontend trusts backend state, not browser window state
+- Polling is backend-driven (Google provides `pollInterval`)
+- Session expiration handled via `expireTime` from Google API
+
+**Why This Approach Works:**
+- ✅ **Reliable**: Uses official Google Picker API session state
+- ✅ **No false positives**: Doesn't check unreliable `window.closed` property
+- ✅ **Handles expiration**: Google provides expiration timestamp
+- ✅ **Scalable**: Backend handles session lifecycle
+- ✅ **User-friendly**: Clear feedback at each stage
+
+**Common Issues Avoided:**
+- ❌ Don't check `pickerWindow.closed` - unreliable during loading
+- ❌ Don't poll immediately - wait 3 seconds for window to load
+- ❌ Don't use invalid config fields (`allowedMediaTypes`, `selectionMode` don't exist)
+- ❌ Don't ignore session expiration - always check `expireTime`
+
 ### API Limitations
 
 | Limit | Value |
 |-------|-------|
 | Max items per page | 100 |
+| Picker session max items | 2000 (configurable, we use 1000) |
+| Picker session duration | ~60 minutes (set by Google) |
 | baseUrl validity | 60 minutes |
 | Daily quota | 10,000 requests |
 | Rate limit | ~50 requests/second |
