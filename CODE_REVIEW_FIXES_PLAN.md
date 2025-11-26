@@ -134,24 +134,43 @@
 
 ### Worker High Priority
 
-- [ ] **WK-H1: Add Circuit Breaker for Vector Store** (1 hour)
+- [x] **WK-H1: Add Circuit Breaker for Vector Store** (1 hour)
   - File: `backend/app/adapters/outbound/persistence/qdrant/vector_store.py`
   - Library: Use `circuitbreaker` or `pybreaker`
   - Wrap all Qdrant operations
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** 3c9b828
+  - **Details:**
+    - Added circuitbreaker dependency to pyproject.toml
+    - Applied @circuit decorator to store_photo_embedding(), search_photos(), store_face_embedding(), find_similar_faces()
+    - Configuration: failure_threshold=5, recovery_timeout=60 seconds
+    - Prevents cascading failures if Qdrant becomes unavailable
 
-- [ ] **WK-H2: Configure Dead Letter Queue** (1.5 hours)
+- [x] **WK-H2: Configure Dead Letter Queue** (1.5 hours)
   - File: `backend/app/adapters/inbound/workers/celery_app.py`
   - Add: DLQ queue configuration
   - Create handler task for DLQ messages
   - Add logging for permanently failed tasks
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** c32e7f8
+  - **Details:**
+    - Added DLQ queue to task_routes and task_queues configuration
+    - Updated LoggingTask.on_failure() to detect exhausted retries
+    - Created handle_dlq_message task to log and store failed task details
+    - DLQ entries saved to /tmp/photo-explorer-dlq as JSON files
+    - Critical-level logging for alerting on permanently failed tasks
 
-- [ ] **WK-H3: Add Task Timeouts** (30 min)
+- [x] **WK-H3: Add Task Timeouts** (30 min)
   - Files: All task files in `backend/app/adapters/inbound/workers/tasks/`
   - Add: `time_limit` and `soft_time_limit` to task decorators
   - Document timeout values
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** 8de28ec
+  - **Details:**
+    - Sync tasks: 1 hour hard, 50 min soft (connector_sync, google_photos_sync, batch_operations)
+    - Processing tasks: 30 min hard, 25 min soft (photo_processing, photo_analysis)
+    - Clustering tasks: 2 hours hard, 110 min soft (face_clustering)
+    - All timeout values documented in task docstrings
 
 ### Frontend High Priority
 
@@ -335,20 +354,24 @@
 ## 📊 Progress Summary
 
 **Total Tasks:** 60
-**Completed:** 17
+**Completed:** 20
 **In Progress:** 0
-**Not Started:** 43
+**Not Started:** 40
 
 **By Priority:**
 - Critical (🔴): 0 remaining / 12 tasks (12 completed)
-- High (🟡): 5 remaining / 11 tasks (6 completed)
+- High (🟡): 2 remaining / 11 tasks (9 completed)
 - Medium (🟢): 24 tasks
 - Testing (📝): 3 tasks
 - Documentation (📚): 3 tasks
 
-**Estimated Completion:** 2-3 days with focused effort
+**Estimated Completion:** 1-2 days with focused effort
 
 **Recent Completions:**
+- WK-H1: Circuit breaker added to vector store operations (commit 3c9b828)
+- WK-H2: Dead Letter Queue configured for permanently failed tasks (commit c32e7f8)
+- WK-H3: Task timeouts added to prevent indefinite execution (commit 8de28ec)
+- BE-H4: Endpoint-specific rate limits added (commit 448b501)
 - FE-H1 & FE-H2: Settings store migrated to Svelte 5 runes with comprehensive error handling (commit 3b35d7f)
 
 ---
