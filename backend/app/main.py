@@ -104,8 +104,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize database connection pool (lazy initialization)
     logger.info("Database connection pool will be initialized on first use")
 
-    # Initialize Qdrant client (lazy initialization)
-    logger.info("Qdrant client will be initialized on first use")
+    # Initialize Qdrant collections (fail fast if Qdrant is unreachable)
+    try:
+        from app.adapters.outbound.persistence.qdrant.vector_store import (
+            ensure_collections,
+        )
+
+        logger.info("Ensuring Qdrant collections exist...")
+        await ensure_collections()
+        logger.info("Qdrant collections verified successfully")
+    except Exception as e:
+        logger.critical(
+            f"Failed to connect to Qdrant or create collections: {e}",
+            exc_info=True,
+        )
+        logger.critical("Application cannot start without Qdrant. Exiting...")
+        import sys
+
+        sys.exit(1)
 
     # Initialize default connectors
     try:

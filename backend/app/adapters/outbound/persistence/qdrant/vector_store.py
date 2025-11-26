@@ -451,3 +451,70 @@ async def cleanup_vector_store() -> None:
             logger.warning(f"Error cleaning up Qdrant async client: {e}")
         finally:
             _async_client = None
+
+
+async def ensure_collections() -> None:
+    """
+    Ensure that required Qdrant collections exist at application startup.
+
+    This function should be called during application lifespan startup.
+    It will create the photo_embeddings and face_embeddings collections
+    if they don't exist, with proper vector configurations.
+
+    Raises:
+        Exception: If Qdrant is unreachable or collection creation fails
+    """
+    settings = get_settings()
+
+    # Get model config for embedding dimensions
+    from app.infrastructure.models.config import get_model_config
+
+    model_config = get_model_config()
+
+    # Use sync client for initialization
+    try:
+        sync_client = QdrantClient(url=settings.qdrant_url)
+
+        # Ensure photo embeddings collection
+        try:
+            sync_client.get_collection(settings.qdrant_collection_photos)
+            logger.info(f"Collection {settings.qdrant_collection_photos} already exists")
+        except (UnexpectedResponse, Exception):
+            logger.info(
+                f"Creating collection {settings.qdrant_collection_photos} "
+                f"with vector size {model_config.clip.embedding_dim}"
+            )
+            sync_client.create_collection(
+                collection_name=settings.qdrant_collection_photos,
+                vectors_config=qdrant_models.VectorParams(
+                    size=model_config.clip.embedding_dim,
+                    distance=qdrant_models.Distance.COSINE,
+                ),
+            )
+            logger.info(f"Successfully created collection {settings.qdrant_collection_photos}")
+
+        # Ensure face embeddings collection
+        try:
+            sync_client.get_collection(settings.qdrant_collection_faces)
+            logger.info(f"Collection {settings.qdrant_collection_faces} already exists")
+        except (UnexpectedResponse, Exception):
+            logger.info(
+                f"Creating collection {settings.qdrant_collection_faces} "
+                f"with vector size {QdrantVectorStore.FACE_EMBEDDING_DIM}"
+            )
+            sync_client.create_collection(
+                collection_name=settings.qdrant_collection_faces,
+                vectors_config=qdrant_models.VectorParams(
+                    size=QdrantVectorStore.FACE_EMBEDDING_DIM,
+                    distance=qdrant_models.Distance.COSINE,
+                ),
+            )
+            logger.info(f"Successfully created collection {settings.qdrant_collection_faces}")
+
+        # Close sync client
+        sync_client.close()
+        logger.info("Qdrant collections verified and ready")
+
+    except Exception as e:
+        logger.critical(f"Failed to connect to Qdrant or create collections: {e}", exc_info=True)
+        raise
