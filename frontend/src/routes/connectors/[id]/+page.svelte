@@ -351,9 +351,14 @@
 				throw new Error('Failed to open picker window. Please allow popups.');
 			}
 
-			// Also poll as fallback (every 3 seconds) in case postMessage doesn't work
+			// Start polling after a delay to let the window fully load
+			// Poll as fallback (every 2 seconds) in case postMessage doesn't work
 			pickerPolling = true;
-			pollPickerStatus();
+			setTimeout(() => {
+				if (pickerPolling) {
+					void pollPickerStatus();
+				}
+			}, 3000); // Wait 3 seconds before first poll
 		} catch (err) {
 			pickerStatus = 'error';
 			pickerMessage = err instanceof Error ? err.message : 'Failed to open photo picker';
