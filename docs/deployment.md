@@ -87,7 +87,21 @@ git checkout v1.0.0  # Replace with latest stable tag
 git checkout main
 ```
 
-### 2. Create Production Environment File
+### 2. Fix Monitoring Config Permissions
+
+The monitoring configuration files need to be readable by Docker containers:
+
+```bash
+# Make monitoring configs readable by all users
+chmod 644 monitoring/prometheus.yml
+chmod 644 monitoring/grafana/datasources/prometheus.yml
+chmod 644 monitoring/grafana/dashboards/*.yml
+chmod 644 monitoring/grafana/dashboards/*.json
+```
+
+**Why this is needed:** Docker containers run as different users than your host user. Without world-readable permissions (644), Prometheus and Grafana won't be able to read their configuration files, causing startup failures.
+
+### 3. Create Production Environment File
 
 ```bash
 # Copy the example environment file
