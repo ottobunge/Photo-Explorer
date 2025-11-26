@@ -61,8 +61,20 @@ def cleanup_worker_resources() -> None:
         logger.error(f"Error cleaning up vector store: {e}", exc_info=True)
 
     try:
-        # Database connections are cleaned up per-task via context managers
-        logger.info("Database connections cleaned up via context managers")
+        # Cleanup thread-local worker database engine
+        import asyncio
+
+        from app.adapters.outbound.persistence.postgres.database import (
+            cleanup_worker_engine,
+        )
+
+        logger.info("Cleaning up worker database engine...")
+        # Create a new event loop for cleanup since workers are sync
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(cleanup_worker_engine())
+        finally:
+            loop.close()
 
     except Exception as e:
         logger.error(f"Error during database cleanup: {e}", exc_info=True)

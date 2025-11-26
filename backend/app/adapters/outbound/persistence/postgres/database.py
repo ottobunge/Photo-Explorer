@@ -1,5 +1,6 @@
 """Database connection and session management."""
 
+import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -16,6 +17,9 @@ from app.config import get_settings
 # Global engine instance (for FastAPI)
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
+
+# Thread-local storage for worker engines to prevent memory leaks
+_worker_engine_cache = threading.local()
 
 
 def get_engine(use_pool: bool = True) -> AsyncEngine:
@@ -103,25 +107,43 @@ async def close_db() -> None:
         _session_factory = None
 
 
+async def cleanup_worker_engine() -> None:
+    """
+    Cleanup the thread-local worker engine.
+
+    This should be called during worker shutdown to properly dispose
+    of the cached engine and prevent memory leaks.
+    """
+    if hasattr(_worker_engine_cache, "engine"):
+        engine = _worker_engine_cache.engine
+        await engine.dispose()
+        delattr(_worker_engine_cache, "engine")
+
+
 @asynccontextmanager
 async def get_worker_session_context() -> AsyncGenerator[AsyncSession, None]:
     """
     Context manager for getting a database session in Celery workers.
 
-    Creates a fresh engine without connection pooling to avoid
+    Uses a thread-local cached engine to avoid creating new engines for every task.
+    The engine uses NullPool to create new connections each time, avoiding
     event loop issues with forked processes.
 
     Usage:
         async with get_worker_session_context() as session:
             ...
     """
-    settings = get_settings()
-    # Create engine without pooling for workers (NullPool creates new connection each time)
-    engine = create_async_engine(
-        settings.database_url,
-        echo=settings.debug,
-        poolclass=NullPool,
-    )
+    # Check if this thread already has a cached engine
+    if not hasattr(_worker_engine_cache, "engine"):
+        settings = get_settings()
+        # Create and cache engine without pooling for workers
+        _worker_engine_cache.engine = create_async_engine(
+            settings.database_url,
+            echo=settings.debug,
+            poolclass=NullPool,
+        )
+
+    engine = _worker_engine_cache.engine
 
     factory = async_sessionmaker(
         bind=engine,
@@ -138,5 +160,3 @@ async def get_worker_session_context() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
-        finally:
-            await engine.dispose()
