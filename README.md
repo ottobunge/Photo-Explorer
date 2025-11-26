@@ -6,22 +6,38 @@ AI-powered photo organization and semantic search application.
 
 ## Features
 
+### Core Functionality
 - **Semantic Photo Search**: Search photos using natural language (powered by CLIP embeddings)
 - **Face Recognition & Tagging**: Automatically detect, cluster, and manage faces (merge, split, move)
 - **Multi-Source Connectors**: Index photos from Google Photos, local folders, or manual uploads
+  - Google Photos Picker API for selective photo import
+  - Automatic sync with change detection
+  - Reference-based storage (no file duplication)
 - **Album Management**: Full CRUD operations for organizing photos into albums
 - **AI Analysis**: Vision LLM descriptions, object detection, scene classification
 - **AI Model Management**: Download and configure AI models from Hugging Face
-- **Production-Ready**: 92% test coverage, comprehensive OpenAPI docs, transaction-safe operations
+
+### Production Features
+- **Self-Hosted Monitoring**: Prometheus metrics + Grafana dashboards (no external dependencies)
+- **Health Checks**: Comprehensive health monitoring for all services
+- **Error Handling**: Standardized error responses with domain-specific exceptions
+- **Rate Limiting**: Configurable per-endpoint rate limits (100 req/min default, stricter for expensive operations)
+- **Transaction Safety**: ACID-compliant operations with compensating actions
+- **Batch Processing**: Optimized database operations (50% fewer round-trips)
+- **Query Logging**: Automatic slow query detection (>100ms threshold)
+- **Resource Management**: Memory and CPU limits for all Docker services
+- **Test Coverage**: 92% API coverage, 25+ automated tests (unit, integration, E2E)
+- **Security**: Token encryption, path validation, production config validation
 
 ## Tech Stack
 
 - **Backend**: Python FastAPI with hexagonal architecture
-- **Frontend**: SvelteKit with feature-based architecture
+- **Frontend**: SvelteKit 5 with Svelte Runes and feature-based architecture
 - **Vector DB**: Qdrant for CLIP and face embeddings
 - **Database**: PostgreSQL for metadata
 - **ML**: CLIP for image embeddings, InsightFace for face detection
 - **Task Queue**: Celery with Redis
+- **Monitoring**: Prometheus (metrics) + Grafana (dashboards) - fully self-hosted
 - **Package Manager**: Poetry (Python), pnpm (Node.js)
 
 ## Quick Start
@@ -79,11 +95,15 @@ Use this for testing Docker builds or production-like environment.
 
 ### Access the Application
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs (interactive Swagger UI)
-- API Reference: See [docs/API.md](./docs/API.md) for complete documentation
-- Qdrant Dashboard: http://localhost:6333/dashboard
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs (interactive Swagger UI)
+- **API Reference**: See [docs/API.md](./docs/API.md) for complete documentation
+- **Metrics**: http://localhost:8000/metrics (Prometheus format)
+- **Health Check**: http://localhost:8000/health (overall) | http://localhost:8000/health/ml (ML models)
+- **Qdrant Dashboard**: http://localhost:6333/dashboard
+- **Prometheus**: http://localhost:9090 (metrics database)
+- **Grafana**: http://localhost:3001 (dashboards - default login: admin/admin)
 
 ### Quick Demo with Example Photos 🎬
 
@@ -237,7 +257,7 @@ See `spec/07-connectors.md` for detailed connector documentation.
 The project follows Test-Driven Development (TDD) with behavior-focused tests.
 
 **Backend Test Coverage**: 92% for API integration tests
-**Total Tests**: 160+ tests across unit, integration, and E2E suites
+**Total Tests**: 185+ tests across unit, integration, and E2E suites
 
 ### Backend Tests
 
@@ -251,11 +271,13 @@ task test:coverage    # With coverage report
 ```
 
 **Test Highlights:**
-- Connector APIs: 45/45 tests passing (100%)
-- Search API: 21/21 tests passing (100%)
-- Service Layer: 20 unit tests
-- Repository Layer: 30+ unit tests
-- Security: Path traversal prevention tests
+- **Connector APIs**: 45/45 tests passing (100%)
+- **Search API**: 21/21 tests passing (100%)
+- **Critical Fixes**: 11/11 tests passing (race conditions, locks, transactions)
+- **Picker Flow**: 2/2 integration tests passing
+- **Service Layer**: 20 unit tests
+- **Repository Layer**: 30+ unit tests
+- **Security**: Path traversal prevention tests
 
 ### Frontend Tests
 
@@ -265,6 +287,11 @@ task test             # Unit and component tests
 task test:e2e         # End-to-end tests (Playwright)
 task test:coverage    # With coverage report
 ```
+
+**Test Highlights:**
+- **Critical User Flows**: 12 Playwright E2E tests
+- **Accessibility**: WCAG compliance tests
+- **Responsive Design**: Mobile viewport testing
 
 ## Architecture
 
@@ -415,6 +442,59 @@ Note: Currently, key rotation requires users to re-authenticate their connectors
 └── tokens/
     └── google-photos.enc    # OAuth tokens (encrypted)
 ```
+
+## Monitoring & Observability
+
+Photo Explorer includes a fully self-hosted monitoring stack with zero external dependencies.
+
+### Prometheus Metrics
+
+The backend and worker expose Prometheus metrics at `/metrics`:
+
+**Worker Metrics:**
+- `celery_task_duration_seconds` - Task execution time (histogram with p50, p95, p99)
+- `celery_task_failures_total` - Task failure counter by task name and exception type
+- `celery_task_success_total` - Task success counter
+- `celery_task_retries_total` - Task retry counter
+- `celery_active_tasks` - Currently executing tasks (gauge)
+
+**API Metrics:**
+- Request rates by endpoint
+- Response times (percentiles)
+- Error rates by status code
+
+### Grafana Dashboards
+
+Pre-configured dashboards are automatically provisioned on startup:
+
+1. **Worker Metrics Dashboard**
+   - Task duration trends
+   - Failure rates by task type
+   - Queue depth monitoring
+   - Retry patterns
+
+2. **API Metrics Dashboard**
+   - Request rates and response times
+   - Error rate tracking
+   - Endpoint performance analysis
+
+**Access Grafana**: http://localhost:3001 (default: admin/admin)
+
+### Health Checks
+
+All services include health monitoring:
+
+- **Overall Health**: `GET /health` - Database, Redis, Qdrant connectivity
+- **ML Models**: `GET /health/ml` - Model loading status and memory usage
+- **Docker Health Checks**: All containers (postgres, redis, qdrant, backend, worker, prometheus, grafana)
+
+### Query Performance
+
+Slow queries (>100ms) are automatically logged with:
+- Full query text and parameters
+- Execution duration
+- Request context (endpoint, request_id)
+- Structured JSON logging for easy parsing
 
 ## Documentation
 
