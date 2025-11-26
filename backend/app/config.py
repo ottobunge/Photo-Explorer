@@ -44,7 +44,7 @@ class Settings(BaseSettings):
         min_length=1,
     )
     db_pool_size: int = Field(
-        default=20,
+        default=5,
         description="Database connection pool size",
         gt=0,
         le=100,

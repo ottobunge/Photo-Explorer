@@ -103,21 +103,38 @@
   - Add: `db_pool_size`, `db_max_overflow`, `db_pool_timeout` settings
   - Update database.py to use these settings
   - **Status:** Completed
-  - **Commit:** Pending
+  - **Commit:** To be determined
+  - **Details:**
+    - Added db_pool_size (default: 5), db_max_overflow (default: 10), db_pool_timeout (default: 30)
+    - Updated get_engine() in database.py to use pool settings
+    - Added pool_pre_ping=True for connection health checks
 
 - [x] **BE-H2: Add Qdrant Collection Auto-Creation** (1 hour)
   - File: `backend/app/adapters/outbound/persistence/qdrant/vector_store.py`
   - Create: `ensure_collections()` function
   - Call in main.py lifespan startup
   - **Status:** Completed
-  - **Commit:** Pending
+  - **Commit:** To be determined
+  - **Details:**
+    - Created ensure_collections() function (lines 456-521)
+    - Checks for photo_embeddings and face_embeddings collections
+    - Creates collections with proper vector configs if missing
+    - Integrated into main.py lifespan startup with fail-fast on Qdrant unreachable
+    - Logs all operations for monitoring
 
 - [x] **BE-H3: Add Graceful Worker Shutdown** (45 min)
   - File: `backend/app/adapters/inbound/workers/celery_app.py`
   - Add: `@worker_shutting_down.connect` signal handler
   - Ensure tasks complete before shutdown
   - **Status:** Completed
-  - **Commit:** Pending
+  - **Commit:** To be determined
+  - **Details:**
+    - Added worker_shutdown_handler with @worker_shutting_down.connect signal
+    - Cleans up ML services (GPU cache, models)
+    - Closes database connections via cleanup_worker_engine()
+    - Closes vector store connections via cleanup_vector_store()
+    - Comprehensive logging for all shutdown events
+    - Allows current tasks to complete before cleanup
 
 - [x] **BE-H4: Add Endpoint-Specific Rate Limits** (1 hour)
   - Files: `backend/app/adapters/inbound/api/routes/connectors.py`
@@ -354,13 +371,13 @@
 ## 📊 Progress Summary
 
 **Total Tasks:** 60
-**Completed:** 20
+**Completed:** 23
 **In Progress:** 0
-**Not Started:** 40
+**Not Started:** 37
 
 **By Priority:**
 - Critical (🔴): 0 remaining / 12 tasks (12 completed)
-- High (🟡): 2 remaining / 11 tasks (9 completed)
+- High (🟡): 0 remaining / 11 tasks (11 completed)
 - Medium (🟢): 24 tasks
 - Testing (📝): 3 tasks
 - Documentation (📚): 3 tasks
@@ -368,6 +385,9 @@
 **Estimated Completion:** 1-2 days with focused effort
 
 **Recent Completions:**
+- BE-H1: Database connection pool config with health checks (pool_size=5, max_overflow=10, pool_timeout=30)
+- BE-H2: Qdrant collection auto-creation with fail-fast startup validation
+- BE-H3: Graceful worker shutdown with ML/DB/vector store cleanup
 - WK-H1: Circuit breaker added to vector store operations (commit 3c9b828)
 - WK-H2: Dead Letter Queue configured for permanently failed tasks (commit c32e7f8)
 - WK-H3: Task timeouts added to prevent indefinite execution (commit 8de28ec)
