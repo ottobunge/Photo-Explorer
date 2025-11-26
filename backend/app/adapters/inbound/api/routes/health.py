@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
 
+from app.adapters.outbound.ml.ml_services import get_ml_services
 from app.adapters.outbound.persistence.postgres.database import get_engine
 from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
 from app.config import get_settings
@@ -40,6 +41,23 @@ class ReadinessStatus(BaseModel):
     timestamp: str
     version: str = "0.1.0"
     dependencies: list[DependencyStatus]
+
+
+class MLModelInfo(BaseModel):
+    """Information about a single ML model."""
+
+    name: str
+    loaded: bool
+    type: str  # "clip", "face_detector", "vision", "object_detector", "scene_classifier"
+
+
+class MLHealthStatus(BaseModel):
+    """Health status of ML models."""
+
+    status: str  # "healthy", "degraded", or "unhealthy"
+    timestamp: str
+    models: list[MLModelInfo]
+    details: dict[str, Any] | None = None
 
 
 @router.get("/health", response_model=HealthStatus)
@@ -274,4 +292,105 @@ async def check_qdrant() -> DependencyStatus:
             status="unhealthy",
             response_time_ms=round(response_time, 2),
             error=str(e),
+        )
+
+
+@router.get("/health/ml", response_model=MLHealthStatus)
+async def ml_health_check(response: Response) -> MLHealthStatus:
+    """
+    Check ML model health and status.
+
+    Verifies that ML models are loaded and operational:
+    - CLIP model for semantic search
+    - Face detector for face recognition
+    - Vision models (object detection, scene classification)
+
+    Returns 200 if all critical models are healthy.
+    Returns 503 if critical models are not loaded.
+
+    Returns:
+        MLHealthStatus with details about each model
+    """
+    try:
+        # Get ML services instance (creates singleton if not exists)
+        ml_services = get_ml_services()
+
+        # Get health check info
+        health_info = await ml_services.health_check()
+
+        # Build model info list
+        models = [
+            MLModelInfo(
+                name=health_info.get("clip_model", "unknown"),
+                loaded=health_info.get("clip_loaded", False),
+                type="clip",
+            ),
+            MLModelInfo(
+                name=health_info.get("face_model", "unknown"),
+                loaded=health_info.get("face_loaded", False),
+                type="face_detector",
+            ),
+        ]
+
+        # Check if vision models are initialized (they are lazy-loaded)
+        models.append(
+            MLModelInfo(
+                name="vision_llm",
+                loaded=ml_services._vision_loader is not None,
+                type="vision",
+            )
+        )
+        models.append(
+            MLModelInfo(
+                name="object_detector",
+                loaded=ml_services._object_detector is not None,
+                type="object_detector",
+            )
+        )
+        models.append(
+            MLModelInfo(
+                name="scene_classifier",
+                loaded=ml_services._scene_classifier is not None,
+                type="scene_classifier",
+            )
+        )
+
+        # Determine overall health status
+        # Critical models: CLIP and face detector
+        critical_models_loaded = health_info.get("clip_loaded", False) and health_info.get(
+            "face_loaded", False
+        )
+
+        if critical_models_loaded:
+            overall_status = "healthy"
+        else:
+            overall_status = "unhealthy"
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+        # Get additional details
+        details = {
+            "clip_embedding_dim": ml_services.get_clip_embedding_dim()
+            if health_info.get("clip_loaded", False)
+            else None,
+            "face_embedding_dim": ml_services.get_face_embedding_dim()
+            if health_info.get("face_loaded", False)
+            else None,
+        }
+
+        return MLHealthStatus(
+            status=overall_status,
+            timestamp=datetime.now(UTC).isoformat(),
+            models=models,
+            details=details,
+        )
+
+    except Exception as e:
+        logger.error(f"ML health check failed: {e}", exc_info=True)
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+        return MLHealthStatus(
+            status="unhealthy",
+            timestamp=datetime.now(UTC).isoformat(),
+            models=[],
+            details={"error": str(e)},
         )
