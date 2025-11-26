@@ -447,9 +447,9 @@ Agents should update this section as tasks are completed:
 - [x] ARCH-M3: Production Config
 
 ### Testing
-- [ ] TEST-1: Critical Fixes Tests
-- [ ] TEST-2: Picker Flow Tests
-- [ ] TEST-3: Component Tests
+- [x] TEST-1: Critical Fixes Tests
+- [x] TEST-2: Picker Flow Tests
+- [x] TEST-3: Component Tests
 
 ### Documentation
 - [x] DOC-1: Token Encryption Key
