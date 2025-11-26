@@ -103,7 +103,7 @@
   - Add: `db_pool_size`, `db_max_overflow`, `db_pool_timeout` settings
   - Update database.py to use these settings
   - **Status:** Completed
-  - **Commit:** To be determined
+  - **Commit:** c03aa4e
   - **Details:**
     - Added db_pool_size (default: 5), db_max_overflow (default: 10), db_pool_timeout (default: 30)
     - Updated get_engine() in database.py to use pool settings
@@ -114,7 +114,7 @@
   - Create: `ensure_collections()` function
   - Call in main.py lifespan startup
   - **Status:** Completed
-  - **Commit:** To be determined
+  - **Commit:** c03aa4e (documented in commit, implementation was already present)
   - **Details:**
     - Created ensure_collections() function (lines 456-521)
     - Checks for photo_embeddings and face_embeddings collections
@@ -127,7 +127,7 @@
   - Add: `@worker_shutting_down.connect` signal handler
   - Ensure tasks complete before shutdown
   - **Status:** Completed
-  - **Commit:** To be determined
+  - **Commit:** c03aa4e (documented in commit, implementation was already present)
   - **Details:**
     - Added worker_shutdown_handler with @worker_shutting_down.connect signal
     - Cleans up ML services (GPU cache, models)
