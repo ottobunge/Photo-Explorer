@@ -427,6 +427,23 @@ class MLServicesAdapter(MLServices):
             self._scene_classifier = None
             logger.info("Cleaned up scene classifier")
 
+        # Clear GPU cache if torch is available
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                logger.info("Cleared CUDA cache")
+        except ImportError:
+            # torch not installed, skip GPU cleanup
+            pass
+        except Exception as e:
+            logger.warning(f"Failed to clear CUDA cache: {e}")
+
+        # Force garbage collection to free memory
+        gc.collect()
+        logger.info("Forced garbage collection")
+
 
 def cleanup_ml_services() -> None:
     """

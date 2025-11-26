@@ -70,11 +70,11 @@
   - Add cleanup in worker lifecycle
   - **Status:** Completed
 
-- [ ] **WK-C2: Fix ML Model Memory Cleanup** (45 min)
+- [x] **WK-C2: Fix ML Model Memory Cleanup** (45 min)
   - File: `backend/app/adapters/outbound/ml/ml_services.py:400-428`
   - Change: Add GPU cache clearing and force garbage collection
   - Import torch and call `torch.cuda.empty_cache()`
-  - **Status:** Not Started
+  - **Status:** Completed
 
 - [ ] **WK-C3: Add Face Clustering Lock** (1 hour)
   - File: `backend/app/adapters/inbound/workers/tasks/face_clustering.py:86-134`
