@@ -367,6 +367,8 @@ def merge_clusters_task(
     """
     Merge two face clusters together.
 
+    Timeouts: 110 min soft, 2 hours hard.
+
     Args:
         source_cluster_id: Cluster to merge from (will be deleted)
         target_cluster_id: Cluster to merge into
