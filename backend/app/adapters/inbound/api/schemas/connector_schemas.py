@@ -106,19 +106,27 @@ class LocalFolderCreateRequest(BaseModel):
     @field_validator("path")
     @classmethod
     def validate_path(cls, v: str) -> str:
-        """Validate folder path."""
+        """Validate basic path format.
+
+        Performs basic type and format validation only. Comprehensive path validation
+        including security checks (path traversal, access permissions, existence) and
+        business rules (allowed directories, path resolution) are handled in the
+        ConnectorService layer to maintain separation of concerns.
+
+        Args:
+            v: Path string to validate
+
+        Returns:
+            Stripped path string
+
+        Raises:
+            ValueError: If path is empty or exceeds maximum length
+        """
         v = v.strip()
         if not v:
             raise ValueError("Folder path cannot be empty")
         if len(v) > 4096:
             raise ValueError("Folder path must be at most 4096 characters")
-        # Check for path traversal attempts
-        if ".." in v or v.startswith("~"):
-            # Allow tilde expansion but validate it's not malicious
-            if v.startswith("~") and (len(v) == 1 or v[1] == "/"):
-                pass  # Valid tilde usage
-            elif ".." in v:
-                raise ValueError("Path traversal patterns are not allowed")
         return v
 
     @field_validator("name")
