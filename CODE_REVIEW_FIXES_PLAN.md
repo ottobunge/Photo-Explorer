@@ -305,9 +305,12 @@
 ### Architecture Medium Priority
 
 - [ ] **ARCH-M1: Add Observability** (3 hours)
-  - Add: Prometheus metrics
+  - Add: Prometheus as Docker service in docker-compose.yml (self-hosted, no external services)
+  - Add: Grafana as Docker service in docker-compose.yml (self-hosted)
+  - Configure: prometheus_client in backend/workers to expose metrics
+  - Create: Grafana dashboard configs (JSON) for local Grafana instance
   - Add: OpenTelemetry tracing (optional)
-  - Create: Grafana dashboard configs
+  - **Requirement:** Completely self-hosted via Docker - no paid external dependencies
   - **Status:** Not Started
 
 - [ ] **ARCH-M2: Add Health Checks to Docker Services** (1 hour)
