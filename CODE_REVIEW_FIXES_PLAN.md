@@ -39,28 +39,32 @@
 
 ### Backend Critical Fixes
 
-- [ ] **BE-C1: Fix OAuth URL Encoding** (15 min)
+- [x] **BE-C1: Fix OAuth URL Encoding** (15 min)
   - File: `backend/app/adapters/outbound/connectors/google_photos.py:121,473`
   - Change: Use `urllib.parse.urlencode()` for query params
   - Security impact: Prevents injection attacks
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** 2cd039c (with FE fixes)
 
-- [ ] **BE-C2: Fix Token Storage Key Mismatch** (30 min)
+- [x] **BE-C2: Fix Token Storage Key Mismatch** (30 min)
   - File: `backend/app/adapters/inbound/api/routes/connectors.py:542,559`
   - Change: Use connector-specific key pattern everywhere
   - Update `disconnect_google_photos` and `get_google_photos_status`
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** 4f68b50
 
-- [ ] **BE-C3: Add Async Lock to Token Storage** (45 min)
+- [x] **BE-C3: Add Async Lock to Token Storage** (45 min)
   - File: `backend/app/adapters/outbound/storage/secure_token_storage.py:57-76`
   - Change: Add `asyncio.Lock()` to prevent race conditions
   - Test with concurrent token operations
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** 79cf4ae
 
-- [ ] **BE-C4: Add Error Handling for Token Refresh** (20 min)
+- [x] **BE-C4: Add Error Handling for Token Refresh** (20 min)
   - File: `backend/app/adapters/inbound/workers/tasks/google_photos_sync.py:259-269`
   - Change: Wrap token save in try/except with logging
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** ab079bc
 
 ### Worker Critical Fixes
 
@@ -314,18 +318,18 @@
 ## 📊 Progress Summary
 
 **Total Tasks:** 60
-**Completed:** 4
+**Completed:** 11
 **In Progress:** 0
-**Not Started:** 56
+**Not Started:** 49
 
 **By Priority:**
-- Critical (🔴): 8 remaining / 12 tasks (4 completed)
+- Critical (🔴): 1 remaining / 12 tasks (11 completed)
 - High (🟡): 11 tasks
 - Medium (🟢): 24 tasks
 - Testing (📝): 3 tasks
 - Documentation (📚): 3 tasks
 
-**Estimated Completion:** 3-4 days with focused effort
+**Estimated Completion:** 2-3 days with focused effort
 
 ---
 
