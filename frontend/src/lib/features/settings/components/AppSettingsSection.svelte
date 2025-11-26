@@ -1,18 +1,16 @@
 <script lang="ts">
 	import { settingsStore } from '../stores/settings';
-	import type { AppSettings } from '../types';
 	import { onMount } from 'svelte';
 
-	let settings: AppSettings | null = null;
 	let saving = false;
 	let error: string | null = null;
 	let successMessage: string | null = null;
 
 	// Local form state
-	let thumbnailQuality = 85;
-	let clipModel = 'ViT-B/32';
-	let faceDetectionEnabled = true;
-	let autoIndexNewPhotos = true;
+	let thumbnailQuality = $state(85);
+	let clipModel = $state('ViT-B/32');
+	let faceDetectionEnabled = $state(true);
+	let autoIndexNewPhotos = $state(true);
 
 	const clipModels = [
 		{ value: 'ViT-B/32', label: 'ViT-B/32 (Fast, Good Quality)' },
@@ -20,17 +18,19 @@
 		{ value: 'ViT-L/14', label: 'ViT-L/14 (Best Quality, Slower)' }
 	];
 
+	// Load settings on mount
 	onMount(async () => {
 		await settingsStore.loadSettings();
-		settingsStore.subscribe((state) => {
-			if (state.appSettings) {
-				settings = state.appSettings;
-				thumbnailQuality = settings.thumbnailQuality;
-				clipModel = settings.clipModel;
-				faceDetectionEnabled = settings.faceDetectionEnabled;
-				autoIndexNewPhotos = settings.autoIndexNewPhotos;
-			}
-		});
+	});
+
+	// Sync form state with store when settings change
+	$effect(() => {
+		if (settingsStore.appSettings) {
+			thumbnailQuality = settingsStore.appSettings.thumbnailQuality;
+			clipModel = settingsStore.appSettings.clipModel;
+			faceDetectionEnabled = settingsStore.appSettings.faceDetectionEnabled;
+			autoIndexNewPhotos = settingsStore.appSettings.autoIndexNewPhotos;
+		}
 	});
 
 	async function handleSave() {
@@ -55,12 +55,12 @@
 	}
 
 	function hasChanges(): boolean {
-		if (!settings) return false;
+		if (!settingsStore.appSettings) return false;
 		return (
-			thumbnailQuality !== settings.thumbnailQuality ||
-			clipModel !== settings.clipModel ||
-			faceDetectionEnabled !== settings.faceDetectionEnabled ||
-			autoIndexNewPhotos !== settings.autoIndexNewPhotos
+			thumbnailQuality !== settingsStore.appSettings.thumbnailQuality ||
+			clipModel !== settingsStore.appSettings.clipModel ||
+			faceDetectionEnabled !== settingsStore.appSettings.faceDetectionEnabled ||
+			autoIndexNewPhotos !== settingsStore.appSettings.autoIndexNewPhotos
 		);
 	}
 </script>

@@ -4,17 +4,7 @@
 export * from './types';
 
 // Stores
-export {
-	settingsStore,
-	connectors,
-	googlePhotosConnectors,
-	localConnectors,
-	isLoading,
-	settingsError,
-	activeModels,
-	downloadedModels,
-	recommendedModels
-} from './stores/settings';
+export { settingsStore } from './stores/settings';
 
 // Components
 export { default as ConnectorCard } from './components/ConnectorCard.svelte';

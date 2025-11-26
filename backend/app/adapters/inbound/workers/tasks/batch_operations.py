@@ -42,10 +42,14 @@ def run_async(coro):
     retry_backoff=True,
     retry_kwargs={"max_retries": 3},
     retry_backoff_max=300,
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3000,  # 50 minutes soft limit
 )
 def cleanup_orphans_task(self, dry_run: bool = True, delete_orphaned_files: bool = False) -> dict:
     """
     Find and optionally clean up orphaned photos and files.
+
+    Timeouts: 50 min soft, 1 hour hard.
 
     This task identifies:
     1. Photos in database without corresponding files on disk

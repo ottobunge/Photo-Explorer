@@ -35,10 +35,14 @@ def run_async(coro):
     autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=1800,  # 30 minutes hard limit
+    soft_time_limit=1500,  # 25 minutes soft limit
 )
 def analyze_photo_task(self, photo_id: str) -> dict:
     """
     Run full photo analysis including description, objects, and scene.
+
+    Timeouts: 25 min soft, 30 min hard.
 
     This task runs the vision LLM to generate descriptions,
     DETR for object detection, and scene classification.
@@ -139,10 +143,14 @@ async def _analyze_photo_async(photo_id: str) -> dict:
     autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=1800,  # 30 minutes hard limit
+    soft_time_limit=1500,  # 25 minutes soft limit
 )
 def generate_description_task(self, photo_id: str, prompt: str = None) -> dict:
     """
     Generate a description for a photo using vision LLM.
+
+    Timeouts: 25 min soft, 30 min hard.
 
     Args:
         photo_id: UUID of the photo
@@ -213,10 +221,14 @@ async def _generate_description_async(photo_id: str, prompt: str = None) -> dict
     autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=1800,  # 30 minutes hard limit
+    soft_time_limit=1500,  # 25 minutes soft limit
 )
 def answer_question_task(self, photo_id: str, question: str) -> dict:
     """
     Answer a question about a photo using visual question answering.
+
+    Timeouts: 25 min soft, 30 min hard.
 
     Args:
         photo_id: UUID of the photo
@@ -284,10 +296,14 @@ async def _answer_question_async(photo_id: str, question: str) -> dict:
     autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=1800,  # 30 minutes hard limit
+    soft_time_limit=1500,  # 25 minutes soft limit
 )
 def batch_analyze_task(self, photo_ids: list[str]) -> dict:
     """
     Analyze multiple photos in batch.
+
+    Timeouts: 25 min soft, 30 min hard.
 
     Args:
         photo_ids: List of photo UUIDs to analyze

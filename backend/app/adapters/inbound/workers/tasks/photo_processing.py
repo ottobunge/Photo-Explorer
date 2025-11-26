@@ -51,10 +51,14 @@ def run_async(coro):
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
     retry_backoff_max=600,
+    time_limit=1800,  # 30 minutes hard limit
+    soft_time_limit=1500,  # 25 minutes soft limit
 )
 def process_photo_task(self, photo_id: str) -> dict:
     """
     Process a photo: extract metadata, generate thumbnail, create CLIP embedding.
+
+    Timeouts: 25 min soft, 30 min hard.
 
     This task automatically retries on transient errors (network issues, temporary
     database failures) with exponential backoff. Uses task execution tracking for
@@ -310,10 +314,14 @@ async def _process_photo_async(photo_id: str, task_id: Optional[str] = None) -> 
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
     retry_backoff_max=600,
+    time_limit=1800,  # 30 minutes hard limit
+    soft_time_limit=1500,  # 25 minutes soft limit
 )
 def detect_faces_task(self, photo_id: str) -> dict:
     """
     Detect faces in a photo and store their embeddings.
+
+    Timeouts: 25 min soft, 30 min hard.
 
     This task automatically retries on transient errors with exponential backoff.
 
@@ -480,10 +488,17 @@ async def _detect_faces_async(photo_id: str) -> dict:
         raise DatabaseConnectionError(f"Database error: {e!s}", {"photo_id": photo_id})
 
 
-@celery_app.task(bind=True, name="photo_processing.reprocess_photo")
+@celery_app.task(
+    bind=True,
+    name="photo_processing.reprocess_photo",
+    time_limit=1800,  # 30 minutes hard limit
+    soft_time_limit=1500,  # 25 minutes soft limit
+)
 def reprocess_photo_task(self, photo_id: str) -> dict:
     """
     Re-process an existing photo (regenerate embeddings, etc.).
+
+    Timeouts: 25 min soft, 30 min hard.
 
     Args:
         photo_id: UUID of the photo
@@ -513,10 +528,14 @@ def reprocess_photo_task(self, photo_id: str) -> dict:
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
     retry_backoff_max=600,
+    time_limit=1800,  # 30 minutes hard limit
+    soft_time_limit=1500,  # 25 minutes soft limit
 )
 def generate_embedding_from_thumbnail_task(self, photo_id: str) -> dict:
     """
     Generate CLIP embedding from an existing thumbnail.
+
+    Timeouts: 25 min soft, 30 min hard.
 
     This is useful for Google Photos where we only have thumbnails stored locally.
     Automatically retries on transient errors.
@@ -596,10 +615,17 @@ async def _generate_embedding_from_thumbnail_async(photo_id: str) -> dict:
             return {"status": "error", "message": str(e)}
 
 
-@celery_app.task(bind=True, name="photo_processing.reprocess_connector_photos")
+@celery_app.task(
+    bind=True,
+    name="photo_processing.reprocess_connector_photos",
+    time_limit=1800,  # 30 minutes hard limit
+    soft_time_limit=1500,  # 25 minutes soft limit
+)
 def reprocess_connector_photos_task(self, connector_id: str) -> dict:
     """
     Reprocess all photos from a connector (generate embeddings from thumbnails).
+
+    Timeouts: 25 min soft, 30 min hard.
 
     Args:
         connector_id: UUID of the connector

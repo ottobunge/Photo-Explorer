@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { settingsStore, localConnectors } from '../stores/settings';
+	import { settingsStore } from '../stores/settings';
+
+	// Derived value for local connectors
+	let localConnectors = $derived(settingsStore.connectors.filter((c) => c.type === 'local'));
 	import ConnectorCard from './ConnectorCard.svelte';
 	import type { LocalFolderConfig } from '../types';
 
@@ -91,9 +94,9 @@
 		</div>
 	{/if}
 
-	{#if $localConnectors.length > 0}
+	{#if localConnectors.length > 0}
 		<div class="connectors-list">
-			{#each $localConnectors as connector (connector.id)}
+			{#each localConnectors as connector (connector.id)}
 				<ConnectorCard {connector} on:remove={handleRemove} />
 			{/each}
 		</div>

@@ -45,10 +45,14 @@ def run_async(coro):
     autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3000,  # 50 minutes soft limit
 )
 def sync_local_folder_task(self, connector_id: str) -> dict:
     """
     Sync a local folder connector.
+
+    Timeouts: 50 min soft, 1 hour hard.
 
     Scans the folder for new, modified, and deleted files.
 
@@ -238,10 +242,14 @@ async def _get_or_create_album(
     autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3000,  # 50 minutes soft limit
 )
 def index_single_file_task(self, connector_id: str, file_path: str) -> dict:
     """
     Index a single file (triggered by filesystem watcher).
+
+    Timeouts: 50 min soft, 1 hour hard.
 
     Args:
         connector_id: UUID of the connector
@@ -316,10 +324,14 @@ async def _index_single_file_async(connector_id: str, file_path: str) -> dict:
     autoretry_for=(TransientError, OperationalError, ConnectionError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 3},  # Fewer retries for deletion events
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3000,  # 50 minutes soft limit
 )
 def handle_file_deleted_task(self, connector_id: str, file_path: str) -> dict:
     """
     Handle a deleted file (triggered by filesystem watcher).
+
+    Timeouts: 50 min soft, 1 hour hard.
 
     Args:
         connector_id: UUID of the connector
@@ -357,10 +369,14 @@ async def _handle_file_deleted_async(connector_id: str, file_path: str) -> dict:
     autoretry_for=(TransientError, OperationalError, ConnectionError, OSError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 3},  # Fewer retries for move events
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3000,  # 50 minutes soft limit
 )
 def handle_file_moved_task(self, connector_id: str, old_path: str, new_path: str) -> dict:
     """
     Handle a moved/renamed file (triggered by filesystem watcher).
+
+    Timeouts: 50 min soft, 1 hour hard.
 
     Args:
         connector_id: UUID of the connector

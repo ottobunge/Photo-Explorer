@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { settingsStore, activeModels, downloadedModels, recommendedModels } from '../stores/settings';
+	import { settingsStore } from '../stores/settings';
 	import type { HFModel, DownloadProgress } from '../types';
 
 	let searchQuery = '';
@@ -123,7 +123,7 @@
 	}
 
 	function getModelStatus(modelId: string): 'downloaded' | 'downloading' | 'not_downloaded' {
-		if ($downloadedModels.includes(modelId)) return 'downloaded';
+		if (settingsStore.downloadedModels.includes(modelId)) return 'downloaded';
 		if (downloadingModels.has(modelId)) return 'downloading';
 		return 'not_downloaded';
 	}
@@ -186,7 +186,7 @@
 	{/if}
 
 	<!-- Active Models -->
-	{#if $activeModels}
+	{#if settingsStore.activeModels}
 		<div class="active-models">
 			<h3>Active Models</h3>
 			<div class="model-cards">
@@ -195,18 +195,18 @@
 						<span class="model-icon">🖼️</span>
 						<div class="model-info">
 							<h4>Image Embeddings (CLIP)</h4>
-							<p>{$activeModels.clip_model}</p>
+							<p>{settingsStore.activeModels?.clip_model ?? 'Not configured'}</p>
 						</div>
 						<div class="model-status">
-							{#if $activeModels.clip_status === 'downloaded'}
+							{#if settingsStore.activeModels?.clip_status === 'downloaded'}
 								<span class="status-badge ready">Ready</span>
-							{:else if $activeModels.clip_status === 'auto_download'}
+							{:else if settingsStore.activeModels?.clip_status === 'auto_download'}
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
-							{:else if getModelStatus($activeModels.clip_model) === 'downloading'}
-								{@const progress = getProgress($activeModels.clip_model)}
+							{:else if settingsStore.activeModels && getModelStatus(settingsStore.activeModels.clip_model) === 'downloading'}
+								{@const progress = getProgress(settingsStore.activeModels.clip_model)}
 								{@render circularProgress(progress?.progress ?? 0, 36)}
-							{:else}
-								<button class="download-btn small" on:click={() => downloadModel($activeModels.clip_model)}>
+							{:else if settingsStore.activeModels}
+								<button class="download-btn small" on:click={() => settingsStore.activeModels && downloadModel(settingsStore.activeModels.clip_model)}>
 									Download
 								</button>
 							{/if}
@@ -219,15 +219,15 @@
 						<span class="model-icon">👤</span>
 						<div class="model-info">
 							<h4>Face Detection</h4>
-							<p>{$activeModels.face_model}</p>
+							<p>{settingsStore.activeModels?.face_model ?? 'Not configured'}</p>
 						</div>
 						<div class="model-status">
-							{#if $activeModels.face_status === 'downloaded'}
+							{#if settingsStore.activeModels?.face_status === 'downloaded'}
 								<span class="status-badge ready">Ready</span>
-							{:else if $activeModels.face_status === 'auto_download'}
+							{:else if settingsStore.activeModels?.face_status === 'auto_download'}
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
-							{:else if getModelStatus($activeModels.face_model) === 'downloading'}
-								{@const progress = getProgress($activeModels.face_model)}
+							{:else if settingsStore.activeModels && getModelStatus(settingsStore.activeModels.face_model) === 'downloading'}
+								{@const progress = getProgress(settingsStore.activeModels.face_model)}
 								{@render circularProgress(progress?.progress ?? 0, 36)}
 							{:else}
 								<span class="status-badge pending">Pending</span>
@@ -305,10 +305,10 @@
 		{/if}
 
 		<!-- Recommended Models -->
-		{#if Object.keys($recommendedModels).length > 0}
+		{#if Object.keys(settingsStore.recommendedModels).length > 0}
 			<div class="recommended-models">
 				<h4>Recommended Models</h4>
-				{#each Object.entries($recommendedModels) as [task, models]}
+				{#each Object.entries(settingsStore.recommendedModels) as [task, models]}
 					<div class="task-group">
 						<h5>{task.replace(/-/g, ' ')}</h5>
 						<div class="model-list">
@@ -334,10 +334,10 @@
 		{/if}
 
 		<!-- Downloaded Models -->
-		{#if $downloadedModels.length > 0}
+		{#if settingsStore.downloadedModels.length > 0}
 			<div class="downloaded-models">
 				<h4>Downloaded Models</h4>
-				{#each $downloadedModels as modelId}
+				{#each settingsStore.downloadedModels as modelId}
 					<div class="downloaded-item">
 						<span class="model-name">{modelId}</span>
 						<button class="delete-btn" on:click={() => deleteModel(modelId)}>

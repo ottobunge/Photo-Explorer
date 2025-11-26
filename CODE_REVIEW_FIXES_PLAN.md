@@ -124,6 +124,7 @@
   - Add: Stricter limits for `/sync`, `/reprocess`, `/picker/session`
   - Use slowapi decorators
   - **Status:** Completed
+  - **Commit:** 448b501
   - **Details:**
     - Added `@limiter.limit("5/minute")` to `POST /{connector_id}/sync`
     - Added `@limiter.limit("2/hour")` to `POST /{connector_id}/reprocess`

@@ -92,10 +92,14 @@ def run_async(coro):
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
     retry_backoff_max=600,
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3000,  # 50 minutes soft limit
 )
 def sync_google_photos_task(self, connector_id: str) -> dict:
     """
     Sync photos from Google Photos.
+
+    Timeouts: 50 min soft, 1 hour hard.
 
     Fetches new photos from Google Photos API and creates local references.
     Automatically retries on network errors, rate limits, and transient failures
@@ -339,10 +343,14 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
     ),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3000,  # 50 minutes soft limit
 )
 def refresh_photo_url_task(self, photo_id: str) -> dict:
     """
     Refresh the baseUrl for a Google Photos image.
+
+    Timeouts: 50 min soft, 1 hour hard.
 
     Google Photos baseUrls expire after 60 minutes, so this task
     fetches a fresh URL when needed.
@@ -436,10 +444,14 @@ async def _refresh_photo_url_async(photo_id: str) -> dict:
     ),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3000,  # 50 minutes soft limit
 )
 def fetch_google_photo_bytes_task(self, photo_id: str) -> dict:
     """
     Fetch and store photo bytes from Google Photos.
+
+    Timeouts: 50 min soft, 1 hour hard.
 
     Downloads the original photo and stores it locally for processing.
 
@@ -589,10 +601,14 @@ async def _schedule_periodic_sync_async() -> dict:
     ),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=3600,  # 1 hour hard limit
+    soft_time_limit=3000,  # 50 minutes soft limit
 )
 def import_picker_photos_task(self, connector_id: str, session_id: str) -> dict:
     """
     Import photos from a Google Photos Picker session.
+
+    Timeouts: 50 min soft, 1 hour hard.
 
     This task retrieves the photos selected by the user in the Picker UI
     and creates local photo references for them.

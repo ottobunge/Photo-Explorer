@@ -91,10 +91,14 @@ def run_async(coro):
     autoretry_for=(TransientError, OperationalError, ConnectionError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=7200,  # 2 hours hard limit
+    soft_time_limit=6600,  # 110 minutes soft limit
 )
 def cluster_faces_task(self, similarity_threshold: float = 0.6) -> dict:
     """
     Cluster all unclustered faces based on similarity.
+
+    Timeouts: 110 min soft, 2 hours hard.
 
     Uses a simple greedy algorithm:
     1. For each unclustered face, find similar faces
@@ -209,6 +213,8 @@ async def _cluster_faces_async(similarity_threshold: float) -> dict:
     autoretry_for=(TransientError, OperationalError, ConnectionError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=7200,  # 2 hours hard limit
+    soft_time_limit=6600,  # 110 minutes soft limit
 )
 def update_clusters_task(
     self,
@@ -217,6 +223,8 @@ def update_clusters_task(
 ) -> dict:
     """
     Update cluster assignments for specific faces.
+
+    Timeouts: 110 min soft, 2 hours hard.
 
     This is used when new faces are detected to incrementally add them
     to existing clusters or create new ones.
@@ -348,6 +356,8 @@ async def _update_clusters_async(
     autoretry_for=(TransientError, OperationalError, ConnectionError),
     retry_backoff=True,
     retry_kwargs={"max_retries": 5},
+    time_limit=7200,  # 2 hours hard limit
+    soft_time_limit=6600,  # 110 minutes soft limit
 )
 def merge_clusters_task(
     self,

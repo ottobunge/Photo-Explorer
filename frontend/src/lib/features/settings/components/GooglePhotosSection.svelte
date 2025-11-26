@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { settingsStore, googlePhotosConnectors } from '../stores/settings';
+	import { settingsStore } from '../stores/settings';
+
+	// Derived value for Google Photos connectors
+	let googlePhotosConnectors = $derived(settingsStore.connectors.filter((c) => c.type === 'google_photos'));
 	import ConnectorCard from './ConnectorCard.svelte';
 
 	let connecting = false;
@@ -64,9 +67,9 @@
 		</div>
 	{/if}
 
-	{#if $googlePhotosConnectors.length > 0}
+	{#if googlePhotosConnectors.length > 0}
 		<div class="connectors-list">
-			{#each $googlePhotosConnectors as connector (connector.id)}
+			{#each googlePhotosConnectors as connector (connector.id)}
 				<ConnectorCard {connector} on:remove={handleRemove} />
 			{/each}
 		</div>
