@@ -45,6 +45,7 @@
 	let reprocessing = $state(false);
 	let reprocessMessage = $state<string | null>(null);
 	let reprocessMessageTimeout: ReturnType<typeof setTimeout> | null = null;
+	let deleting = $state(false);
 
 	// Google Photos picker state
 	let pickerSession: PickerSession | null = null;
@@ -203,6 +204,27 @@
 			reprocessMessage = err instanceof Error ? err.message : 'Reprocess failed';
 		} finally {
 			reprocessing = false;
+		}
+	}
+
+	async function handleDelete(): Promise<void> {
+		if (!connectorId || !connector) return;
+
+		const confirmDelete = confirm(
+			`Are you sure you want to delete "${connector.name}"?\n\nThis will remove the connector and all indexed photos from this source. Original files will not be deleted.`
+		);
+
+		if (!confirmDelete) return;
+
+		deleting = true;
+		try {
+			await settingsStore.removeConnector(connectorId);
+			// Redirect to connectors list after successful deletion
+			void goto('/connectors');
+		} catch (err) {
+			console.error('Delete failed:', err);
+			alert(err instanceof Error ? err.message : 'Failed to delete connector');
+			deleting = false;
 		}
 	}
 
@@ -445,6 +467,14 @@
 						{/if}
 					</button>
 				{/if}
+
+				<button
+					onclick={handleDelete}
+					disabled={deleting}
+					class="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+				>
+					{deleting ? 'Deleting...' : 'Delete'}
+				</button>
 			</div>
 		</div>
 
