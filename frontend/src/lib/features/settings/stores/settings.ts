@@ -107,7 +107,7 @@ function createSettingsStore() {
 
 		// Get Google Photos auth URL and redirect
 		async connectGooglePhotos(): Promise<string> {
-			const redirectUri = `${window.location.origin}/settings/google-photos/callback`;
+			const redirectUri = `${window.location.origin}/connectors/google-photos/callback`;
 			const response = await client.get<{ auth_url: string }>('/connectors/google-photos/auth-url', {
 				redirect_uri: redirectUri
 			});
@@ -116,7 +116,7 @@ function createSettingsStore() {
 
 		// Handle Google Photos OAuth callback
 		async handleGooglePhotosCallback(code: string): Promise<{ connected: boolean; connectorId: string }> {
-			const redirectUri = `${window.location.origin}/settings/google-photos/callback`;
+			const redirectUri = `${window.location.origin}/connectors/google-photos/callback`;
 			const response = await client.post<{ connected: boolean; connector_id: string }>('/connectors/google-photos/callback', {
 				code,
 				redirect_uri: redirectUri
