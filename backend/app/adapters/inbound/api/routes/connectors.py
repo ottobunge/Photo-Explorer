@@ -537,9 +537,15 @@ async def disconnect_google_photos(
     connector_service: ConnectorServiceDep,
 ) -> dict:
     """Disconnect from Google Photos and delete tokens."""
-    # Delete stored tokens
+    from app.domain.entities.connector import ConnectorType
+
+    # Get all Google Photos connectors to delete their tokens
+    connectors = await connector_service.list_connectors(connector_type=ConnectorType.GOOGLE_PHOTOS)
+
+    # Delete stored tokens for each connector
     token_storage = SecureTokenStorage()
-    await token_storage.delete_tokens("google_photos_default")
+    for connector in connectors:
+        await token_storage.delete_tokens(f"google_photos_{connector.id.value}")
 
     # Use service layer which properly uses domain methods
     num_disconnected = await connector_service.disconnect_google_photos_connectors()
@@ -554,13 +560,15 @@ async def get_google_photos_status(
     """Get the current Google Photos connection status."""
     from app.domain.entities.connector import ConnectorType
 
-    # Check if tokens exist
-    token_storage = SecureTokenStorage()
-    has_tokens = await token_storage.has_tokens("google_photos_default")
-
     # Get connector info using service layer
     connectors = await connector_service.list_connectors(connector_type=ConnectorType.GOOGLE_PHOTOS)
     connector = connectors[0] if connectors else None
+
+    # Check if tokens exist for this connector
+    has_tokens = False
+    if connector:
+        token_storage = SecureTokenStorage()
+        has_tokens = await token_storage.has_tokens(f"google_photos_{connector.id.value}")
 
     if connector and has_tokens:
         # Count photos indexed for this connector using service layer
