@@ -101,10 +101,17 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
             failed = 0
             albums_cache: dict[str, UUID] = {}  # subfolder -> album_id
 
-            # Scan for files
+            # Single-pass scan: build current_paths set while processing files
+            # This reduces I/O by ~50% compared to scanning twice
+            current_paths = set()
+
+            # Scan for files once and process
             async for metadata in scanner.scan():
                 total_items += 1
                 source_path = metadata["source_path"]
+
+                # Track current paths for deletion detection
+                current_paths.add(source_path)
 
                 # Check if photo already exists
                 if source_path in known_files:
@@ -164,11 +171,7 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
                     logger.error(f"Error indexing {source_path}: {e}")
                     failed += 1
 
-            # Check for deleted files
-            current_paths = set()
-            async for metadata in scanner.scan():
-                current_paths.add(metadata["source_path"])
-
+            # Check for deleted files (using current_paths from single scan above)
             for source_path, photo_id in known_files.items():
                 if source_path not in current_paths:
                     # File was deleted
