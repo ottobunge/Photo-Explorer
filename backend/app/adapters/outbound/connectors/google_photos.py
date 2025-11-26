@@ -227,7 +227,15 @@ class GooglePhotosPickerClient:
 
         Returns a session with a pickerUri that users should open to select photos.
         """
-        data = await self._make_picker_request("POST", "sessions", json={})
+        # Configure the picker session
+        session_config = {
+            # Allow selecting multiple media items
+            "allowedMediaTypes": ["PHOTO", "VIDEO"],
+            # Enable multi-select
+            "selectionMode": "MULTI_SELECT"
+        }
+
+        data = await self._make_picker_request("POST", "sessions", json=session_config)
 
         expire_time = None
         if expire_str := data.get("expireTime"):
