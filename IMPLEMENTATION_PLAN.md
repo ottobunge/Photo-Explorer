@@ -20,9 +20,11 @@ Tasks are organized by domain for parallel agent execution:
 
 ## 🔴 CRITICAL (Must Complete First)
 
-### WK-C4: Fix Transaction Boundaries in Photo Processing
+### WK-C4: Fix Transaction Boundaries in Photo Processing - COMPLETED
 **Effort:** 1.5 hours
 **File:** `backend/app/adapters/inbound/workers/tasks/photo_processing.py:154-242`
+**Status:** COMPLETED
+**Commit:** `b23873c` - Fix transaction boundaries in photo processing (WK-C4)
 
 **Problem:** DB commits are mixed with vector store operations, causing data inconsistency on failures.
 
@@ -33,10 +35,17 @@ Tasks are organized by domain for parallel agent execution:
 - Add detailed logging for failure scenarios
 
 **Acceptance:**
-- [ ] DB operations complete before vector store operations
-- [ ] Vector store failures trigger DB rollback
-- [ ] All error cases logged with context
-- [ ] No orphaned records in either system
+- [x] DB operations complete before vector store operations
+- [x] Vector store failures trigger DB rollback (compensating action: delete faces)
+- [x] All error cases logged with context
+- [x] No orphaned records in either system
+
+**Implementation Details:**
+- Refactored `_detect_faces_async` with 4 phases: load, process, save to DB, store in vector
+- Added compensating action to delete faces from DB if vector store fails
+- Refactored `_generate_embedding_from_thumbnail_async` with proper transaction boundaries
+- Added `Photo.remove_face()` method for cleanup operations
+- Improved logging with detailed error context and metrics tracking
 
 ---
 
@@ -413,7 +422,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 Agents should update this section as tasks are completed:
 
 ### Critical
-- [ ] WK-C4: Transaction Boundaries
+- [x] WK-C4: Transaction Boundaries (Commit: b23873c)
 
 ### Backend & Worker
 - [x] BE-M1: Standardize Error Responses
