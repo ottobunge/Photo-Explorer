@@ -553,6 +553,159 @@ class TestSearchGetEndpoint:
         assert get_ids == post_ids
 
 
+class TestSearchSimilarityThreshold:
+    """Tests for similarity threshold parameter."""
+
+    @pytest.mark.asyncio
+    async def test_search_with_similarity_threshold(
+        self, client: AsyncClient, photo_repo, test_vector_store, base_embedding, setup_search_mocks
+    ):
+        """Should filter results by similarity threshold."""
+        # Given: indexed photos with varied embeddings
+
+        # Create photo with very similar embedding (high score ~0.95+)
+        photo1 = PhotoFactory.create(filename="high_match.jpg")
+        saved1 = await photo_repo.save(photo1)
+        await test_vector_store.store_photo_embedding(
+            saved1.id.value,
+            EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.01),
+        )
+
+        # Create photo with somewhat similar embedding (medium score ~0.7-0.8)
+        photo2 = PhotoFactory.create(filename="medium_match.jpg")
+        saved2 = await photo_repo.save(photo2)
+        await test_vector_store.store_photo_embedding(
+            saved2.id.value,
+            EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.3),
+        )
+
+        # Create photo with low similarity (low score ~0.4-0.5)
+        photo3 = PhotoFactory.create(filename="low_match.jpg")
+        saved3 = await photo_repo.save(photo3)
+        await test_vector_store.store_photo_embedding(
+            saved3.id.value,
+            EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.7),
+        )
+
+        # When: search without threshold (should return all)
+        response1 = await client.post(
+            "/api/v1/search",
+            json={"query": "test", "limit": 10},
+        )
+
+        # Then: all photos returned
+        assert response1.status_code == 200
+        data1 = response1.json()
+        assert len(data1["data"]["results"]) == 3
+
+        # When: search with threshold 0.8 (should filter out low similarity)
+        response2 = await client.post(
+            "/api/v1/search",
+            json={"query": "test", "limit": 10, "similarity_threshold": 0.8},
+        )
+
+        # Then: only high-scoring results returned
+        assert response2.status_code == 200
+        data2 = response2.json()
+        results = data2["data"]["results"]
+
+        # Should have fewer results
+        assert len(results) < 3
+        # All results should have score >= 0.8
+        for result in results:
+            assert result["score"] >= 0.8
+
+    @pytest.mark.asyncio
+    async def test_search_similarity_threshold_default_none(
+        self, client: AsyncClient, photo_repo, test_vector_store, base_embedding, setup_search_mocks
+    ):
+        """Should not filter when similarity_threshold is not provided."""
+        # Given: indexed photos with similar embeddings
+        for i in range(5):
+            photo = PhotoFactory.create(filename=f"photo_{i}.jpg")
+            saved = await photo_repo.save(photo)
+            await test_vector_store.store_photo_embedding(
+                saved.id.value,
+                EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.5),
+            )
+
+        # When: search without similarity_threshold
+        response = await client.post(
+            "/api/v1/search",
+            json={"query": "test", "limit": 10},
+        )
+
+        # Then: all results returned (no filtering)
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["data"]["results"]) == 5
+
+    @pytest.mark.asyncio
+    async def test_search_similarity_threshold_validation(self, client: AsyncClient):
+        """Should validate similarity_threshold is between 0.0 and 1.0."""
+        # When: threshold < 0.0
+        response1 = await client.post(
+            "/api/v1/search",
+            json={"query": "test", "limit": 10, "similarity_threshold": -0.1},
+        )
+
+        # Then: validation error
+        assert response1.status_code == 422
+
+        # When: threshold > 1.0
+        response2 = await client.post(
+            "/api/v1/search",
+            json={"query": "test", "limit": 10, "similarity_threshold": 1.5},
+        )
+
+        # Then: validation error
+        assert response2.status_code == 422
+
+        # When: threshold at boundaries (should succeed)
+        response3 = await client.post(
+            "/api/v1/search",
+            json={"query": "test", "limit": 10, "similarity_threshold": 0.0},
+        )
+        assert response3.status_code == 200
+
+        response4 = await client.post(
+            "/api/v1/search",
+            json={"query": "test", "limit": 10, "similarity_threshold": 1.0},
+        )
+        assert response4.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_search_with_similarity_threshold(
+        self, client: AsyncClient, photo_repo, test_vector_store, base_embedding
+    ):
+        """Should support similarity_threshold via GET endpoint."""
+        # Given: indexed photos
+        photo1 = PhotoFactory.create(filename="high_match.jpg")
+        saved1 = await photo_repo.save(photo1)
+        await test_vector_store.store_photo_embedding(
+            saved1.id.value,
+            EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.01),
+        )
+
+        photo2 = PhotoFactory.create(filename="low_match.jpg")
+        saved2 = await photo_repo.save(photo2)
+        await test_vector_store.store_photo_embedding(
+            saved2.id.value,
+            EmbeddingFactory.create_similar_embedding(base_embedding, noise=0.7),
+        )
+
+        # When: GET search with similarity_threshold
+        response = await client.get("/api/v1/search?q=test&similarity_threshold=0.8")
+
+        # Then: should apply threshold
+        assert response.status_code == 200
+        data = response.json()
+
+        # Results should be filtered
+        for result in data["data"]["results"]:
+            assert result["score"] >= 0.8
+
+
 class TestSearchErrorHandling:
     """Tests for error handling in search endpoints."""
 

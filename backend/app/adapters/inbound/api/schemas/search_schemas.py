@@ -88,6 +88,13 @@ class SearchRequest(BaseModel):
     offset: int = Field(
         0, ge=0, le=10000, description="Number of results to skip for pagination", example=0
     )
+    similarity_threshold: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Minimum cosine similarity score (0.0-1.0). Only return results with score >= threshold.",
+        example=0.8,
+    )
 
     class Config:
         json_schema_extra = {

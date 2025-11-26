@@ -34,7 +34,7 @@ class TestQdrantVectorStoreInitialization:
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
-    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_model_config")
+    @patch("app.infrastructure.models.config.get_model_config")
     def test_init_with_default_settings(
         self,
         mock_get_model_config,
@@ -82,7 +82,7 @@ class TestQdrantVectorStoreInitialization:
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
-    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_model_config")
+    @patch("app.infrastructure.models.config.get_model_config")
     def test_init_with_custom_params(
         self,
         mock_get_model_config,
@@ -131,7 +131,7 @@ class TestQdrantVectorStoreInitialization:
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
-    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_model_config")
+    @patch("app.infrastructure.models.config.get_model_config")
     def test_init_ensures_collections(
         self,
         mock_get_model_config,
@@ -180,7 +180,7 @@ class TestQdrantVectorStorePhotoOperations:
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
-    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_model_config")
+    @patch("app.infrastructure.models.config.get_model_config")
     async def test_store_photo_embedding(
         self,
         mock_get_model_config,
@@ -236,7 +236,7 @@ class TestQdrantVectorStorePhotoOperations:
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
-    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_model_config")
+    @patch("app.infrastructure.models.config.get_model_config")
     async def test_search_photos(
         self,
         mock_get_model_config,
@@ -297,7 +297,7 @@ class TestQdrantVectorStorePhotoOperations:
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
-    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_model_config")
+    @patch("app.infrastructure.models.config.get_model_config")
     async def test_delete_photo_embedding_success(
         self,
         mock_get_model_config,
@@ -343,7 +343,7 @@ class TestQdrantVectorStorePhotoOperations:
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
-    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_model_config")
+    @patch("app.infrastructure.models.config.get_model_config")
     async def test_delete_photo_embedding_handles_error(
         self,
         mock_get_model_config,
@@ -385,6 +385,132 @@ class TestQdrantVectorStorePhotoOperations:
         # Clean up
         vs_module._async_client = None
 
+    @pytest.mark.asyncio
+    @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
+    @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
+    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
+    @patch("app.infrastructure.models.config.get_model_config")
+    async def test_search_photos_with_score_threshold(
+        self,
+        mock_get_model_config,
+        mock_get_settings,
+        mock_async_client_class,
+        mock_sync_client_class,
+        sample_embedding,
+    ):
+        """When searching with score_threshold, it should pass to Qdrant query."""
+        mock_settings = Mock(
+            qdrant_url="http://localhost:6333",
+            qdrant_collection_photos="photos",
+            qdrant_collection_faces="faces",
+        )
+        mock_get_settings.return_value = mock_settings
+
+        mock_config = Mock()
+        mock_config.clip.embedding_dim = 512
+        mock_get_model_config.return_value = mock_config
+
+        mock_sync_client = MagicMock()
+        mock_sync_client_class.return_value = mock_sync_client
+
+        mock_async_client = AsyncMock()
+        # Mock search response with high scores
+        photo1_id = uuid4()
+        photo2_id = uuid4()
+        mock_response = Mock()
+        mock_response.points = [
+            Mock(id=str(photo1_id), score=0.95, payload={"filename": "test1.jpg"}),
+            Mock(id=str(photo2_id), score=0.87, payload={"filename": "test2.jpg"}),
+        ]
+        mock_async_client.query_points.return_value = mock_response
+        mock_async_client_class.return_value = mock_async_client
+
+        # Reset singleton
+        import app.adapters.outbound.persistence.qdrant.vector_store as vs_module
+
+        vs_module._async_client = None
+
+        vector_store = QdrantVectorStore()
+
+        # When: search with score_threshold
+        results = await vector_store.search_photos(
+            query_embedding=sample_embedding,
+            limit=10,
+            score_threshold=0.8,
+        )
+
+        # Then: query_points should be called with score_threshold
+        mock_async_client.query_points.assert_called_once()
+        call_kwargs = mock_async_client.query_points.call_args.kwargs
+
+        assert call_kwargs["collection_name"] == "photos"
+        assert call_kwargs["limit"] == 10
+        assert call_kwargs["score_threshold"] == 0.8
+
+        # Results should be returned
+        assert len(results) == 2
+        assert results[0].score == 0.95
+        assert results[1].score == 0.87
+
+        # Clean up
+        vs_module._async_client = None
+
+    @pytest.mark.asyncio
+    @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
+    @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
+    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
+    @patch("app.infrastructure.models.config.get_model_config")
+    async def test_search_photos_without_score_threshold(
+        self,
+        mock_get_model_config,
+        mock_get_settings,
+        mock_async_client_class,
+        mock_sync_client_class,
+        sample_embedding,
+    ):
+        """When searching without score_threshold, it should not pass it to Qdrant."""
+        mock_settings = Mock(
+            qdrant_url="http://localhost:6333",
+            qdrant_collection_photos="photos",
+            qdrant_collection_faces="faces",
+        )
+        mock_get_settings.return_value = mock_settings
+
+        mock_config = Mock()
+        mock_config.clip.embedding_dim = 512
+        mock_get_model_config.return_value = mock_config
+
+        mock_sync_client = MagicMock()
+        mock_sync_client_class.return_value = mock_sync_client
+
+        mock_async_client = AsyncMock()
+        mock_response = Mock()
+        mock_response.points = []
+        mock_async_client.query_points.return_value = mock_response
+        mock_async_client_class.return_value = mock_async_client
+
+        # Reset singleton
+        import app.adapters.outbound.persistence.qdrant.vector_store as vs_module
+
+        vs_module._async_client = None
+
+        vector_store = QdrantVectorStore()
+
+        # When: search without score_threshold
+        await vector_store.search_photos(
+            query_embedding=sample_embedding,
+            limit=10,
+        )
+
+        # Then: query_points should be called without score_threshold
+        mock_async_client.query_points.assert_called_once()
+        call_kwargs = mock_async_client.query_points.call_args.kwargs
+
+        assert "score_threshold" not in call_kwargs or call_kwargs.get("score_threshold") is None
+
+        # Clean up
+        vs_module._async_client = None
+
 
 class TestQdrantVectorStoreErrorHandling:
     """Tests for error handling in vector store operations."""
@@ -393,7 +519,7 @@ class TestQdrantVectorStoreErrorHandling:
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.QdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.AsyncQdrantClient")
     @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_settings")
-    @patch("app.adapters.outbound.persistence.qdrant.vector_store.get_model_config")
+    @patch("app.infrastructure.models.config.get_model_config")
     async def test_store_photo_embedding_propagates_errors(
         self,
         mock_get_model_config,

@@ -111,9 +111,20 @@ class QdrantVectorStore(VectorStore):
         query_embedding: Embedding,
         limit: int = 20,
         filters: Optional[dict] = None,
+        score_threshold: Optional[float] = None,
     ) -> list[VectorSearchResult]:
         """
         Search for similar photos by embedding.
+
+        Args:
+            query_embedding: The embedding vector to search for
+            limit: Maximum number of results to return
+            filters: Optional filters to apply (Qdrant format)
+            score_threshold: Optional minimum similarity score (0.0-1.0).
+                           Only return results with score >= threshold.
+
+        Returns:
+            List of VectorSearchResult objects
 
         Circuit breaker: Opens after 5 failures, recovers after 60 seconds.
         """
@@ -126,6 +137,7 @@ class QdrantVectorStore(VectorStore):
             query=query_embedding.to_list(),
             limit=limit,
             query_filter=query_filter,
+            score_threshold=score_threshold,
         )
         results = response.points
 

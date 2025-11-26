@@ -125,6 +125,7 @@ async def semantic_search(
         search_results = await vector_store.search_photos(
             query_embedding=query_embedding,
             limit=request.limit + request.offset,  # Get enough for offset
+            score_threshold=request.similarity_threshold,
         )
         search_time_ms = (time.time() - start_search) * 1000
 
@@ -272,6 +273,10 @@ async def search_photos_get(
         Optional[str], Query(description="Filter by connector ID (UUID)")
     ] = None,
     album_id: Annotated[Optional[str], Query(description="Filter by album ID (UUID)")] = None,
+    similarity_threshold: Annotated[
+        Optional[float],
+        Query(ge=0.0, le=1.0, description="Minimum similarity score (0.0-1.0)"),
+    ] = None,
 ) -> SearchResponse:
     """
     GET endpoint for semantic search (convenience for browser testing).
@@ -287,5 +292,11 @@ async def search_photos_get(
             album_ids=[UUID(album_id)] if album_id else None,
         )
 
-    request = SearchRequest(query=q, limit=limit, offset=offset, filters=filters)
+    request = SearchRequest(
+        query=q,
+        limit=limit,
+        offset=offset,
+        filters=filters,
+        similarity_threshold=similarity_threshold,
+    )
     return await semantic_search(request, ml_services, vector_store, photo_repo)
