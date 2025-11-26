@@ -98,29 +98,38 @@
 
 ### Backend High Priority
 
-- [ ] **BE-H1: Add Database Connection Pool Config** (30 min)
+- [x] **BE-H1: Add Database Connection Pool Config** (30 min)
   - File: `backend/app/config.py`
   - Add: `db_pool_size`, `db_max_overflow`, `db_pool_timeout` settings
   - Update database.py to use these settings
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** Pending
 
-- [ ] **BE-H2: Add Qdrant Collection Auto-Creation** (1 hour)
+- [x] **BE-H2: Add Qdrant Collection Auto-Creation** (1 hour)
   - File: `backend/app/adapters/outbound/persistence/qdrant/vector_store.py`
   - Create: `ensure_collections()` function
   - Call in main.py lifespan startup
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** Pending
 
-- [ ] **BE-H3: Add Graceful Worker Shutdown** (45 min)
+- [x] **BE-H3: Add Graceful Worker Shutdown** (45 min)
   - File: `backend/app/adapters/inbound/workers/celery_app.py`
   - Add: `@worker_shutting_down.connect` signal handler
   - Ensure tasks complete before shutdown
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** Pending
 
-- [ ] **BE-H4: Add Endpoint-Specific Rate Limits** (1 hour)
+- [x] **BE-H4: Add Endpoint-Specific Rate Limits** (1 hour)
   - Files: `backend/app/adapters/inbound/api/routes/connectors.py`
   - Add: Stricter limits for `/sync`, `/reprocess`, `/picker/session`
   - Use slowapi decorators
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Details:**
+    - Added `@limiter.limit("5/minute")` to `POST /{connector_id}/sync`
+    - Added `@limiter.limit("2/hour")` to `POST /{connector_id}/reprocess`
+    - Added `@limiter.limit("10/minute")` to `POST /{connector_id}/picker/session`
+    - All endpoints now include Request parameter as required by slowapi
+    - Documented rate limits in endpoint docstrings
 
 ### Worker High Priority
 
@@ -318,13 +327,13 @@
 ## 📊 Progress Summary
 
 **Total Tasks:** 60
-**Completed:** 11
+**Completed:** 15
 **In Progress:** 0
-**Not Started:** 49
+**Not Started:** 45
 
 **By Priority:**
-- Critical (🔴): 1 remaining / 12 tasks (11 completed)
-- High (🟡): 11 tasks
+- Critical (🔴): 0 remaining / 12 tasks (12 completed)
+- High (🟡): 7 remaining / 11 tasks (4 completed)
 - Medium (🟢): 24 tasks
 - Testing (📝): 3 tasks
 - Documentation (📚): 3 tasks

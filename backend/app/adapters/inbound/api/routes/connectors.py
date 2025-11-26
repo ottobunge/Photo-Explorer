@@ -5,7 +5,7 @@ import os
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
@@ -22,6 +22,7 @@ from app.adapters.inbound.api.schemas.connector_schemas import (
 from app.adapters.outbound.connectors import GooglePhotosPickerClient
 from app.adapters.outbound.storage import SecureTokenStorage
 from app.dependencies import ConnectorRepoDep, ConnectorServiceDep, DbSession, PhotoRepoDep
+from app.middleware.rate_limit import create_limiter
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -29,6 +30,10 @@ logger = logging.getLogger(__name__)
 # Get Google OAuth credentials from environment
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_API_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_API_CLIENT_SECRET", "")
+
+# Create a limiter instance for endpoint-specific rate limits
+# This uses the same configuration as the global limiter in main.py
+limiter = create_limiter()
 
 
 # ===================
@@ -275,11 +280,17 @@ async def delete_connector(
 
 
 @router.post("/{connector_id}/sync")
+@limiter.limit("5/minute")
 async def trigger_sync(
+    request: Request,
     connector_id: UUID,
     connector_service: ConnectorServiceDep,
 ) -> dict:
-    """Trigger a manual sync for a connector."""
+    """Trigger a manual sync for a connector.
+
+    Rate limit: 5 requests per minute per IP address.
+    This stricter limit prevents abuse of the resource-intensive sync operation.
+    """
     from app.domain.entities.connector import ConnectorType
 
     # Use service layer to get connector
@@ -316,14 +327,19 @@ async def trigger_sync(
 
 
 @router.post("/{connector_id}/reprocess")
+@limiter.limit("2/hour")
 async def trigger_reprocess(
+    request: Request,
     connector_id: UUID,
     connector_service: ConnectorServiceDep,
 ) -> dict:
-    """
-    Reprocess all photos from a connector (regenerate embeddings from thumbnails).
+    """Reprocess all photos from a connector (regenerate embeddings from thumbnails).
 
     This is useful for photos that were imported before embedding generation was enabled.
+
+    Rate limit: 2 requests per hour per IP address.
+    This very strict limit prevents abuse of the extremely resource-intensive reprocessing operation,
+    which regenerates embeddings for all photos in a connector.
     """
     # Use service layer to get connector
     connector = await connector_service.get_connector(connector_id)
@@ -605,15 +621,19 @@ async def get_google_photos_status(
 
 
 @router.post("/{connector_id}/picker/session", response_model=PickerSessionResponse)
+@limiter.limit("10/minute")
 async def create_picker_session(
+    request: Request,
     connector_id: UUID,
     connector_service: ConnectorServiceDep,
 ) -> PickerSessionResponse:
-    """
-    Create a new photo picker session.
+    """Create a new photo picker session.
 
     Returns a pickerUri that the user should open to select photos.
     The frontend should poll the session status until mediaItemsSet is True.
+
+    Rate limit: 10 requests per minute per IP address.
+    This prevents excessive session creation that could overwhelm the Google Photos API.
     """
     from app.domain.entities.connector import ConnectorType
 
