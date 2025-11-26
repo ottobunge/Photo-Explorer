@@ -429,17 +429,17 @@ Agents should update this section as tasks are completed:
 - [x] BE-M2: ML Model Health Check
 - [x] BE-M3: Query Performance Logging
 - [x] BE-M4: Improve Path Validation
-- [ ] WK-M1: Batch Face Operations
-- [ ] WK-M2: Google API Rate Limiting
-- [ ] WK-M3: Task Metrics Collection
-- [ ] WK-M4: Optimize File Scanning
+- [x] WK-M1: Batch Face Operations
+- [x] WK-M2: Google API Rate Limiting
+- [x] WK-M3: Task Metrics Collection
+- [x] WK-M4: Optimize File Scanning
 
 ### Frontend
-- [ ] FE-M1: Missing Loading States
-- [ ] FE-M2: Shared Components
-- [ ] FE-M3: Image Error Handling
-- [ ] FE-M4: Specific Types
-- [ ] FE-M5: Extract Constants
+- [x] FE-M1: Missing Loading States
+- [x] FE-M2: Shared Components
+- [x] FE-M3: Image Error Handling (N/A - no img tags found)
+- [x] FE-M4: Specific Types
+- [x] FE-M5: Extract Constants
 
 ### Architecture
 - [ ] ARCH-M1: Observability (self-hosted Prometheus + Grafana)
