@@ -28,6 +28,11 @@ class Settings(BaseSettings):
         min_length=1,
         max_length=100,
     )
+    environment: str = Field(
+        default="development",
+        description="Application environment: development, staging, or production",
+        pattern=r"^(development|staging|production)$",
+    )
     debug: bool = Field(
         default=False,
         description="Enable debug mode (verbose logging, detailed errors)",
@@ -161,17 +166,20 @@ class Settings(BaseSettings):
 
     @field_validator("token_encryption_key")
     @classmethod
-    def validate_encryption_key(cls, v: str) -> str:
+    def validate_encryption_key(cls, v: str, info) -> str:
         """Validate encryption key is sufficiently long.
+
+        In production, also validates that the key is not a default/example value.
 
         Args:
             v: Encryption key string
+            info: Validation context containing other field values
 
         Returns:
             Validated encryption key
 
         Raises:
-            ValueError: If key is too short or invalid
+            ValueError: If key is too short, invalid, or appears to be a default value
         """
         if not v:
             msg = (
@@ -188,6 +196,77 @@ class Settings(BaseSettings):
             )
             raise ValueError(msg)
 
+        # Production-specific validation
+        environment = info.data.get("environment", "development")
+        if environment == "production":
+            # Check for common placeholder/example values
+            insecure_values = [
+                "generate_me",
+                "changeme",
+                "example",
+                "test",
+                "default",
+                "your_key_here",
+            ]
+            if any(placeholder in v.lower() for placeholder in insecure_values):
+                msg = (
+                    "token_encryption_key appears to be a placeholder value. "
+                    "In production, you must generate a real encryption key. "
+                    "Generate one with: python -c 'from cryptography.fernet import Fernet; "
+                    "print(Fernet.generate_key().decode())'"
+                )
+                raise ValueError(msg)
+
+        return v
+
+    @field_validator("debug")
+    @classmethod
+    def validate_debug_mode(cls, v: bool, info) -> bool:
+        """Validate debug mode is not enabled in production.
+
+        Args:
+            v: Debug mode boolean
+            info: Validation context containing other field values
+
+        Returns:
+            Validated debug mode
+
+        Raises:
+            ValueError: If debug is enabled in production
+        """
+        environment = info.data.get("environment", "development")
+        if environment == "production" and v:
+            msg = (
+                "DEBUG mode cannot be enabled in production environment. "
+                "This would expose sensitive information and reduce performance. "
+                "Set DEBUG=false or remove it (defaults to false)."
+            )
+            raise ValueError(msg)
+        return v
+
+    @field_validator("reload")
+    @classmethod
+    def validate_reload_mode(cls, v: bool, info) -> bool:
+        """Validate auto-reload is not enabled in production.
+
+        Args:
+            v: Reload mode boolean
+            info: Validation context containing other field values
+
+        Returns:
+            Validated reload mode
+
+        Raises:
+            ValueError: If reload is enabled in production
+        """
+        environment = info.data.get("environment", "development")
+        if environment == "production" and v:
+            msg = (
+                "RELOAD mode cannot be enabled in production environment. "
+                "This is a development-only feature. "
+                "Set RELOAD=false or remove it (defaults to false)."
+            )
+            raise ValueError(msg)
         return v
 
     @field_validator("qdrant_url")
