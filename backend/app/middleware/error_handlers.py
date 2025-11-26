@@ -22,6 +22,29 @@ from pydantic import BaseModel
 from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.domain.exceptions import (
+    AlbumNotFoundError,
+    ClusteringInProgressError,
+    ConnectorAlreadyExistsError,
+    ConnectorNotFoundError,
+    DomainException,
+    EntityNotFoundException,
+    FaceClusterNotFoundError,
+    FaceNotFoundError,
+    FileNotFoundError,
+    InsufficientStorageError,
+    InvalidOperationException,
+    ModelInferenceError,
+    ModelNotLoadedError,
+    PhotoAlreadyExistsError,
+    PhotoNotFoundError,
+    StorageError,
+    SyncInProgressError,
+    TokenExpiredError,
+    TokenNotFoundError,
+    ValidationException,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -210,6 +233,118 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded)
     )
 
 
+async def domain_exception_handler(request: Request, exc: DomainException) -> JSONResponse:
+    """Handle domain-specific exceptions with standardized format.
+
+    Maps domain exceptions to appropriate HTTP status codes and error messages.
+
+    Args:
+        request: FastAPI request object
+        exc: Domain exception that was raised
+
+    Returns:
+        JSON response with domain error details
+    """
+    request_id = get_request_id_from_request(request)
+
+    # Map domain exceptions to HTTP status codes and error codes
+    status_code_map: dict[type[DomainException], tuple[int, str]] = {
+        # Not Found errors (404)
+        EntityNotFoundException: (status.HTTP_404_NOT_FOUND, "ENTITY_NOT_FOUND"),
+        ConnectorNotFoundError: (status.HTTP_404_NOT_FOUND, "CONNECTOR_NOT_FOUND"),
+        PhotoNotFoundError: (status.HTTP_404_NOT_FOUND, "PHOTO_NOT_FOUND"),
+        AlbumNotFoundError: (status.HTTP_404_NOT_FOUND, "ALBUM_NOT_FOUND"),
+        FaceNotFoundError: (status.HTTP_404_NOT_FOUND, "FACE_NOT_FOUND"),
+        FaceClusterNotFoundError: (status.HTTP_404_NOT_FOUND, "FACE_CLUSTER_NOT_FOUND"),
+        FileNotFoundError: (status.HTTP_404_NOT_FOUND, "FILE_NOT_FOUND"),
+        TokenNotFoundError: (status.HTTP_404_NOT_FOUND, "TOKEN_NOT_FOUND"),
+        # Validation errors (400)
+        ValidationException: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
+        # Conflict errors (409)
+        ConnectorAlreadyExistsError: (status.HTTP_409_CONFLICT, "CONNECTOR_ALREADY_EXISTS"),
+        PhotoAlreadyExistsError: (status.HTTP_409_CONFLICT, "PHOTO_ALREADY_EXISTS"),
+        SyncInProgressError: (status.HTTP_409_CONFLICT, "SYNC_IN_PROGRESS"),
+        ClusteringInProgressError: (status.HTTP_409_CONFLICT, "CLUSTERING_IN_PROGRESS"),
+        InvalidOperationException: (status.HTTP_409_CONFLICT, "INVALID_OPERATION"),
+        # Authentication errors (401)
+        TokenExpiredError: (status.HTTP_401_UNAUTHORIZED, "TOKEN_EXPIRED"),
+        # Storage errors (507 or 500)
+        InsufficientStorageError: (
+            status.HTTP_507_INSUFFICIENT_STORAGE,
+            "INSUFFICIENT_STORAGE",
+        ),
+        StorageError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "STORAGE_ERROR"),
+        # ML Model errors (503)
+        ModelNotLoadedError: (
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "MODEL_NOT_LOADED",
+        ),
+        ModelInferenceError: (
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "MODEL_INFERENCE_ERROR",
+        ),
+    }
+
+    # Find the most specific exception type
+    exc_type = type(exc)
+    status_code, error_code = status_code_map.get(
+        exc_type,
+        (status.HTTP_400_BAD_REQUEST, "DOMAIN_ERROR"),
+    )
+
+    # Build error details based on exception type
+    details = {}
+    if isinstance(exc, EntityNotFoundException):
+        details = {
+            "entity_type": exc.entity_type,
+            "entity_id": exc.entity_id,
+        }
+    elif isinstance(exc, (TokenExpiredError, TokenNotFoundError, SyncInProgressError)):
+        details = {"connector_id": exc.connector_id}
+    elif isinstance(exc, InsufficientStorageError):
+        details = {
+            "required_bytes": exc.required_bytes,
+            "available_bytes": exc.available_bytes,
+        }
+    elif isinstance(exc, ModelNotLoadedError):
+        details = {"model_name": exc.model_name}
+    elif isinstance(exc, ModelInferenceError):
+        details = {
+            "model_name": exc.model_name,
+            "reason": exc.reason,
+        }
+
+    error_response = ErrorResponse(
+        success=False,
+        error=ErrorDetail(
+            code=error_code,
+            message=exc.message,
+            details=details if details else None,
+        ),
+        request_id=request_id,
+    )
+
+    # Log based on severity
+    log_level = logging.INFO if status_code < 500 else logging.ERROR
+    logger.log(
+        log_level,
+        f"Domain exception: {error_code}",
+        extra={
+            "request_id": request_id,
+            "path": request.url.path,
+            "method": request.method,
+            "exception_type": type(exc).__name__,
+            "status_code": status_code,
+            "error_code": error_code,
+        },
+    )
+
+    return JSONResponse(
+        status_code=status_code,
+        content=error_response.model_dump(),
+    )
+
+
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle all unhandled exceptions with standardized format.
 
@@ -255,6 +390,9 @@ def setup_error_handlers(app: FastAPI) -> None:
     Args:
         app: FastAPI application instance
     """
+    # Domain exceptions (custom business logic errors)
+    app.add_exception_handler(DomainException, domain_exception_handler)
+
     # HTTP exceptions (404, 500, etc.)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
