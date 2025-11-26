@@ -1,0 +1,41 @@
+# Prometheus Configuration for Photo Explorer
+# Self-hosted monitoring for backend API and worker metrics
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'photo-explorer'
+    environment: 'production'
+
+# Scrape configurations
+scrape_configs:
+  # Backend API metrics
+  - job_name: 'backend'
+    static_configs:
+      - targets: ['backend:8000']
+        labels:
+          service: 'api'
+          component: 'backend'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Worker metrics
+  - job_name: 'worker'
+    static_configs:
+      - targets: ['worker:8000']
+        labels:
+          service: 'worker'
+          component: 'celery'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'monitoring'
+          component: 'prometheus'

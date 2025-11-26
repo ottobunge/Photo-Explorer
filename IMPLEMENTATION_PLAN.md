@@ -442,9 +442,9 @@ Agents should update this section as tasks are completed:
 - [x] FE-M5: Extract Constants
 
 ### Architecture
-- [ ] ARCH-M1: Observability (self-hosted Prometheus + Grafana)
-- [ ] ARCH-M2: Docker Health Checks
-- [ ] ARCH-M3: Production Config
+- [x] ARCH-M1: Observability (self-hosted Prometheus + Grafana)
+- [x] ARCH-M2: Docker Health Checks
+- [x] ARCH-M3: Production Config
 
 ### Testing
 - [ ] TEST-1: Critical Fixes Tests
@@ -452,9 +452,9 @@ Agents should update this section as tasks are completed:
 - [ ] TEST-3: Component Tests
 
 ### Documentation
-- [ ] DOC-1: Token Encryption Key
-- [ ] DOC-2: Production Deployment
-- [ ] DOC-3: API Documentation
+- [x] DOC-1: Token Encryption Key
+- [x] DOC-2: Production Deployment
+- [x] DOC-3: API Documentation
 
 ---
 

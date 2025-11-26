@@ -81,7 +81,8 @@ Use this for testing Docker builds or production-like environment.
 
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
+- API Docs: http://localhost:8000/docs (interactive Swagger UI)
+- API Reference: See [docs/API.md](./docs/API.md) for complete documentation
 - Qdrant Dashboard: http://localhost:6333/dashboard
 
 ### Quick Demo with Example Photos 🎬
@@ -328,6 +329,81 @@ GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
 ```
 
+### Token Encryption Key Setup
+
+Photo Explorer encrypts OAuth tokens (Google Photos, etc.) at rest using Fernet symmetric encryption. This ensures that even if someone gains access to your database or token storage, they cannot use the tokens without the encryption key.
+
+#### Generating an Encryption Key
+
+Generate a secure encryption key using Python:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+This will output a base64-encoded 32-byte key, for example:
+```
+xK8vN2QzPmR5TnJ9YXZlcnlzZWN1cmVrZXkxMjM0NTY3ODkwMTIzNDU2Nzg5MDEy
+```
+
+#### Setting the Encryption Key
+
+Add the generated key to your `.env` file:
+
+```bash
+TOKEN_ENCRYPTION_KEY=xK8vN2QzPmR5TnJ9YXZlcnlzZWN1cmVrZXkxMjM0NTY3ODkwMTIzNDU2Nzg5MDEy
+```
+
+For production deployments, set this as an environment variable:
+
+```bash
+export TOKEN_ENCRYPTION_KEY="your-generated-key-here"
+```
+
+#### Key Rotation Procedure
+
+If you need to rotate your encryption key (e.g., due to security breach, periodic rotation policy):
+
+1. **Generate a new key** using the command above
+2. **Back up your database** before proceeding
+3. **Update all encrypted tokens** with the new key:
+   ```bash
+   # This is a manual process - tokens must be re-encrypted
+   # If you have active Google Photos connections, users will need to re-authenticate
+   ```
+4. **Update the environment variable** with the new key
+5. **Restart all services** (backend, worker)
+6. **Users must reconnect** their Google Photos accounts
+
+Note: Currently, key rotation requires users to re-authenticate their connectors. Future versions may support automatic re-encryption.
+
+#### Security Best Practices
+
+1. **Never commit keys to version control**
+   - Add `.env` to `.gitignore` (already done)
+   - Use `.env.example` as a template only
+   - Store production keys in secure secrets management (e.g., HashiCorp Vault, AWS Secrets Manager, Docker secrets)
+
+2. **Use different keys for different environments**
+   - Development: One key (can be shared in team)
+   - Staging: Different key (restricted access)
+   - Production: Unique key (highest security, minimal access)
+
+3. **Secure key storage**
+   - Production: Use environment variables or secrets management
+   - Never store keys in config files or code
+   - Limit access to production keys to authorized personnel only
+
+4. **Key backup**
+   - Keep secure backups of production keys
+   - Store backups separately from the application
+   - Document key recovery procedures
+
+5. **Monitor key usage**
+   - Check application logs for encryption/decryption failures
+   - Failed decryption may indicate key mismatch or tampering
+   - Alert on repeated failures
+
 ### Configuration Files
 
 ```
@@ -339,6 +415,13 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 └── tokens/
     └── google-photos.enc    # OAuth tokens (encrypted)
 ```
+
+## Documentation
+
+- [API Reference](./docs/API.md) - Complete API documentation with examples
+- [Deployment Guide](./docs/deployment.md) - Production deployment instructions
+- [Development Workflow](./DEV_WORKFLOW.md) - Local development setup
+- Interactive API Docs: http://localhost:8000/docs (when running)
 
 ## License
 

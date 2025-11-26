@@ -1,0 +1,15 @@
+# Grafana Dashboard Provisioning Configuration
+# Automatically loads dashboard JSON files from this directory
+
+apiVersion: 1
+
+providers:
+  - name: 'Photo Explorer Dashboards'
+    orgId: 1
+    folder: 'Photo Explorer'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
