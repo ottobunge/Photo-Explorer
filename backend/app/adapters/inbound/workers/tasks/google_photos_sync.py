@@ -266,7 +266,20 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
                         expires_at=client._token_expires_at,
                         scopes=GooglePhotosClient.SCOPES,
                     )
-                    await token_storage.save_tokens(f"google_photos_{connector_id}", new_tokens)
+                    try:
+                        await token_storage.save_tokens(f"google_photos_{connector_id}", new_tokens)
+                    except Exception as token_err:
+                        logger.error(
+                            f"Failed to save refreshed tokens for connector {connector_id}: {token_err}",
+                            extra={
+                                "connector_id": connector_id,
+                                "error": str(token_err),
+                                "error_type": type(token_err).__name__,
+                            },
+                            exc_info=True,
+                        )
+                        # Don't fail the sync task if token save fails - the sync completed successfully
+                        # The tokens will be refreshed again on the next sync
 
             finally:
                 await client.close()
