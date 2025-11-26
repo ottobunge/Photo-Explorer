@@ -359,7 +359,15 @@ def detect_faces_task(self, photo_id: str) -> dict:
 
 
 async def _detect_faces_async(photo_id: str) -> dict:
-    """Async implementation of face detection."""
+    """
+    Async implementation of face detection with proper transaction boundaries.
+
+    Transaction pattern:
+    - Phase 1: Load photo and image data (read-only transaction)
+    - Phase 2: Detect faces and process crops (outside transaction)
+    - Phase 3: Save faces to DB and commit
+    - Phase 4: Store embeddings in vector store (with compensation on failure)
+    """
     try:
         photo_uuid = UUID(photo_id)
     except (ValueError, AttributeError):
@@ -375,9 +383,9 @@ async def _detect_faces_async(photo_id: str) -> dict:
         raise TransientError(f"Service initialization failed: {e!s}", {"photo_id": photo_id})
 
     try:
+        # Phase 1: Load photo and image data (read-only transaction)
         async with get_worker_session_context() as session:
             photo_repo = PhotoRepositoryPostgres(session)
-            face_repo = FaceRepositoryPostgres(session)
 
             # Get photo
             try:
@@ -389,102 +397,264 @@ async def _detect_faces_async(photo_id: str) -> dict:
             if not photo:
                 raise ResourceNotFoundError("Photo not found", {"photo_id": photo_id})
 
-            try:
-                # Load image data
-                image_data = None
-                if photo.storage_path:
-                    try:
-                        image_data = await file_storage.get_file(photo.storage_path)
-                    except (OSError, PermissionError) as e:
-                        logger.error(f"Storage error loading photo {photo_id}: {e}")
-                        raise StorageError(
-                            f"Failed to load from storage: {e!s}", {"photo_id": photo_id}
-                        )
-                elif photo.source_path:
-                    try:
-                        with open(photo.source_path, "rb") as f:
-                            image_data = f.read()
-                    except (OSError, PermissionError, FileNotFoundError) as e:
-                        logger.error(f"File error loading photo {photo_id}: {e}")
-                        raise StorageError(
-                            f"Failed to load from source: {e!s}", {"photo_id": photo_id}
-                        )
-                else:
-                    raise InvalidDataError("No image path available", {"photo_id": photo_id})
+            # Store paths for later use
+            storage_path = photo.storage_path
+            source_path = photo.source_path
 
-                if not image_data:
-                    raise ProcessingError("Could not load image data", {"photo_id": photo_id})
-
-                # Detect faces
+        # Phase 2: Load and process image (outside DB transaction)
+        try:
+            # Load image data
+            image_data = None
+            if storage_path:
                 try:
-                    detected_faces = await ml_services.detect_faces(image_data)
-                except Exception as e:
-                    logger.error(f"Face detection failed for {photo_id}: {e}")
-                    raise ProcessingError(
-                        f"Face detection failed: {e!s}", {"photo_id": photo_id}
+                    image_data = await file_storage.get_file(storage_path)
+                except (OSError, PermissionError) as e:
+                    logger.error(f"Storage error loading photo {photo_id}: {e}", exc_info=True)
+                    raise StorageError(
+                        f"Failed to load from storage: {e!s}", {"photo_id": photo_id}
                     )
+            elif source_path:
+                try:
+                    with open(source_path, "rb") as f:
+                        image_data = f.read()
+                except (OSError, PermissionError, FileNotFoundError) as e:
+                    logger.error(f"File error loading photo {photo_id}: {e}", exc_info=True)
+                    raise StorageError(
+                        f"Failed to load from source: {e!s}", {"photo_id": photo_id}
+                    )
+            else:
+                raise InvalidDataError("No image path available", {"photo_id": photo_id})
 
-                face_ids = []
-                for detected in detected_faces:
-                    try:
-                        # Create Face entity
-                        face = Face.create(
-                            photo_id=photo_uuid,
-                            bbox=detected.bbox,
-                            quality_score=detected.quality_score,
-                            detection_confidence=detected.detection_confidence,
-                        )
+            if not image_data:
+                raise ProcessingError("Could not load image data", {"photo_id": photo_id})
 
-                        # Generate and save face crop
-                        crop_data = await ml_services.crop_face(image_data, detected.bbox)
-                        crop_path = await file_storage.save_face_crop(crop_data, str(face.id.value))
-                        face.set_crop_path(crop_path)
-
-                        # Save face to database
-                        face = await face_repo.save_face(face)
-
-                        # Store face embedding in vector store
-                        await vector_store.store_face_embedding(
-                            face.id.value,
-                            detected.embedding,
-                            payload={
-                                "photo_id": str(photo_uuid),
-                                "cluster_id": None,
-                            },
-                        )
-
-                        # Add face to photo
-                        photo.add_face(face.id.value)
-                        face_ids.append(str(face.id.value))
-                    except Exception as e:
-                        logger.error(f"Error processing detected face in {photo_id}: {e}")
-                        # Continue with other faces even if one fails
-
-                await photo_repo.save(photo)
-
-                # Trigger incremental clustering for newly detected faces
-                if face_ids:
-                    update_clusters_task.delay(face_ids)
-
-                logger.info(f"Detected {len(face_ids)} faces in photo {photo_id}")
-                return {
-                    "status": "completed",
-                    "photo_id": photo_id,
-                    "faces_detected": len(face_ids),
-                    "face_ids": face_ids,
-                }
-
-            except (PermanentError, TransientError):
-                # Re-raise our custom errors
-                raise
+            # Detect faces using ML service
+            try:
+                detected_faces = await ml_services.detect_faces(image_data)
+                logger.debug(f"Detected {len(detected_faces)} faces in photo {photo_id}")
             except Exception as e:
-                logger.exception(f"Unexpected error detecting faces in {photo_id}: {e}")
+                logger.error(f"Face detection failed for {photo_id}: {e}", exc_info=True)
                 raise ProcessingError(
-                    f"Unexpected face detection error: {e!s}", {"photo_id": photo_id}
+                    f"Face detection failed: {e!s}", {"photo_id": photo_id}
                 )
 
+            # Process each detected face (generate crops)
+            face_data = []  # List of (Face, embedding, crop_path)
+            for detected in detected_faces:
+                try:
+                    # Create Face entity
+                    face = Face.create(
+                        photo_id=photo_uuid,
+                        bbox=detected.bbox,
+                        quality_score=detected.quality_score,
+                        detection_confidence=detected.detection_confidence,
+                    )
+
+                    # Generate and save face crop
+                    crop_data = await ml_services.crop_face(image_data, detected.bbox)
+                    crop_path = await file_storage.save_face_crop(crop_data, str(face.id.value))
+                    face.set_crop_path(crop_path)
+
+                    # Store for batch processing
+                    face_data.append((face, detected.embedding, crop_path))
+                    logger.debug(
+                        f"Processed face {face.id.value} from photo {photo_id} "
+                        f"(confidence: {detected.detection_confidence:.2f})"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to process one detected face in {photo_id}: {e}",
+                        exc_info=True,
+                        extra={"photo_id": photo_id, "bbox": detected.bbox}
+                    )
+                    # Continue with other faces even if one fails
+
+        except (PermanentError, TransientError, StorageError, ProcessingError) as e:
+            # These errors should propagate immediately
+            logger.error(
+                f"Face processing failed for photo {photo_id}",
+                extra={"photo_id": photo_id, "error": str(e)}
+            )
+            raise
+
+        # Phase 3: Save all faces to database and commit
+        saved_face_ids = []
+        try:
+            async with get_worker_session_context() as session:
+                photo_repo = PhotoRepositoryPostgres(session)
+                face_repo = FaceRepositoryPostgres(session)
+
+                # Re-fetch photo in new transaction
+                photo = await photo_repo.find_by_id(photo_uuid)
+                if not photo:
+                    raise ResourceNotFoundError("Photo not found", {"photo_id": photo_id})
+
+                # Batch save all faces to database (single DB round-trip)
+                if face_data:
+                    faces_to_save = [face for face, _, _ in face_data]
+                    try:
+                        saved_faces = await face_repo.save_faces_batch(faces_to_save)
+
+                        # Add all faces to photo
+                        for saved_face in saved_faces:
+                            photo.add_face(saved_face.id.value)
+                            saved_face_ids.append(str(saved_face.id.value))
+
+                        logger.debug(
+                            f"Batch saved {len(saved_faces)} faces for photo {photo_id}"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to batch save faces to database: {e}",
+                            exc_info=True,
+                            extra={"photo_id": photo_id}
+                        )
+                        raise
+
+                # Update photo with face references
+                await photo_repo.save(photo)
+
+                # Commit database transaction
+                await session.commit()
+                logger.info(
+                    f"Saved {len(saved_face_ids)} faces to database for photo {photo_id}"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Database error saving faces for {photo_id}: {e}",
+                exc_info=True,
+                extra={"photo_id": photo_id}
+            )
+            raise DatabaseConnectionError(
+                f"Failed to save faces to database: {e!s}", {"photo_id": photo_id}
+            )
+
+        # Phase 4: Store embeddings in vector store in batch (separate from DB transaction)
+        # If this fails, we need to mark faces for reprocessing or delete orphaned DB records
+        vector_store_face_ids = []
+        try:
+            # Prepare batch embeddings for faces that were successfully saved
+            embeddings_batch = []
+            for face, embedding, crop_path in face_data:
+                face_id_str = str(face.id.value)
+                if face_id_str in saved_face_ids:
+                    embeddings_batch.append((
+                        face.id.value,
+                        embedding,
+                        {"photo_id": str(photo_uuid), "cluster_id": None},
+                    ))
+                    vector_store_face_ids.append(face_id_str)
+
+            # Batch store all embeddings (single vector store operation)
+            if embeddings_batch:
+                try:
+                    await vector_store.store_face_embeddings_batch(embeddings_batch)
+                    logger.info(
+                        f"Batch stored {len(embeddings_batch)} face embeddings for photo {photo_id}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to batch store face embeddings: {e}",
+                        exc_info=True,
+                        extra={"photo_id": photo_id}
+                    )
+                    # Clear vector_store_face_ids on batch failure
+                    vector_store_face_ids = []
+
+            # Check if all embeddings were stored successfully
+            if len(vector_store_face_ids) < len(saved_face_ids):
+                failed_count = len(saved_face_ids) - len(vector_store_face_ids)
+                logger.warning(
+                    f"Vector store incomplete: {failed_count}/{len(saved_face_ids)} embeddings failed for {photo_id}",
+                    extra={
+                        "photo_id": photo_id,
+                        "saved_faces": len(saved_face_ids),
+                        "vector_store_faces": len(vector_store_face_ids),
+                    }
+                )
+                # TODO: In future, could mark specific faces as needing reprocessing
+                # For now, we keep the DB records and successfully stored embeddings
+
+        except Exception as e:
+            logger.error(
+                f"Critical vector store error for {photo_id}: {e}",
+                exc_info=True,
+                extra={"photo_id": photo_id}
+            )
+            # Compensating action: Delete faces from database since vector store failed
+            # This prevents orphaned records
+            try:
+                async with get_worker_session_context() as session:
+                    photo_repo = PhotoRepositoryPostgres(session)
+                    face_repo = FaceRepositoryPostgres(session)
+
+                    photo = await photo_repo.find_by_id(photo_uuid)
+                    if photo:
+                        # Remove face references from photo
+                        for face_id in saved_face_ids:
+                            try:
+                                photo.remove_face(UUID(face_id))
+                            except (ValueError, AttributeError):
+                                pass
+
+                        await photo_repo.save(photo)
+
+                        # Delete face records
+                        for face_id in saved_face_ids:
+                            try:
+                                await face_repo.delete_face(UUID(face_id))
+                                logger.debug(f"Deleted orphaned face {face_id} from database")
+                            except Exception as del_error:
+                                logger.warning(f"Failed to delete orphaned face {face_id}: {del_error}")
+
+                        await session.commit()
+                        logger.info(
+                            f"Compensating action: Deleted {len(saved_face_ids)} faces from database after vector store failure",
+                            extra={"photo_id": photo_id, "deleted_faces": saved_face_ids}
+                        )
+            except Exception as comp_error:
+                logger.error(
+                    f"Compensating action failed for {photo_id}: {comp_error}",
+                    exc_info=True,
+                    extra={"photo_id": photo_id}
+                )
+
+            # Raise transient error to trigger retry
+            raise TransientError(
+                f"Vector store failed, compensating action executed: {e!s}",
+                {"photo_id": photo_id}
+            )
+
+        # Success: Trigger incremental clustering for newly detected faces
+        if vector_store_face_ids:
+            try:
+                update_clusters_task.delay(vector_store_face_ids)
+                logger.debug(f"Queued clustering task for {len(vector_store_face_ids)} faces")
+            except Exception as e:
+                # Clustering trigger failure is non-critical
+                logger.warning(f"Failed to trigger clustering for {photo_id}: {e}")
+
+        logger.info(
+            f"Successfully detected and processed {len(vector_store_face_ids)} faces in photo {photo_id}",
+            extra={
+                "photo_id": photo_id,
+                "faces_detected": len(detected_faces),
+                "faces_saved": len(saved_face_ids),
+                "faces_in_vector_store": len(vector_store_face_ids),
+            }
+        )
+        return {
+            "status": "completed",
+            "photo_id": photo_id,
+            "faces_detected": len(detected_faces),
+            "faces_saved": len(saved_face_ids),
+            "faces_in_vector_store": len(vector_store_face_ids),
+            "face_ids": vector_store_face_ids,
+        }
+
     except (OperationalError, DBAPIError) as e:
-        logger.error(f"Database error during face detection {photo_id}: {e}")
+        logger.error(f"Database error during face detection {photo_id}: {e}", exc_info=True)
         raise DatabaseConnectionError(f"Database error: {e!s}", {"photo_id": photo_id})
 
 
@@ -569,50 +739,99 @@ def generate_embedding_from_thumbnail_task(self, photo_id: str) -> dict:
 
 
 async def _generate_embedding_from_thumbnail_async(photo_id: str) -> dict:
-    """Async implementation of embedding generation from thumbnail."""
+    """
+    Async implementation of embedding generation from thumbnail with proper transaction boundaries.
+
+    Transaction pattern:
+    - Phase 1: Load photo and thumbnail path (read-only transaction)
+    - Phase 2: Load thumbnail and generate embedding (outside transaction)
+    - Phase 3: Store embedding in vector store (separate from DB)
+    - Phase 4: Update photo status in DB and commit
+    """
     photo_uuid = UUID(photo_id)
 
     ml_services = get_ml_services()  # Use singleton to avoid reloading models
     vector_store = QdrantVectorStore()
     file_storage = LocalFileStorage()
 
+    # Phase 1: Load photo and get thumbnail path (read-only transaction)
     async with get_worker_session_context() as session:
         photo_repo = PhotoRepositoryPostgres(session)
 
         photo = await photo_repo.find_by_id(photo_uuid)
         if not photo:
+            logger.error(f"Photo {photo_id} not found")
             return {"status": "error", "message": "Photo not found"}
 
         if not photo.thumbnail_path:
+            logger.error(f"Photo {photo_id} has no thumbnail")
             return {"status": "error", "message": "No thumbnail available"}
 
-        try:
-            # Load thumbnail data
-            image_data = await file_storage.get_file(photo.thumbnail_path)
-            if not image_data:
-                return {"status": "error", "message": "Could not load thumbnail"}
+        thumbnail_path = photo.thumbnail_path
+        filename = photo.filename
+        connector_type = photo.connector_type
 
-            # Generate CLIP embedding
-            embedding = await ml_services.encode_image(image_data)
-            await vector_store.store_photo_embedding(
-                photo.id.value,
-                embedding,
-                payload={
-                    "filename": photo.filename,
-                    "connector_type": photo.connector_type,
-                },
-            )
+    # Phase 2: Load thumbnail and generate embedding (outside transaction)
+    try:
+        # Load thumbnail data
+        image_data = await file_storage.get_file(thumbnail_path)
+        if not image_data:
+            logger.error(f"Could not load thumbnail for photo {photo_id}")
+            return {"status": "error", "message": "Could not load thumbnail"}
+
+        # Generate CLIP embedding
+        embedding = await ml_services.encode_image(image_data)
+        logger.debug(f"Generated embedding for photo {photo_id} from thumbnail")
+
+    except Exception as e:
+        logger.error(f"Error processing thumbnail for {photo_id}: {e}", exc_info=True)
+        return {"status": "error", "message": f"Processing failed: {e!s}"}
+
+    # Phase 3: Store embedding in vector store (separate from DB transaction)
+    try:
+        await vector_store.store_photo_embedding(
+            photo_uuid,
+            embedding,
+            payload={
+                "filename": filename,
+                "connector_type": connector_type,
+            },
+        )
+        logger.debug(f"Stored embedding for photo {photo_id} in vector store")
+
+    except Exception as e:
+        logger.error(
+            f"Vector store error for {photo_id}: {e}",
+            exc_info=True,
+            extra={"photo_id": photo_id}
+        )
+        return {"status": "error", "message": f"Vector store failed: {e!s}"}
+
+    # Phase 4: Update photo status in DB and commit
+    try:
+        async with get_worker_session_context() as session:
+            photo_repo = PhotoRepositoryPostgres(session)
+
+            photo = await photo_repo.find_by_id(photo_uuid)
+            if not photo:
+                logger.warning(f"Photo {photo_id} not found when updating status")
+                return {"status": "error", "message": "Photo not found during update"}
 
             # Update photo status
             photo.set_processing_status("completed")
             await photo_repo.save(photo)
+            await session.commit()
 
             logger.info(f"Generated embedding for photo {photo_id} from thumbnail")
             return {"status": "completed", "photo_id": photo_id}
 
-        except Exception as e:
-            logger.exception(f"Error generating embedding for {photo_id}: {e}")
-            return {"status": "error", "message": str(e)}
+    except Exception as e:
+        logger.error(
+            f"Database error updating photo {photo_id}: {e}",
+            exc_info=True,
+            extra={"photo_id": photo_id}
+        )
+        return {"status": "error", "message": f"Database update failed: {e!s}"}
 
 
 @celery_app.task(

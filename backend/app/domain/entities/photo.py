@@ -185,6 +185,12 @@ class Photo:
             self.face_ids.append(face_id)
             self._touch()
 
+    def remove_face(self, face_id: UUID) -> None:
+        """Remove a detected face."""
+        if face_id in self.face_ids:
+            self.face_ids.remove(face_id)
+            self._touch()
+
     @property
     def is_processed(self) -> bool:
         """Check if the photo has been fully processed."""
