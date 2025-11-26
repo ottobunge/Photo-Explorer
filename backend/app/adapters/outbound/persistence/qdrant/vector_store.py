@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
+from circuitbreaker import circuit
 from qdrant_client import AsyncQdrantClient, QdrantClient
 from qdrant_client.http import models as qdrant_models
 from qdrant_client.http.exceptions import UnexpectedResponse
@@ -81,13 +82,18 @@ class QdrantVectorStore(VectorStore):
 
     # Photo embeddings
 
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def store_photo_embedding(
         self,
         photo_id: UUID,
         embedding: Embedding,
         payload: Optional[dict] = None,
     ) -> None:
-        """Store a photo's CLIP embedding."""
+        """
+        Store a photo's CLIP embedding.
+
+        Circuit breaker: Opens after 5 failures, recovers after 60 seconds.
+        """
         point = qdrant_models.PointStruct(
             id=str(photo_id),
             vector=embedding.to_list(),
@@ -99,13 +105,18 @@ class QdrantVectorStore(VectorStore):
         )
         logger.debug(f"Stored embedding for photo {photo_id}")
 
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def search_photos(
         self,
         query_embedding: Embedding,
         limit: int = 20,
         filters: Optional[dict] = None,
     ) -> list[VectorSearchResult]:
-        """Search for similar photos by embedding."""
+        """
+        Search for similar photos by embedding.
+
+        Circuit breaker: Opens after 5 failures, recovers after 60 seconds.
+        """
         query_filter = None
         if filters:
             query_filter = self._build_filter(filters)
@@ -161,13 +172,18 @@ class QdrantVectorStore(VectorStore):
 
     # Face embeddings
 
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def store_face_embedding(
         self,
         face_id: UUID,
         embedding: Embedding,
         payload: Optional[dict] = None,
     ) -> None:
-        """Store a face's embedding."""
+        """
+        Store a face's embedding.
+
+        Circuit breaker: Opens after 5 failures, recovers after 60 seconds.
+        """
         point = qdrant_models.PointStruct(
             id=str(face_id),
             vector=embedding.to_list(),
@@ -221,13 +237,18 @@ class QdrantVectorStore(VectorStore):
             logger.error(f"Error deleting face embedding: {e}")
             return False
 
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def find_similar_faces(
         self,
         face_id: UUID,
         threshold: float = 0.6,
         limit: int = 50,
     ) -> list[VectorSearchResult]:
-        """Find faces similar to a given face (for clustering)."""
+        """
+        Find faces similar to a given face (for clustering).
+
+        Circuit breaker: Opens after 5 failures, recovers after 60 seconds.
+        """
         # First, get the face's embedding
         try:
             results = await self._client.retrieve(

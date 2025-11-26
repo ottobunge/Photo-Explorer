@@ -58,6 +58,9 @@ cryptography = "^42.0.0"
 slowapi = "^0.1.9"
 structlog = "^25.5.0"
 
+# Reliability
+circuitbreaker = "^2.0.0"
+
 [tool.poetry.group.dev.dependencies]
 # Testing
 pytest = "^7.4.4"
