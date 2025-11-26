@@ -15,27 +15,27 @@
   - Change: Use exact origin matching instead of `.includes()`
   - Security impact: Prevents XSS/message injection
   - **Status:** Completed
-  - **Commit:** Pending
+  - **Commit:** 2cd039c
 
 - [x] **FE-C2: Fix Type Assertion Bypass** (15 min)
   - File: `frontend/src/routes/photos/[id]/+page.svelte:47`
   - Change: Remove `as unknown as Photo` double assertion
   - Use proper type from API client
   - **Status:** Completed
-  - **Commit:** Pending
+  - **Commit:** 2cd039c
 
 - [x] **FE-C3: Fix Memory Leak in Picker Polling** (30 min)
   - File: `frontend/src/routes/connectors/[id]/+page.svelte:369-428`
   - Change: Store timeout ID and clear in onDestroy
   - Add proper cleanup for all timeouts
   - **Status:** Completed
-  - **Commit:** Pending
+  - **Commit:** 2cd039c
 
 - [x] **FE-C4: Remove Console Logs** (10 min)
   - File: `frontend/src/routes/connectors/[id]/+page.svelte:306-318`
   - Change: Wrap in DEV check or remove entirely
   - **Status:** Completed
-  - **Commit:** Pending
+  - **Commit:** 2cd039c
 
 ### Backend Critical Fixes
 
