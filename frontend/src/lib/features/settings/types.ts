@@ -131,6 +131,7 @@ export interface PickerSessionStatus {
 	sessionId: string;
 	mediaItemsSet: boolean;
 	pollIntervalSeconds: number;
+	expireTime: string | null;
 }
 
 export interface PickerImportResult {

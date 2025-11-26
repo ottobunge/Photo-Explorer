@@ -377,6 +377,7 @@ function createSettingsStore() {
 				session_id: string;
 				media_items_set: boolean;
 				poll_interval_seconds: number;
+				expire_time: string | null;
 			}
 
 			const response = await client.get<PickerStatusApiResponse>(
@@ -386,7 +387,8 @@ function createSettingsStore() {
 			return {
 				sessionId: response.data.session_id,
 				mediaItemsSet: response.data.media_items_set,
-				pollIntervalSeconds: response.data.poll_interval_seconds
+				pollIntervalSeconds: response.data.poll_interval_seconds,
+				expireTime: response.data.expire_time
 			};
 		},
 

@@ -378,24 +378,42 @@
 			if (status.mediaItemsSet) {
 				// Photos selected! Handle completion
 				await handlePickerComplete();
-			} else if (pickerWindow && pickerWindow.closed) {
-				// Window was closed without selection
-				pickerStatus = 'error';
-				pickerMessage = 'Photo selection cancelled. Make sure to click the "ADD" button in the picker before closing the window.';
-				pickerPolling = false;
+			} else if (status.expireTime) {
+				// Check if session has expired
+				const expireDate = new Date(status.expireTime);
+				const now = new Date();
 
-				// Reset after 3 seconds
-				if (pickerResetTimeout !== null) {
-					clearTimeout(pickerResetTimeout);
+				if (now >= expireDate) {
+					// Session expired
+					pickerStatus = 'error';
+					pickerMessage = 'Picker session expired. Please try importing again.';
+					pickerPolling = false;
+
+					// Close picker window if still open
+					if (pickerWindow && !pickerWindow.closed) {
+						pickerWindow.close();
+					}
+
+					// Reset after 5 seconds
+					if (pickerResetTimeout !== null) {
+						clearTimeout(pickerResetTimeout);
+					}
+					pickerResetTimeout = setTimeout(() => {
+						pickerStatus = 'idle';
+						pickerMessage = null;
+						pickerSession = null;
+						pickerResetTimeout = null;
+					}, 5000);
+				} else {
+					// Still selecting, poll again in 2 seconds
+					setTimeout(() => {
+						if (pickerPolling) {
+							void pollPickerStatus();
+						}
+					}, 2000);
 				}
-				pickerResetTimeout = setTimeout(() => {
-					pickerStatus = 'idle';
-					pickerMessage = null;
-					pickerSession = null;
-					pickerResetTimeout = null;
-				}, 3000);
 			} else {
-				// Still selecting, poll again in 2 seconds
+				// No expireTime, just keep polling
 				setTimeout(() => {
 					if (pickerPolling) {
 						void pollPickerStatus();

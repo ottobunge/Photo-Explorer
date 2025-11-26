@@ -704,6 +704,7 @@ async def get_picker_session_status(
                 "session_id": session.id,
                 "media_items_set": session.media_items_set,
                 "poll_interval_seconds": session.poll_interval_seconds,
+                "expire_time": session.expire_time.isoformat() if session.expire_time else None,
             },
         )
     finally:
