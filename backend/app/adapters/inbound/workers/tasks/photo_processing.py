@@ -151,81 +151,127 @@ async def _process_photo_async(photo_id: str, task_id: Optional[str] = None) -> 
                 logger.error(f"Photo {photo_id} not found")
                 raise ResourceNotFoundError("Photo not found", {"photo_id": photo_id})
 
+            # Phase 1: Update status to processing and commit
             try:
-                # Update status to processing
                 photo.set_processing_status("processing")
                 await photo_repo.save(photo)
+                await session.commit()
+                logger.debug(f"Photo {photo_id} marked as processing")
+            except Exception as e:
+                logger.error(f"Failed to update photo status: {e}")
+                raise DatabaseConnectionError(f"Database error: {e!s}", {"photo_id": photo_id})
 
-                # Load image data
-                image_data = None
-                if photo.storage_path:
-                    try:
-                        image_data = await file_storage.get_file(photo.storage_path)
-                    except (OSError, PermissionError) as e:
-                        logger.error(f"Storage error loading photo {photo_id}: {e}")
-                        raise StorageError(
-                            f"Failed to load from storage: {e!s}", {"photo_id": photo_id}
-                        )
-                elif photo.source_path:
-                    try:
-                        # For local connector, read from source path
-                        with open(photo.source_path, "rb") as f:
-                            image_data = f.read()
-                    except (OSError, PermissionError, FileNotFoundError) as e:
-                        logger.error(f"File error loading photo {photo_id}: {e}")
-                        raise StorageError(
-                            f"Failed to load from source: {e!s}", {"photo_id": photo_id}
-                        )
-                else:
-                    raise InvalidDataError("No image path available", {"photo_id": photo_id})
-
-                if not image_data:
-                    raise ProcessingError("Could not load image data", {"photo_id": photo_id})
-
-                # Generate thumbnail
+        # Phase 2: Load and process image (outside DB transaction)
+        try:
+            # Load image data
+            image_data = None
+            if photo.storage_path:
                 try:
-                    thumbnail_data = await ml_services.generate_thumbnail(image_data)
-                    thumbnail_path = await file_storage.save_thumbnail(
-                        thumbnail_data, str(photo.id.value)
+                    image_data = await file_storage.get_file(photo.storage_path)
+                except (OSError, PermissionError) as e:
+                    logger.error(f"Storage error loading photo {photo_id}: {e}")
+                    raise StorageError(
+                        f"Failed to load from storage: {e!s}", {"photo_id": photo_id}
                     )
-                    photo.thumbnail_path = thumbnail_path
-                except Exception as e:
-                    logger.error(f"Error generating thumbnail for {photo_id}: {e}")
-                    raise ProcessingError(
-                        f"Thumbnail generation failed: {e!s}", {"photo_id": photo_id}
-                    )
-
-                # Generate CLIP embedding
+            elif photo.source_path:
                 try:
-                    embedding = await ml_services.encode_image(image_data)
-                    await vector_store.store_photo_embedding(
-                        photo.id.value,
-                        embedding,
-                        payload={
-                            "filename": photo.filename,
-                            "connector_type": photo.connector_type,
-                        },
+                    # For local connector, read from source path
+                    with open(photo.source_path, "rb") as f:
+                        image_data = f.read()
+                except (OSError, PermissionError, FileNotFoundError) as e:
+                    logger.error(f"File error loading photo {photo_id}: {e}")
+                    raise StorageError(
+                        f"Failed to load from source: {e!s}", {"photo_id": photo_id}
                     )
-                except Exception as e:
-                    logger.error(f"Error generating embedding for {photo_id}: {e}")
-                    # Embedding failure might be transient (vector store down)
-                    raise TransientError(
-                        f"Embedding generation failed: {e!s}", {"photo_id": photo_id}
-                    )
+            else:
+                raise InvalidDataError("No image path available", {"photo_id": photo_id})
 
-                # Basic image analysis
-                try:
-                    analysis = await ml_services.analyze_image(image_data)
-                    # Extract just the labels from DetectedObjectInfo for storage
-                    object_labels = [obj.label for obj in analysis.detected_objects]
-                    photo.set_ai_analysis(
-                        description=analysis.description if analysis.description else None,
-                        scene_classification=analysis.scene_classification,
-                        detected_objects=object_labels,
-                    )
-                except Exception as e:
-                    # Image analysis failure is non-critical, log and continue
-                    logger.warning(f"Image analysis failed for {photo_id}: {e}")
+            if not image_data:
+                raise ProcessingError("Could not load image data", {"photo_id": photo_id})
+
+            # Generate thumbnail
+            try:
+                thumbnail_data = await ml_services.generate_thumbnail(image_data)
+                thumbnail_path = await file_storage.save_thumbnail(
+                    thumbnail_data, str(photo.id.value)
+                )
+                photo.thumbnail_path = thumbnail_path
+            except Exception as e:
+                logger.error(f"Error generating thumbnail for {photo_id}: {e}")
+                raise ProcessingError(
+                    f"Thumbnail generation failed: {e!s}", {"photo_id": photo_id}
+                )
+
+            # Generate CLIP embedding
+            embedding = None
+            try:
+                embedding = await ml_services.encode_image(image_data)
+            except Exception as e:
+                logger.error(f"Error generating embedding for {photo_id}: {e}")
+                raise ProcessingError(
+                    f"Embedding generation failed: {e!s}", {"photo_id": photo_id}
+                )
+
+            # Basic image analysis
+            try:
+                analysis = await ml_services.analyze_image(image_data)
+                # Extract just the labels from DetectedObjectInfo for storage
+                object_labels = [obj.label for obj in analysis.detected_objects]
+                photo.set_ai_analysis(
+                    description=analysis.description if analysis.description else None,
+                    scene_classification=analysis.scene_classification,
+                    detected_objects=object_labels,
+                )
+            except Exception as e:
+                # Image analysis failure is non-critical, log and continue
+                logger.warning(f"Image analysis failed for {photo_id}: {e}")
+
+        except (PermanentError, TransientError, StorageError, ProcessingError) as e:
+            # Compensating action: Mark photo as failed in database
+            logger.error(f"Processing failed for photo {photo_id}, marking as failed")
+            async with get_worker_session_context() as session:
+                photo_repo = PhotoRepositoryPostgres(session)
+                photo = await photo_repo.find_by_id(photo_uuid)
+                if photo:
+                    photo.set_processing_status("failed")
+                    await photo_repo.save(photo)
+                    await session.commit()
+            raise
+
+        # Phase 3: Store in vector store (separate from DB transaction)
+        # If this fails, we'll retry the entire task, which is idempotent
+        try:
+            await vector_store.store_photo_embedding(
+                photo.id.value,
+                embedding,
+                payload={
+                    "filename": photo.filename,
+                    "connector_type": photo.connector_type,
+                },
+            )
+            logger.debug(f"Stored embedding for photo {photo_id}")
+        except Exception as e:
+            logger.error(f"Vector store error for {photo_id}: {e}")
+            # Compensating action: Mark photo as failed
+            async with get_worker_session_context() as session:
+                photo_repo = PhotoRepositoryPostgres(session)
+                photo = await photo_repo.find_by_id(photo_uuid)
+                if photo:
+                    photo.set_processing_status("failed")
+                    await photo_repo.save(photo)
+                    await session.commit()
+            # Raise as transient error for retry
+            raise TransientError(
+                f"Vector store failed: {e!s}", {"photo_id": photo_id}
+            )
+
+        # Phase 4: Final commit - mark as completed
+        async with get_worker_session_context() as session:
+            try:
+                photo_repo = PhotoRepositoryPostgres(session)
+                photo = await photo_repo.find_by_id(photo_uuid)
+                if not photo:
+                    raise ResourceNotFoundError("Photo not found", {"photo_id": photo_id})
 
                 # Mark as completed
                 photo.set_processing_status("completed")
@@ -248,25 +294,9 @@ async def _process_photo_async(photo_id: str, task_id: Optional[str] = None) -> 
                     "thumbnail_path": thumbnail_path,
                 }
 
-            except (PermanentError, TransientError):
-                # Re-raise our custom errors
-                photo.set_processing_status("failed")
-                try:
-                    await photo_repo.save(photo)
-                except Exception as save_err:
-                    logger.error(f"Failed to save error status for photo {photo_id}: {save_err}")
-                raise
             except Exception as e:
-                # Catch-all for unexpected errors
-                logger.exception(f"Unexpected error processing photo {photo_id}: {e}")
-                photo.set_processing_status("failed")
-                try:
-                    await photo_repo.save(photo)
-                except Exception as save_err:
-                    logger.error(f"Failed to save error status for photo {photo_id}: {save_err}")
-                raise ProcessingError(
-                    f"Unexpected processing error: {e!s}", {"photo_id": photo_id}
-                )
+                logger.error(f"Failed to mark photo as completed: {e}")
+                raise DatabaseConnectionError(f"Database error: {e!s}", {"photo_id": photo_id})
 
     except (OperationalError, DBAPIError) as e:
         logger.error(f"Database error during photo processing {photo_id}: {e}")
