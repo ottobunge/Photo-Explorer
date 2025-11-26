@@ -53,6 +53,7 @@
 	let pickerStatus = $state<'idle' | 'selecting' | 'importing' | 'done' | 'error'>('idle');
 	let pickerMessage = $state<string | null>(null);
 	let pickerResetTimeout: ReturnType<typeof setTimeout> | null = null;
+	let messageListener: ((event: MessageEvent) => void) | null = null;
 
 	const connectorId = $derived($page.params.id);
 	const totalPages = $derived(Math.ceil(total / perPage));
@@ -68,8 +69,12 @@
 		if (pickerWindow && !pickerWindow.closed) {
 			pickerWindow.close();
 		}
+		if (messageListener) {
+			window.removeEventListener('message', messageListener);
+		}
 		pickerWindow = null;
 		pickerPolling = false;
+		messageListener = null;
 	});
 
 	onMount(() => {
@@ -201,15 +206,112 @@
 		}
 	}
 
+	async function handlePickerComplete(): Promise<void> {
+		if (!pickerSession || !connectorId) return;
+
+		// Stop polling since we're handling it now
+		pickerPolling = false;
+
+		try {
+			// Check if photos were actually selected
+			const status = await settingsStore.getPickerSessionStatus(
+				connectorId,
+				pickerSession.sessionId
+			);
+
+			if (!status.mediaItemsSet) {
+				console.log('mediaItemsSet is false, selection not complete yet');
+				// Resume polling
+				pickerPolling = true;
+				setTimeout(() => pollPickerStatus(), 2000);
+				return;
+			}
+
+			pickerStatus = 'importing';
+			pickerMessage = 'Importing selected photos...';
+
+			// Close picker window
+			if (pickerWindow && !pickerWindow.closed) {
+				pickerWindow.close();
+			}
+
+			// Remove message listener
+			if (messageListener) {
+				window.removeEventListener('message', messageListener);
+				messageListener = null;
+			}
+
+			// Trigger import
+			const result = await settingsStore.importPickerPhotos(
+				connectorId,
+				pickerSession.sessionId
+			);
+
+			pickerStatus = 'done';
+			pickerMessage = `Import started! ${result.message || 'Processing photos...'}`;
+
+			// Reset after 5 seconds and reload photos
+			if (pickerResetTimeout !== null) {
+				clearTimeout(pickerResetTimeout);
+			}
+			pickerResetTimeout = setTimeout(() => {
+				pickerStatus = 'idle';
+				pickerMessage = null;
+				pickerSession = null;
+				pickerResetTimeout = null;
+				// Reload photos
+				void loadPhotos();
+			}, 5000);
+		} catch (err) {
+			console.error('Picker complete error:', err);
+			pickerStatus = 'error';
+			pickerMessage = err instanceof Error ? err.message : 'Failed to import photos';
+		}
+	}
+
 	async function handleImportPhotos(): Promise<void> {
 		if (connector?.type !== 'google_photos' || !connectorId) return;
 
 		pickerStatus = 'selecting';
-		pickerMessage = 'Opening photo picker... After selecting photos, click the "ADD" button to import them.';
+		pickerMessage = 'Opening photo picker... Select photos and click "ADD" to import them.';
 
 		try {
 			// Create picker session
 			pickerSession = await settingsStore.createPickerSession(connectorId);
+
+			// Set up message listener for picker events
+			messageListener = async (event: MessageEvent) => {
+				// Log all messages for debugging (remove in production)
+				console.log('Window message received:', {
+					origin: event.origin,
+					data: event.data,
+					type: typeof event.data
+				});
+
+				// Verify origin for security (Google's picker origin)
+				if (!event.origin.includes('google.com')) {
+					return;
+				}
+
+				console.log('Message from Google picker:', event.data);
+
+				// Google Picker sends various events - we're looking for the selection complete event
+				// The exact format depends on Google's implementation
+				// Try multiple possible event formats
+				const isPickerEvent =
+					event.data?.type === 'PICKER_API_READY' ||
+					event.data?.action === 'picked' ||
+					event.data?.action === 'loaded' ||
+					event.data === 'PICKER_SELECTION_COMPLETE' ||
+					(typeof event.data === 'string' && event.data.includes('picker'));
+
+				if (isPickerEvent) {
+					console.log('Picker event detected, checking status...');
+					await handlePickerComplete();
+				}
+			};
+
+			window.addEventListener('message', messageListener);
 
 			// Open picker in popup
 			const width = 900;
@@ -227,7 +329,7 @@
 				throw new Error('Failed to open picker window. Please allow popups.');
 			}
 
-			// Start polling for status
+			// Also poll as fallback (every 3 seconds) in case postMessage doesn't work
 			pickerPolling = true;
 			pollPickerStatus();
 		} catch (err) {
@@ -247,36 +349,8 @@
 			);
 
 			if (status.mediaItemsSet) {
-				pickerStatus = 'importing';
-				pickerMessage = 'Importing selected photos...';
-				pickerPolling = false;
-
-				// Close picker window
-				if (pickerWindow && !pickerWindow.closed) {
-					pickerWindow.close();
-				}
-
-				// Trigger import
-				const result = await settingsStore.importPickerPhotos(
-					connectorId,
-					pickerSession.sessionId
-				);
-
-				pickerStatus = 'done';
-				pickerMessage = `Import started! ${result.message || 'Processing photos...'}`;
-
-				// Reset after 5 seconds and reload photos
-				if (pickerResetTimeout !== null) {
-					clearTimeout(pickerResetTimeout);
-				}
-				pickerResetTimeout = setTimeout(() => {
-					pickerStatus = 'idle';
-					pickerMessage = null;
-					pickerSession = null;
-					pickerResetTimeout = null;
-					// Reload photos
-					void loadPhotos();
-				}, 5000);
+				// Photos selected! Handle completion
+				await handlePickerComplete();
 			} else if (pickerWindow && pickerWindow.closed) {
 				// Window was closed without selection
 				pickerStatus = 'error';
