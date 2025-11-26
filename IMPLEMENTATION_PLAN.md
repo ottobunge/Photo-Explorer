@@ -416,10 +416,10 @@ Agents should update this section as tasks are completed:
 - [ ] WK-C4: Transaction Boundaries
 
 ### Backend & Worker
-- [ ] BE-M1: Standardize Error Responses
-- [ ] BE-M2: ML Model Health Check
-- [ ] BE-M3: Query Performance Logging
-- [ ] BE-M4: Improve Path Validation
+- [x] BE-M1: Standardize Error Responses
+- [x] BE-M2: ML Model Health Check
+- [x] BE-M3: Query Performance Logging
+- [x] BE-M4: Improve Path Validation
 - [ ] WK-M1: Batch Face Operations
 - [ ] WK-M2: Google API Rate Limiting
 - [ ] WK-M3: Task Metrics Collection
