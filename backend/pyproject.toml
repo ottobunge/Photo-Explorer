@@ -60,6 +60,7 @@ structlog = "^25.5.0"
 
 # Reliability
 circuitbreaker = "^2.0.0"
+prometheus-client = "^0.23.1"
 
 [tool.poetry.group.dev.dependencies]
 # Testing

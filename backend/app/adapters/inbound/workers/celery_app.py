@@ -1,19 +1,120 @@
 """Celery application configuration."""
 
 import logging
+import time
 from typing import Any
 
 from celery import Celery, Task
 from celery.signals import (
     celeryd_init,
+    task_postrun,
+    task_prerun,
     worker_ready,
     worker_shutting_down,
 )
+from prometheus_client import Counter, Gauge, Histogram
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+# Prometheus metrics for Celery tasks
+# Task execution time (histogram with buckets for different durations)
+task_duration_seconds = Histogram(
+    "celery_task_duration_seconds",
+    "Task execution duration in seconds",
+    ["task_name", "queue"],
+    buckets=(1, 5, 10, 30, 60, 120, 300, 600, 1800, 3600),  # 1s to 1h
+)
+
+# Task failure counter
+task_failures_total = Counter(
+    "celery_task_failures_total",
+    "Total number of task failures",
+    ["task_name", "queue", "exception_type"],
+)
+
+# Task success counter
+task_success_total = Counter(
+    "celery_task_success_total",
+    "Total number of successful task completions",
+    ["task_name", "queue"],
+)
+
+# Task retry counter
+task_retries_total = Counter(
+    "celery_task_retries_total",
+    "Total number of task retries",
+    ["task_name", "queue"],
+)
+
+# Queue depth gauge (approximate based on active tasks)
+queue_depth = Gauge(
+    "celery_queue_depth",
+    "Number of tasks in queue (active)",
+    ["queue"],
+)
+
+# Active tasks gauge
+active_tasks = Gauge(
+    "celery_active_tasks",
+    "Number of currently executing tasks",
+    ["task_name", "queue"],
+)
+
+
+# Task execution tracking (for duration measurement)
+_task_start_times = {}
+
+
+@task_prerun.connect
+def task_prerun_handler(task_id: str, task: Task, **kwargs: Any) -> None:
+    """Handle task prerun signal - record start time and increment active tasks."""
+    _task_start_times[task_id] = time.time()
+
+    # Extract queue name from task request
+    queue = getattr(task.request, "delivery_info", {}).get("routing_key", "default")
+
+    # Increment active tasks
+    active_tasks.labels(task_name=task.name, queue=queue).inc()
+
+
+@task_postrun.connect
+def task_postrun_handler(
+    task_id: str,
+    task: Task,
+    retval: Any,
+    state: str,
+    **kwargs: Any,
+) -> None:
+    """Handle task postrun signal - record duration and update metrics."""
+    # Calculate duration
+    start_time = _task_start_times.pop(task_id, None)
+    if start_time:
+        duration = time.time() - start_time
+
+        # Extract queue name
+        queue = getattr(task.request, "delivery_info", {}).get("routing_key", "default")
+
+        # Record duration
+        task_duration_seconds.labels(task_name=task.name, queue=queue).observe(duration)
+
+        # Decrement active tasks
+        active_tasks.labels(task_name=task.name, queue=queue).dec()
+
+        # Record success/failure
+        if state == "SUCCESS":
+            task_success_total.labels(task_name=task.name, queue=queue).inc()
+        elif state == "FAILURE":
+            # Try to get exception type from task
+            exception_type = "Unknown"
+            if hasattr(task, "request") and hasattr(task.request, "exception"):
+                exception_type = type(task.request.exception).__name__
+            task_failures_total.labels(
+                task_name=task.name, queue=queue, exception_type=exception_type
+            ).inc()
 
 
 @celeryd_init.connect
@@ -154,6 +255,12 @@ class LoggingTask(Task):
 
     def on_retry(self, exc: Exception, task_id: str, args: tuple, kwargs: dict, einfo: Any) -> None:
         """Log task retry with context."""
+        # Extract queue name
+        queue = getattr(self.request, "delivery_info", {}).get("routing_key", "default")
+
+        # Increment retry counter
+        task_retries_total.labels(task_name=self.name, queue=queue).inc()
+
         logger.warning(
             f"Task {self.name} retrying",
             extra={

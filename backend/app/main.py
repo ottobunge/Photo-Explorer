@@ -24,6 +24,7 @@ from app.adapters.inbound.api.routes import (
     faces,
     folders,
     health,
+    metrics,
     models,
     photos,
     search,
@@ -420,8 +421,9 @@ For issues, questions, or contributions, visit our GitHub repository.
     logger.info("Standardized error handlers registered")
 
     # ==================== ROUTERS ====================
-    # Include health check router
+    # Include health check and metrics routers (no prefix)
     app.include_router(health.router, tags=["Health"])
+    app.include_router(metrics.router)  # Prometheus metrics at /metrics
 
     # Include API routers
     api_prefix = app_settings.api_v1_prefix
