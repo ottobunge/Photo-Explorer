@@ -27,9 +27,9 @@
 			await settingsStore.handleGooglePhotosCallback(code);
 			status = 'success';
 
-			// Redirect to settings after a brief delay
+			// Redirect to connectors page after a brief delay
 			setTimeout(() => {
-				goto('/settings');
+				goto('/connectors');
 			}, 2000);
 		} catch (err) {
 			status = 'error';
@@ -60,7 +60,7 @@
 				</svg>
 			</div>
 			<h1>Successfully Connected!</h1>
-			<p>Your Google Photos account has been linked. Redirecting to settings...</p>
+			<p>Your Google Photos account has been linked. Redirecting to connectors...</p>
 		{:else}
 			<div class="status-icon error">
 				<svg viewBox="0 0 24 24" width="48" height="48">
@@ -72,7 +72,7 @@
 			</div>
 			<h1>Connection Failed</h1>
 			<p class="error-text">{errorMessage}</p>
-			<a href="/settings" class="back-link">Back to Settings</a>
+			<a href="/connectors" class="back-link">Back to Connectors</a>
 		{/if}
 	</div>
 </div>

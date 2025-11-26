@@ -227,12 +227,12 @@ class GooglePhotosPickerClient:
 
         Returns a session with a pickerUri that users should open to select photos.
         """
-        # Configure the picker session
+        # Configure the picker session with max items
+        # Note: The Picker API only accepts pickingConfig with maxItemCount
         session_config = {
-            # Allow selecting multiple media items
-            "allowedMediaTypes": ["PHOTO", "VIDEO"],
-            # Enable multi-select
-            "selectionMode": "MULTI_SELECT"
+            "pickingConfig": {
+                "maxItemCount": "1000"  # Allow up to 1000 items per session
+            }
         }
 
         data = await self._make_picker_request("POST", "sessions", json=session_config)
