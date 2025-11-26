@@ -4,13 +4,51 @@ export type ConnectorType = 'google_photos' | 'local' | 'upload';
 
 export type ConnectorStatus = 'disconnected' | 'connected' | 'syncing' | 'error';
 
+// Discriminated union for connector configurations
+export type ConnectorConfig =
+	| GooglePhotosConfig
+	| LocalFolderConfig
+	| UploadConfig;
+
+export interface GooglePhotosConfig {
+	type: 'google_photos';
+	client_id?: string;
+	scopes?: string[];
+}
+
+export interface LocalFolderConfig {
+	type: 'local';
+	path: string;
+	name?: string;
+	recursive: boolean;
+	watch: boolean;
+	autoAlbum: boolean;
+}
+
+export interface UploadConfig {
+	type: 'upload';
+}
+
+// Type guard functions for connector config validation
+export function isGooglePhotosConfig(config: unknown): config is GooglePhotosConfig {
+	return typeof config === 'object' && config !== null && 'type' in config && config.type === 'google_photos';
+}
+
+export function isLocalFolderConfig(config: unknown): config is LocalFolderConfig {
+	return typeof config === 'object' && config !== null && 'type' in config && config.type === 'local' && 'path' in config;
+}
+
+export function isUploadConfig(config: unknown): config is UploadConfig {
+	return typeof config === 'object' && config !== null && 'type' in config && config.type === 'upload';
+}
+
 export interface Connector {
 	id: string;
 	type: ConnectorType;
 	name: string;
 	enabled: boolean;
 	status: ConnectorStatus;
-	config: Record<string, unknown>;
+	config: ConnectorConfig | Record<string, unknown>; // Allow Record for backwards compatibility during migration
 	lastSync: string | null;
 	errorMessage: string | null;
 	createdAt: string;
@@ -36,14 +74,6 @@ export interface GooglePhotosStatus {
 	email: string | null;
 	photosIndexed: number;
 	lastSync: string | null;
-}
-
-export interface LocalFolderConfig {
-	path: string;
-	name?: string;
-	recursive: boolean;
-	watch: boolean;
-	autoAlbum: boolean;
 }
 
 export interface AppSettings {
