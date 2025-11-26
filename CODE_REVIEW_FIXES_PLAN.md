@@ -76,11 +76,11 @@
   - Import torch and call `torch.cuda.empty_cache()`
   - **Status:** Completed
 
-- [ ] **WK-C3: Add Face Clustering Lock** (1 hour)
+- [x] **WK-C3: Add Face Clustering Lock** (1 hour)
   - File: `backend/app/adapters/inbound/workers/tasks/face_clustering.py:86-134`
   - Change: Implement Redis-based distributed lock
   - Prevent concurrent clustering tasks
-  - **Status:** Not Started
+  - **Status:** Completed
 
 - [ ] **WK-C4: Fix Transaction Boundaries in Photo Processing** (1.5 hours)
   - File: `backend/app/adapters/inbound/workers/tasks/photo_processing.py:154-242`

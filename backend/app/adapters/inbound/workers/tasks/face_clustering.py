@@ -2,8 +2,11 @@
 
 import asyncio
 import logging
+from contextlib import contextmanager
+from typing import Generator
 from uuid import UUID
 
+import redis
 from sqlalchemy.exc import OperationalError
 
 from app.adapters.inbound.workers.celery_app import celery_app
@@ -13,9 +16,60 @@ from app.adapters.outbound.persistence.postgres import (
 )
 from app.adapters.outbound.persistence.postgres.database import get_worker_session_context
 from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
+from app.config import get_settings
 from app.domain.entities import FaceCluster
 
 logger = logging.getLogger(__name__)
+
+# Lock timeout in seconds - prevents deadlocks if worker crashes
+CLUSTERING_LOCK_TIMEOUT = 300  # 5 minutes
+CLUSTERING_LOCK_KEY = "face_clustering:global_lock"
+
+
+@contextmanager
+def acquire_clustering_lock(timeout: int = CLUSTERING_LOCK_TIMEOUT) -> Generator[bool, None, None]:
+    """
+    Acquire a distributed lock for face clustering operations.
+
+    This prevents concurrent clustering tasks from running simultaneously,
+    which could lead to duplicate clusters or race conditions.
+
+    Args:
+        timeout: Lock timeout in seconds. Lock auto-expires after this time.
+
+    Yields:
+        True if lock was acquired successfully
+
+    Raises:
+        TransientError: If lock cannot be acquired (another task is running)
+    """
+    settings = get_settings()
+    client = redis.from_url(settings.redis_url, decode_responses=True)
+
+    try:
+        # Try to acquire the lock with a timeout
+        # nx=True means "set if not exists" (atomic operation)
+        # ex=timeout sets expiration time
+        acquired = client.set(CLUSTERING_LOCK_KEY, "locked", nx=True, ex=timeout)
+
+        if not acquired:
+            logger.warning("Face clustering lock already held by another task")
+            raise TransientError(
+                "Face clustering is already in progress. Please try again later."
+            )
+
+        logger.info("Acquired face clustering lock")
+        yield True
+
+    finally:
+        # Always release the lock when done
+        try:
+            client.delete(CLUSTERING_LOCK_KEY)
+            logger.info("Released face clustering lock")
+        except Exception as e:
+            logger.error(f"Error releasing clustering lock: {e}")
+        finally:
+            client.close()
 
 
 def run_async(coro):
@@ -58,93 +112,95 @@ def cluster_faces_task(self, similarity_threshold: float = 0.6) -> dict:
 
 async def _cluster_faces_async(similarity_threshold: float) -> dict:
     """Async implementation of face clustering."""
-    # Initialize vector store (singleton, no cleanup needed)
-    vector_store = QdrantVectorStore()
+    # Acquire distributed lock to prevent concurrent clustering
+    with acquire_clustering_lock():
+        # Initialize vector store (singleton, no cleanup needed)
+        vector_store = QdrantVectorStore()
 
-    try:
-        async with get_worker_session_context() as session:
-            face_repo = FaceRepositoryPostgres(session)
+        try:
+            async with get_worker_session_context() as session:
+                face_repo = FaceRepositoryPostgres(session)
 
-            # Get all unclustered faces
-            try:
-                unclustered_faces = await face_repo.find_unclustered_faces(limit=1000)
-            except Exception as e:
-                logger.error(f"Database error fetching unclustered faces: {e}", exc_info=True)
-                raise
+                # Get all unclustered faces
+                try:
+                    unclustered_faces = await face_repo.find_unclustered_faces(limit=1000)
+                except Exception as e:
+                    logger.error(f"Database error fetching unclustered faces: {e}", exc_info=True)
+                    raise
 
-            if not unclustered_faces:
-                logger.info("No unclustered faces found")
-                return {"status": "completed", "clusters_created": 0, "faces_clustered": 0}
+                if not unclustered_faces:
+                    logger.info("No unclustered faces found")
+                    return {"status": "completed", "clusters_created": 0, "faces_clustered": 0}
 
-            logger.info(f"Found {len(unclustered_faces)} unclustered faces")
+                logger.info(f"Found {len(unclustered_faces)} unclustered faces")
 
-            # Track which faces have been assigned
-            assigned_face_ids: set[UUID] = set()
-            clusters_created = 0
-            faces_clustered = 0
+                # Track which faces have been assigned
+                assigned_face_ids: set[UUID] = set()
+                clusters_created = 0
+                faces_clustered = 0
 
-            for face in unclustered_faces:
-                if face.id.value in assigned_face_ids:
-                    continue
+                for face in unclustered_faces:
+                    if face.id.value in assigned_face_ids:
+                        continue
 
-                # Find similar faces
-                similar_results = await vector_store.find_similar_faces(
-                    face.id.value,
-                    threshold=similarity_threshold,
-                    limit=100,
+                    # Find similar faces
+                    similar_results = await vector_store.find_similar_faces(
+                        face.id.value,
+                        threshold=similarity_threshold,
+                        limit=100,
+                    )
+
+                    # Filter to only unclustered faces not yet assigned
+                    similar_face_ids = [
+                        result.id for result in similar_results if result.id not in assigned_face_ids
+                    ]
+
+                    # Create a new cluster with this face and similar faces
+                    cluster = FaceCluster.create(initial_face_id=face.id.value)
+
+                    # Add similar faces to cluster
+                    for similar_id in similar_face_ids:
+                        if similar_id != face.id.value:
+                            cluster.add_face(similar_id)
+
+                    # Save cluster
+                    cluster = await face_repo.save_cluster(cluster)
+
+                    # Update faces with cluster assignment
+                    all_cluster_face_ids = [face.id.value] + similar_face_ids
+                    for face_id in all_cluster_face_ids:
+                        face_entity = await face_repo.find_face_by_id(face_id)
+                        if face_entity:
+                            face_entity.assign_to_cluster(cluster.id.value)
+                            await face_repo.save_face(face_entity)
+
+                            # Update vector store payload
+                            await vector_store.update_face_payload(
+                                face_id,
+                                {"cluster_id": str(cluster.id.value)},
+                            )
+
+                        assigned_face_ids.add(face_id)
+
+                    clusters_created += 1
+                    faces_clustered += len(all_cluster_face_ids)
+
+                    logger.debug(
+                        f"Created cluster {cluster.id.value} with {len(all_cluster_face_ids)} faces"
+                    )
+
+                logger.info(
+                    f"Clustering complete: {clusters_created} clusters, " f"{faces_clustered} faces"
                 )
 
-                # Filter to only unclustered faces not yet assigned
-                similar_face_ids = [
-                    result.id for result in similar_results if result.id not in assigned_face_ids
-                ]
-
-                # Create a new cluster with this face and similar faces
-                cluster = FaceCluster.create(initial_face_id=face.id.value)
-
-                # Add similar faces to cluster
-                for similar_id in similar_face_ids:
-                    if similar_id != face.id.value:
-                        cluster.add_face(similar_id)
-
-                # Save cluster
-                cluster = await face_repo.save_cluster(cluster)
-
-                # Update faces with cluster assignment
-                all_cluster_face_ids = [face.id.value] + similar_face_ids
-                for face_id in all_cluster_face_ids:
-                    face_entity = await face_repo.find_face_by_id(face_id)
-                    if face_entity:
-                        face_entity.assign_to_cluster(cluster.id.value)
-                        await face_repo.save_face(face_entity)
-
-                        # Update vector store payload
-                        await vector_store.update_face_payload(
-                            face_id,
-                            {"cluster_id": str(cluster.id.value)},
-                        )
-
-                    assigned_face_ids.add(face_id)
-
-                clusters_created += 1
-                faces_clustered += len(all_cluster_face_ids)
-
-                logger.debug(
-                    f"Created cluster {cluster.id.value} with {len(all_cluster_face_ids)} faces"
-                )
-
-            logger.info(
-                f"Clustering complete: {clusters_created} clusters, " f"{faces_clustered} faces"
-            )
-
-            return {
-                "status": "completed",
-                "clusters_created": clusters_created,
-                "faces_clustered": faces_clustered,
-            }
-    except Exception as e:
-        logger.exception(f"Error during face clustering: {e}")
-        return {"status": "error", "message": str(e)}
+                return {
+                    "status": "completed",
+                    "clusters_created": clusters_created,
+                    "faces_clustered": faces_clustered,
+                }
+        except Exception as e:
+            logger.exception(f"Error during face clustering: {e}")
+            return {"status": "error", "message": str(e)}
 
 
 @celery_app.task(
