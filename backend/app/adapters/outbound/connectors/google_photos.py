@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
+from urllib.parse import urlencode
 
 import httpx
 
@@ -118,7 +119,7 @@ class GooglePhotosPickerClient:
         if state:
             params["state"] = state
 
-        query = "&".join(f"{k}={v}" for k, v in params.items())
+        query = urlencode(params)
         return f"{self.AUTH_URL}?{query}"
 
     async def exchange_code(self, code: str, redirect_uri: str) -> OAuthTokens:
@@ -470,7 +471,7 @@ class GooglePhotosClient(PhotoSource):
         if state:
             params["state"] = state
 
-        query = "&".join(f"{k}={v}" for k, v in params.items())
+        query = urlencode(params)
         return f"{self.AUTH_URL}?{query}"
 
     async def exchange_code(self, code: str, redirect_uri: str) -> OAuthTokens:

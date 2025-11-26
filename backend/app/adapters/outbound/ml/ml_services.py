@@ -1,5 +1,6 @@
 """ML services adapter wrapping CLIP, InsightFace, and vision model loaders."""
 
+import gc
 import io
 import logging
 from typing import Optional

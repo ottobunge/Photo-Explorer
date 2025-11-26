@@ -54,6 +54,7 @@
 	let pickerStatus = $state<'idle' | 'selecting' | 'importing' | 'done' | 'error'>('idle');
 	let pickerMessage = $state<string | null>(null);
 	let pickerResetTimeout: ReturnType<typeof setTimeout> | null = null;
+	let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	let messageListener: ((event: MessageEvent) => void) | null = null;
 
 	const connectorId = $derived($page.params.id);
@@ -67,6 +68,9 @@
 		if (pickerResetTimeout !== null) {
 			clearTimeout(pickerResetTimeout);
 		}
+		if (pollTimeoutId !== null) {
+			clearTimeout(pollTimeoutId);
+		}
 		if (pickerWindow && !pickerWindow.closed) {
 			pickerWindow.close();
 		}
@@ -75,6 +79,7 @@
 		}
 		pickerWindow = null;
 		pickerPolling = false;
+		pollTimeoutId = null;
 		messageListener = null;
 	});
 
@@ -242,10 +247,15 @@
 			);
 
 			if (!status.mediaItemsSet) {
-				console.log('mediaItemsSet is false, selection not complete yet');
+				if (import.meta.env.DEV) {
+					console.log('mediaItemsSet is false, selection not complete yet');
+				}
 				// Resume polling
 				pickerPolling = true;
-				setTimeout(() => pollPickerStatus(), 2000);
+				if (pollTimeoutId !== null) {
+					clearTimeout(pollTimeoutId);
+				}
+				pollTimeoutId = setTimeout(() => pollPickerStatus(), 2000);
 				return;
 			}
 
@@ -303,19 +313,26 @@
 
 			// Set up message listener for picker events
 			messageListener = async (event: MessageEvent) => {
-				// Log all messages for debugging (remove in production)
-				console.log('Window message received:', {
-					origin: event.origin,
-					data: event.data,
-					type: typeof event.data
-				});
+				// Allowed origins for Google Photos Picker
+				const allowedOrigins = ['https://photospicker.google.com'];
 
-				// Verify origin for security (Google's picker origin)
-				if (!event.origin.includes('google.com')) {
+				// Log all messages for debugging (remove in production)
+				if (import.meta.env.DEV) {
+					console.log('Window message received:', {
+						origin: event.origin,
+						data: event.data,
+						type: typeof event.data
+					});
+				}
+
+				// Verify origin for security - use exact matching
+				if (!allowedOrigins.includes(event.origin)) {
 					return;
 				}
 
-				console.log('Message from Google picker:', event.data);
+				if (import.meta.env.DEV) {
+					console.log('Message from Google picker:', event.data);
+				}
 
 				// Google Picker sends various events - we're looking for the selection complete event
 				// The exact format depends on Google's implementation
@@ -354,7 +371,10 @@
 			// Start polling after a delay to let the window fully load
 			// Poll as fallback (every 2 seconds) in case postMessage doesn't work
 			pickerPolling = true;
-			setTimeout(() => {
+			if (pollTimeoutId !== null) {
+				clearTimeout(pollTimeoutId);
+			}
+			pollTimeoutId = setTimeout(() => {
 				if (pickerPolling) {
 					void pollPickerStatus();
 				}
@@ -406,7 +426,10 @@
 					}, 5000);
 				} else {
 					// Still selecting, poll again in 2 seconds
-					setTimeout(() => {
+					if (pollTimeoutId !== null) {
+						clearTimeout(pollTimeoutId);
+					}
+					pollTimeoutId = setTimeout(() => {
 						if (pickerPolling) {
 							void pollPickerStatus();
 						}
@@ -414,7 +437,10 @@
 				}
 			} else {
 				// No expireTime, just keep polling
-				setTimeout(() => {
+				if (pollTimeoutId !== null) {
+					clearTimeout(pollTimeoutId);
+				}
+				pollTimeoutId = setTimeout(() => {
 					if (pickerPolling) {
 						void pollPickerStatus();
 					}

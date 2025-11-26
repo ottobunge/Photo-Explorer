@@ -10,28 +10,32 @@
 
 ### Frontend Critical Fixes
 
-- [ ] **FE-C1: Fix PostMessage Origin Validation** (30 min)
+- [x] **FE-C1: Fix PostMessage Origin Validation** (30 min)
   - File: `frontend/src/routes/connectors/[id]/+page.svelte:314`
   - Change: Use exact origin matching instead of `.includes()`
   - Security impact: Prevents XSS/message injection
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** Pending
 
-- [ ] **FE-C2: Fix Type Assertion Bypass** (15 min)
+- [x] **FE-C2: Fix Type Assertion Bypass** (15 min)
   - File: `frontend/src/routes/photos/[id]/+page.svelte:47`
   - Change: Remove `as unknown as Photo` double assertion
   - Use proper type from API client
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** Pending
 
-- [ ] **FE-C3: Fix Memory Leak in Picker Polling** (30 min)
+- [x] **FE-C3: Fix Memory Leak in Picker Polling** (30 min)
   - File: `frontend/src/routes/connectors/[id]/+page.svelte:369-428`
   - Change: Store timeout ID and clear in onDestroy
   - Add proper cleanup for all timeouts
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** Pending
 
-- [ ] **FE-C4: Remove Console Logs** (10 min)
+- [x] **FE-C4: Remove Console Logs** (10 min)
   - File: `frontend/src/routes/connectors/[id]/+page.svelte:306-318`
   - Change: Wrap in DEV check or remove entirely
-  - **Status:** Not Started
+  - **Status:** Completed
+  - **Commit:** Pending
 
 ### Backend Critical Fixes
 
@@ -310,12 +314,12 @@
 ## 📊 Progress Summary
 
 **Total Tasks:** 60
-**Completed:** 0
+**Completed:** 4
 **In Progress:** 0
-**Not Started:** 60
+**Not Started:** 56
 
 **By Priority:**
-- Critical (🔴): 12 tasks
+- Critical (🔴): 8 remaining / 12 tasks (4 completed)
 - High (🟡): 11 tasks
 - Medium (🟢): 24 tasks
 - Testing (📝): 3 tasks

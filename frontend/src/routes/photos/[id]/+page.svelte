@@ -44,7 +44,7 @@
 		try {
 			const res = await client.get<PhotoResponse>(`/photos/${photoId}`);
 			if (res.success && res.data) {
-				photo = res.data as unknown as Photo;
+				photo = res.data.photo;
 			} else {
 				error = 'Failed to load photo';
 			}
