@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import { facesStore } from '../stores/faces';
+	import { facesStore } from '../stores/faces.svelte';
 	import type { FaceClusterType } from '../types';
 
 	export let cluster: FaceClusterType;

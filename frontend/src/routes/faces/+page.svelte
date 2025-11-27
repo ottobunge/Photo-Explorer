@@ -3,6 +3,9 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { client, API_HOST } from '$lib/api/client';
+	import FaceTabs from '$lib/features/faces/components/FaceTabs.svelte';
+	import { FaceGraph, faceGraphStore, ClusterMergeModal, faceSelectionStore } from '$lib/features/faces';
+	import type { FaceClusterType } from '$lib/features/faces';
 
 	interface RepresentativeFace {
 		id: string;
@@ -21,6 +24,13 @@
 		clusters: FaceCluster[];
 	}
 
+	type TabType = 'list' | 'graph';
+
+	// Derive activeTab from URL parameter
+	let activeTab = $derived<TabType>(
+		$page.url.searchParams.get('view') === 'graph' ? 'graph' : 'list'
+	);
+
 	let clusters = $state<FaceCluster[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -31,8 +41,17 @@
 	let total = $state(0);
 	let sortBy = $state<'face_count' | 'photo_count' | 'name'>('face_count');
 	let sortOrder = $state<'asc' | 'desc'>('desc');
+	let showMergeModal = $state(false);
+	let operationInProgress = $state(false);
 
 	const totalPages = $derived(Math.ceil(total / perPage));
+
+	// Access store state reactively
+	// Use $derived to track store state changes
+	const editMode = $derived(faceSelectionStore.editMode);
+	const selectedClusterIds = $derived(faceSelectionStore.selectedClusterIds);
+	const selectedClusterCount = $derived(faceSelectionStore.selectedClusterCount);
+	const canMerge = $derived(selectedClusterCount >= 2);
 
 	// Sort clusters client-side (API doesn't support sorting yet)
 	const sortedClusters = $derived.by(() => {
@@ -51,6 +70,31 @@
 			return sortOrder === 'desc' ? -comparison : comparison;
 		});
 		return sorted;
+	});
+
+	// Get selected clusters from the current page
+	const selectedClusters = $derived.by<FaceClusterType[]>(() => {
+		return sortedClusters
+			.filter((c) => selectedClusterIds.has(c.id))
+			.map((c) => ({
+				id: c.id,
+				name: c.name ?? undefined,
+				faceCount: c.face_count,
+				photoCount: c.photo_count,
+				representativeFace: c.representative_face
+					? {
+							id: c.representative_face.id,
+							cropUrl: c.representative_face.crop_url
+						}
+					: undefined
+			}));
+	});
+
+	// Load graph data when switching to graph tab
+	$effect(() => {
+		if (activeTab === 'graph') {
+			void faceGraphStore.loadGraph();
+		}
 	});
 
 	onMount(() => {
@@ -169,6 +213,47 @@
 	function navigateToCluster(clusterId: string): void {
 		void goto(`/faces/${clusterId}`);
 	}
+
+	async function handleTabChange(tab: TabType): Promise<void> {
+		// Update URL with tab parameter
+		const params = new URLSearchParams($page.url.searchParams);
+		if (tab === 'graph') {
+			params.set('view', 'graph');
+		} else {
+			params.delete('view');
+		}
+
+		const newUrl = params.toString() ? `/faces?${params.toString()}` : '/faces';
+		await goto(newUrl, { replaceState: true, keepFocus: true });
+
+		// activeTab is derived from URL params and will update automatically
+	}
+
+	function toggleEditMode(): void {
+		faceSelectionStore.toggleEditMode();
+	}
+
+	function toggleClusterSelection(clusterId: string): void {
+		faceSelectionStore.toggleCluster(clusterId);
+	}
+
+	function handleMergeClick(): void {
+		if (!canMerge) return;
+		showMergeModal = true;
+	}
+
+	async function handleMerged(): Promise<void> {
+		showMergeModal = false;
+		operationInProgress = true;
+		try {
+			await loadClusters();
+		} catch (err) {
+			console.error('Failed to reload clusters:', err);
+			error = err instanceof Error ? err.message : 'Failed to reload clusters';
+		} finally {
+			operationInProgress = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -181,52 +266,73 @@
 		<p class="mt-2 text-gray-600">Tag and organize faces in your photos</p>
 	</header>
 
+	<!-- Tab Navigation -->
+	<FaceTabs {activeTab} onTabChange={handleTabChange} />
+
+	<!-- List View -->
+	{#if activeTab === 'list'}
 	<!-- Filters and Sorting -->
-	<div class="mb-6 flex flex-wrap items-center gap-4">
-		<label class="flex items-center gap-2">
-			<input
-				type="checkbox"
-				bind:checked={showNamedOnly}
-				onchange={handleFilterChange}
-				class="rounded"
-			/>
-			<span class="text-sm text-gray-600">Named only</span>
-		</label>
-		<label class="flex items-center gap-2">
-			<input
-				type="checkbox"
-				bind:checked={showUnnamedOnly}
-				onchange={handleFilterChange}
-				class="rounded"
-			/>
-			<span class="text-sm text-gray-600">Unnamed only</span>
-		</label>
+	<div class="mb-6 flex flex-wrap items-center gap-4 justify-between">
+		<div class="flex flex-wrap items-center gap-4">
+			<label class="flex items-center gap-2">
+				<input
+					type="checkbox"
+					bind:checked={showNamedOnly}
+					onchange={handleFilterChange}
+					class="rounded"
+				/>
+				<span class="text-sm text-gray-600">Named only</span>
+			</label>
+			<label class="flex items-center gap-2">
+				<input
+					type="checkbox"
+					bind:checked={showUnnamedOnly}
+					onchange={handleFilterChange}
+					class="rounded"
+				/>
+				<span class="text-sm text-gray-600">Unnamed only</span>
+			</label>
 
-		<div class="h-6 w-px bg-gray-300"></div>
+			<div class="h-6 w-px bg-gray-300"></div>
 
-		<label class="flex items-center gap-2">
-			<span class="text-sm text-gray-600">Sort by:</span>
-			<select
-				bind:value={sortBy}
-				onchange={handleSortChange}
-				class="rounded border border-gray-300 px-2 py-1 text-sm"
-			>
-				<option value="face_count">Face Count</option>
-				<option value="photo_count">Photo Count</option>
-				<option value="name">Name</option>
-			</select>
-		</label>
-		<label class="flex items-center gap-2">
-			<span class="text-sm text-gray-600">Order:</span>
-			<select
-				bind:value={sortOrder}
-				onchange={handleSortChange}
-				class="rounded border border-gray-300 px-2 py-1 text-sm"
-			>
-				<option value="desc">Descending</option>
-				<option value="asc">Ascending</option>
-			</select>
-		</label>
+			<label class="flex items-center gap-2">
+				<span class="text-sm text-gray-600">Sort by:</span>
+				<select
+					bind:value={sortBy}
+					onchange={handleSortChange}
+					class="rounded border border-gray-300 px-2 py-1 text-sm"
+				>
+					<option value="face_count">Face Count</option>
+					<option value="photo_count">Photo Count</option>
+					<option value="name">Name</option>
+				</select>
+			</label>
+			<label class="flex items-center gap-2">
+				<span class="text-sm text-gray-600">Order:</span>
+				<select
+					bind:value={sortOrder}
+					onchange={handleSortChange}
+					class="rounded border border-gray-300 px-2 py-1 text-sm"
+				>
+					<option value="desc">Descending</option>
+					<option value="asc">Ascending</option>
+				</select>
+			</label>
+		</div>
+
+		<!-- Edit Mode Toggle -->
+		<button
+			onclick={toggleEditMode}
+			class="px-4 py-2 rounded-lg transition-colors"
+			class:bg-blue-500={editMode}
+			class:text-white={editMode}
+			class:hover:bg-blue-600={editMode}
+			class:border={!editMode}
+			class:border-gray-300={!editMode}
+			class:hover:bg-gray-50={!editMode}
+		>
+			{editMode ? 'Done' : 'Edit'}
+		</button>
 	</div>
 
 	{#if error}
@@ -252,9 +358,36 @@
 		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
 			{#each sortedClusters as cluster (cluster.id)}
 				<button
-					onclick={() => navigateToCluster(cluster.id)}
-					class="group block rounded-lg border border-gray-200 bg-white p-3 transition-shadow hover:shadow-md text-left w-full"
+					onclick={() => editMode ? toggleClusterSelection(cluster.id) : navigateToCluster(cluster.id)}
+					disabled={operationInProgress}
+					class="group relative block rounded-lg border bg-white p-3 transition-all text-left w-full"
+					class:border-gray-200={!selectedClusterIds.has(cluster.id)}
+					class:hover:shadow-md={!editMode}
+					class:border-4={selectedClusterIds.has(cluster.id)}
+					class:border-blue-500={selectedClusterIds.has(cluster.id)}
+					class:bg-blue-50={selectedClusterIds.has(cluster.id)}
 				>
+					<!-- Checkbox overlay in edit mode -->
+					{#if editMode}
+						<div
+							class="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-colors"
+							class:bg-blue-500={selectedClusterIds.has(cluster.id)}
+							class:bg-white={!selectedClusterIds.has(cluster.id)}
+							class:border-2={!selectedClusterIds.has(cluster.id)}
+							class:border-gray-300={!selectedClusterIds.has(cluster.id)}
+						>
+							{#if selectedClusterIds.has(cluster.id)}
+								<svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+									<path
+										fill-rule="evenodd"
+										d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+										clip-rule="evenodd"
+									/>
+								</svg>
+							{/if}
+						</div>
+					{/if}
+
 					<div
 						class="mx-auto mb-2 aspect-square w-24 overflow-hidden rounded-full bg-gray-100"
 					>
@@ -306,5 +439,51 @@
 				</button>
 			</div>
 		{/if}
+
+		<!-- Floating Action Bar (shown when in edit mode and clusters are selected) -->
+		{#if editMode && selectedClusterCount > 0}
+			<div
+				class="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 bg-white rounded-full shadow-2xl border border-gray-200 px-6 py-4"
+			>
+				<div class="flex items-center gap-6">
+					<!-- Selection count -->
+					<div class="flex items-center gap-2">
+						<span class="text-sm font-medium text-gray-900">
+							{selectedClusterCount} selected
+						</span>
+					</div>
+
+					<div class="h-6 w-px bg-gray-300"></div>
+
+					<!-- Actions -->
+					<div class="flex items-center gap-3">
+						<button
+							type="button"
+							onclick={handleMergeClick}
+							disabled={!canMerge || operationInProgress}
+							class="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							title={canMerge ? 'Merge selected clusters' : 'Select at least 2 clusters to merge'}
+						>
+							Merge
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Cluster Merge Modal -->
+		{#if showMergeModal}
+			<ClusterMergeModal
+				clusters={selectedClusters}
+				on:close={() => (showMergeModal = false)}
+				on:merged={handleMerged}
+			/>
+		{/if}
+	{/if}
+	{:else}
+		<!-- Graph View -->
+		<div role="tabpanel" id="graph-panel" aria-labelledby="graph-tab">
+			<FaceGraph />
+		</div>
 	{/if}
 </div>
