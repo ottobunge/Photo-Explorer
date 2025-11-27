@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from app.adapters.outbound.persistence.postgres.mappers import FaceClusterMapper, FaceMapper
 from app.adapters.outbound.persistence.postgres.models import FaceClusterModel, FaceModel
@@ -275,3 +275,90 @@ class FaceRepositoryPostgres(FaceRepository):
         # Single flush for all operations
         await self._session.flush()
         return saved_faces
+
+    async def find_faces_by_ids(self, face_ids: list[UUID]) -> list[Face]:
+        """Find multiple faces by IDs in a single query."""
+        if not face_ids:
+            return []
+
+        stmt = select(FaceModel).where(FaceModel.id.in_(face_ids))
+        result = await self._session.execute(stmt)
+        models = result.scalars().all()
+
+        return [FaceMapper.to_domain(model) for model in models]
+
+    async def count_photos_by_cluster(self, cluster_id: UUID) -> int:
+        """Count unique photos in a cluster without loading all photo IDs."""
+        stmt = select(func.count(func.distinct(FaceModel.photo_id))).where(
+            FaceModel.cluster_id == cluster_id
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one()
+
+    async def get_co_appearances(
+        self,
+        cluster_id: UUID | None = None,
+    ) -> list[tuple[UUID, UUID, int]]:
+        """
+        Get all face co-appearances (people appearing together in photos).
+
+        Uses a self-join to find all pairs of faces that appear in the same photo,
+        then groups by cluster IDs to count co-appearances.
+        """
+        f1 = aliased(FaceModel)
+        f2 = aliased(FaceModel)
+
+        # Build query: find all pairs of faces in the same photo
+        query = (
+            select(
+                f1.cluster_id.label("cluster_a"),
+                f2.cluster_id.label("cluster_b"),
+                func.count(func.distinct(f1.photo_id)).label("photo_count"),
+            )
+            .select_from(f1)
+            .join(f2, f1.photo_id == f2.photo_id)
+            .where(
+                f1.cluster_id.isnot(None),  # Only clustered faces
+                f2.cluster_id.isnot(None),
+                f1.cluster_id < f2.cluster_id,  # Avoid duplicates (a,b) and (b,a)
+            )
+            .group_by(f1.cluster_id, f2.cluster_id)
+        )
+
+        # Optional filter: only co-appearances for a specific person
+        if cluster_id is not None:
+            query = query.where(
+                or_(f1.cluster_id == cluster_id, f2.cluster_id == cluster_id)
+            )
+
+        result = await self._session.execute(query)
+        rows = result.all()
+
+        return [(row.cluster_a, row.cluster_b, row.photo_count) for row in rows]
+
+    async def get_shared_photos(
+        self,
+        person_a_id: UUID,
+        person_b_id: UUID,
+    ) -> list[UUID]:
+        """
+        Get IDs of all photos where two people appear together.
+
+        Uses a self-join to find photos containing both cluster IDs.
+        """
+        f1 = aliased(FaceModel)
+        f2 = aliased(FaceModel)
+
+        query = (
+            select(f1.photo_id)
+            .select_from(f1)
+            .join(f2, f1.photo_id == f2.photo_id)
+            .where(
+                f1.cluster_id == person_a_id,
+                f2.cluster_id == person_b_id,
+            )
+            .distinct()
+        )
+
+        result = await self._session.execute(query)
+        return [row[0] for row in result.all()]

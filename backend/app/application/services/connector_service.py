@@ -1,12 +1,23 @@
 """ConnectorService - Business logic layer for connector operations."""
 
+import logging
 from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from app.application.ports.outbound import ConnectorRepository, PhotoRepository
+from app.application.ports.outbound import (
+    ConnectorRepository,
+    FileStorage,
+    PhotoRepository,
+    VectorStore,
+)
+from app.application.services.constants import MAX_PHOTO_FETCH_LIMIT
+from app.application.services.types import GooglePhotosConfigDict, LocalConnectorConfigDict
 from app.config import get_settings
+from app.domain.entities import Photo
 from app.domain.entities.connector import Connector, ConnectorType
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectorService:
@@ -24,16 +35,22 @@ class ConnectorService:
         self,
         connector_repo: ConnectorRepository,
         photo_repo: PhotoRepository,
+        file_storage: FileStorage,
+        vector_store: VectorStore,
     ) -> None:
         """Initialize service with repository dependencies."""
         self._connector_repo = connector_repo
         self._photo_repo = photo_repo
+        self._file_storage = file_storage
+        self._vector_store = vector_store
 
     async def create_local_connector(
         self,
         path: str,
         name: Optional[str] = None,
-        **config,
+        recursive: bool = True,
+        watch: bool = False,
+        auto_album: bool = False,
     ) -> Connector:
         """
         Create a local folder connector with path validation.
@@ -41,7 +58,9 @@ class ConnectorService:
         Args:
             path: Filesystem path to index
             name: Optional connector name (defaults to directory name)
-            **config: Additional configuration options (recursive, watch, auto_album)
+            recursive: Whether to recursively scan subdirectories
+            watch: Whether to watch for file changes
+            auto_album: Whether to automatically create albums from folders
 
         Returns:
             Created connector entity
@@ -64,9 +83,9 @@ class ConnectorService:
         connector = Connector.create_local(
             path=str(validated_path),
             name=connector_name,
-            recursive=config.get("recursive", True),
-            watch=config.get("watch", False),
-            auto_album=config.get("auto_album", False),
+            recursive=recursive,
+            watch=watch,
+            auto_album=auto_album,
         )
 
         # Persist and return
@@ -97,7 +116,7 @@ class ConnectorService:
         connector_id: UUID,
         name: Optional[str] = None,
         enabled: Optional[bool] = None,
-        config: Optional[dict] = None,
+        config: Optional[dict[str, str | int | bool | list[str]]] = None,
     ) -> Connector:
         """
         Update connector using domain methods.
@@ -134,9 +153,12 @@ class ConnectorService:
         if config is not None:
             # For local connectors, validate path if it's being changed
             if connector.type == ConnectorType.LOCAL and "path" in config:
-                new_path = config["path"]
+                new_path_value = config["path"]
+                # Type guard - path must be a string
+                if not isinstance(new_path_value, str):
+                    raise ValueError("Path must be a string")
                 # Validate the new path
-                validated_path = self._validate_local_path(new_path)
+                validated_path = self._validate_local_path(new_path_value)
                 # Update config with validated path
                 config["path"] = str(validated_path)
 
@@ -148,10 +170,13 @@ class ConnectorService:
     async def delete_connector(
         self,
         connector_id: UUID,
-        delete_photos: bool = False,
+        delete_photos: bool = True,
     ) -> int:
         """
-        Delete connector with optional photo deletion.
+        Delete connector and all associated photos.
+
+        By default, deletes all photos indexed from this connector.
+        This ensures no orphaned photos remain in the system.
 
         Uses transaction management to ensure atomicity:
         - All operations succeed together, or all are rolled back
@@ -159,7 +184,8 @@ class ConnectorService:
 
         Args:
             connector_id: Connector to delete
-            delete_photos: If True, delete all associated photos using bulk delete
+            delete_photos: If True (default), delete all associated photos using bulk delete.
+                          Set to False to orphan photos (not recommended).
 
         Returns:
             Number of photos deleted (0 if delete_photos=False)
@@ -171,10 +197,60 @@ class ConnectorService:
         if not connector:
             raise ValueError(f"Connector not found: {connector_id}")
 
-        # Delete photos using bulk operation if requested
+        # Delete photos and clean up associated resources if requested
         photo_count = 0
         if delete_photos:
-            photo_count = await self._photo_repo.delete_bulk_by_connector(connector_id)
+            # First, get all photos for this connector to clean up files/embeddings
+            photos = await self._photo_repo.find_all(
+                connector_id=connector_id, limit=MAX_PHOTO_FETCH_LIMIT
+            )
+            photo_count = len(photos)
+
+            # Clean up storage files and embeddings for each photo
+            # Note: File cleanup is best-effort - failures logged but don't block deletion
+            for photo in photos:
+                try:
+                    # Delete photo file if it exists
+                    if photo.storage_path:
+                        await self._file_storage.delete_file(photo.storage_path)
+
+                    # Delete thumbnail if it exists
+                    if photo.thumbnail_path:
+                        await self._file_storage.delete_file(photo.thumbnail_path)
+
+                    # Delete cached thumbnail if it exists
+                    if photo.cached_thumbnail_path:
+                        await self._file_storage.delete_file(photo.cached_thumbnail_path)
+
+                    # Delete CLIP embedding from vector store
+                    try:
+                        await self._vector_store.delete_photo_embedding(photo.id.value)
+                    except Exception as e:
+                        # Log unexpected errors instead of silencing them
+                        # Expected: embedding not found (404), acceptable to ignore
+                        # Unexpected: connection errors, permission errors, etc.
+                        logger.warning(
+                            f"Error deleting photo embedding {photo.id.value}: {type(e).__name__}: {e}"
+                        )
+
+                    # Delete face embeddings from vector store
+                    for face_id in photo.face_ids:
+                        try:
+                            await self._vector_store.delete_face_embedding(face_id)
+                        except Exception as e:
+                            # Log unexpected errors instead of silencing them
+                            logger.warning(
+                                f"Error deleting face embedding {face_id}: {type(e).__name__}: {e}"
+                            )
+
+                except Exception as cleanup_err:
+                    # Log error but continue with deletion
+                    logger.warning(
+                        f"Failed to clean up resources for photo {photo.id.value}: {cleanup_err}"
+                    )
+
+            # Now bulk delete from database
+            await self._photo_repo.delete_bulk_by_connector(connector_id)
 
         # Delete the connector (photos are orphaned if delete_photos=False)
         await self._connector_repo.delete(connector_id)
@@ -199,7 +275,7 @@ class ConnectorService:
     async def list_connectors(
         self,
         connector_type: Optional[ConnectorType] = None,
-        status: Optional["ConnectorStatus"] = None,
+        status: Optional[str] = None,
     ) -> list[Connector]:
         """
         List all connectors with optional filtering.
@@ -229,7 +305,7 @@ class ConnectorService:
         connector_id: UUID,
         page: int = 1,
         per_page: int = 20,
-    ) -> tuple[list, int]:
+    ) -> tuple[list[Photo], int]:
         """
         Get paginated photos for a connector.
 
@@ -253,8 +329,10 @@ class ConnectorService:
         offset = (page - 1) * per_page
 
         # Fetch paginated photos and total count
-        photos = await self._photo_repo.find_by_connector(connector_id, limit=per_page, offset=offset)
-        total = await self._photo_repo.count_by_connector(connector_id)
+        photos = await self._photo_repo.find_all(
+            connector_id=connector_id, limit=per_page, offset=offset
+        )
+        total = await self._photo_repo.count(connector_id=connector_id)
 
         return photos, total
 

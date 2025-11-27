@@ -105,3 +105,62 @@ class ClusterListResponse(BaseModel):
     data: ClusterListData
     meta: PaginationMeta
     error: Optional[dict[str, Any]] = None
+
+
+# Social graph schemas
+
+
+class GraphNode(BaseModel):
+    """Node in the social graph (represents a person)."""
+
+    id: str = Field(..., description="Person's cluster ID")
+    name: Optional[str] = Field(None, description="Person's name (if set)")
+    face_count: int = Field(..., description="Number of faces in this cluster")
+    representative_face_id: Optional[str] = Field(None, description="ID of representative face")
+
+
+class GraphEdge(BaseModel):
+    """Edge in the social graph (represents a relationship)."""
+
+    person_a_id: str = Field(..., description="First person's cluster ID")
+    person_b_id: str = Field(..., description="Second person's cluster ID")
+    shared_photo_count: int = Field(..., description="Number of photos they appear in together")
+    sample_photo_ids: list[str] = Field(
+        default_factory=list, description="Sample photo IDs (up to 5)"
+    )
+
+
+class SocialGraphData(BaseModel):
+    """Social graph data."""
+
+    nodes: list[GraphNode] = Field(..., description="People in the graph")
+    edges: list[GraphEdge] = Field(..., description="Relationships between people")
+    node_count: int = Field(..., description="Total number of people")
+    edge_count: int = Field(..., description="Total number of relationships")
+    is_empty: bool = Field(..., description="Whether the graph has no nodes")
+    has_connections: bool = Field(..., description="Whether the graph has any edges")
+
+
+class SocialGraphResponse(BaseModel):
+    """Response for social graph."""
+
+    success: bool
+    data: SocialGraphData
+    error: Optional[dict[str, Any]] = None
+
+
+class RelationshipPhotosData(BaseModel):
+    """Data for relationship photos."""
+
+    photo_ids: list[str] = Field(..., description="IDs of photos containing both people")
+    person_a: ClusterData = Field(..., description="First person's data")
+    person_b: ClusterData = Field(..., description="Second person's data")
+    total: int = Field(..., description="Total number of shared photos")
+
+
+class RelationshipPhotosResponse(BaseModel):
+    """Response for relationship photos."""
+
+    success: bool
+    data: RelationshipPhotosData
+    error: Optional[dict[str, Any]] = None

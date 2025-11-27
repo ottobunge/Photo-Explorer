@@ -175,3 +175,70 @@ class FaceRepository(ABC):
         Returns:
             List of saved faces
         """
+
+    @abstractmethod
+    async def find_faces_by_ids(self, face_ids: list[UUID]) -> list[Face]:
+        """
+        Find multiple faces by IDs in a single query.
+
+        This reduces database round-trips from N to 1 for bulk face lookups.
+
+        Args:
+            face_ids: List of face IDs to find
+
+        Returns:
+            List of Face entities (may be fewer than requested if some not found)
+        """
+
+    @abstractmethod
+    async def count_photos_by_cluster(self, cluster_id: UUID) -> int:
+        """
+        Count unique photos in a cluster without loading all photo IDs.
+
+        This is much more efficient than fetching 10,000 IDs just to count them.
+
+        Args:
+            cluster_id: The cluster's unique identifier
+
+        Returns:
+            Count of unique photos containing faces from this cluster
+        """
+
+    # Social graph operations
+
+    @abstractmethod
+    async def get_co_appearances(
+        self,
+        cluster_id: Optional[UUID] = None,
+    ) -> list[tuple[UUID, UUID, int]]:
+        """
+        Get all face co-appearances (people appearing together in photos).
+
+        Returns pairs of cluster IDs that appear together in photos,
+        along with the count of shared photos.
+
+        Args:
+            cluster_id: Optional filter to only get co-appearances for a specific person.
+                       If None, returns all co-appearances.
+
+        Returns:
+            List of tuples (person_a_id, person_b_id, shared_photo_count).
+            Each pair appears only once (a < b to avoid duplicates).
+        """
+
+    @abstractmethod
+    async def get_shared_photos(
+        self,
+        person_a_id: UUID,
+        person_b_id: UUID,
+    ) -> list[UUID]:
+        """
+        Get IDs of all photos where two people appear together.
+
+        Args:
+            person_a_id: ID of first person's cluster
+            person_b_id: ID of second person's cluster
+
+        Returns:
+            List of photo IDs containing both people
+        """

@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
+from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.exc import OperationalError
 
 from app.adapters.inbound.workers.celery_app import celery_app
@@ -210,6 +211,12 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
                 "duration_seconds": stats.duration_seconds,
             }
 
+        except SoftTimeLimitExceeded:
+            logger.error(f"Task soft timeout during local folder sync for connector {connector_id}")
+            # Mark connector as timeout status
+            connector.set_error("Sync timeout - partial sync completed")
+            await connector_repo.save(connector)
+            raise
         except Exception as e:
             logger.exception(f"Error syncing connector {connector_id}: {e}")
             connector.set_error(str(e))

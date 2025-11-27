@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from app.domain.value_objects import Embedding
@@ -148,3 +148,55 @@ class VectorStore(ABC):
         Returns:
             List of similar faces with scores
         """
+
+    @abstractmethod
+    async def update_face_payload(
+        self, face_id: UUID, payload: dict[str, Any]
+    ) -> None:
+        """Update face embedding metadata in vector store.
+
+        Args:
+            face_id: UUID of the face
+            payload: Metadata to update (e.g., {"cluster_id": "..."})
+        """
+
+    # TODO(performance): Batch face clustering operations
+    # Currently face clustering processes 1,000+ faces one-by-one with individual
+    # vector searches and payload updates. This is very slow.
+    #
+    # To optimize, add these batch methods:
+    #
+    # @abstractmethod
+    # async def get_face_embeddings_batch(
+    #     self,
+    #     face_ids: list[UUID]
+    # ) -> dict[UUID, Embedding]:
+    #     """
+    #     Retrieve multiple face embeddings in a single query.
+    #
+    #     Args:
+    #         face_ids: List of face IDs to retrieve
+    #
+    #     Returns:
+    #         Dictionary mapping face IDs to their embeddings
+    #     """
+    #
+    # @abstractmethod
+    # async def update_face_payloads_batch(
+    #     self,
+    #     updates: list[tuple[UUID, dict]]
+    # ) -> None:
+    #     """
+    #     Update payloads for multiple faces in a single batch operation.
+    #
+    #     Args:
+    #         updates: List of (face_id, payload_updates) tuples
+    #     """
+    #
+    # With these methods, clustering could:
+    # 1. Load unclustered faces in batches of 100
+    # 2. Get all embeddings at once (1 call instead of 100)
+    # 3. Cluster in-memory using cosine similarity
+    # 4. Batch update vector store payloads (1 call instead of 100)
+    #
+    # Expected performance improvement: 10-100x for large datasets

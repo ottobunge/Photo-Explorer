@@ -359,7 +359,7 @@ async def list_photos(
                 "storage_path": photo.storage_path,
                 "thumbnail_path": photo.thumbnail_path,
                 "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail"
-                if photo.thumbnail_path or photo.is_remote
+                if photo.thumbnail_path or photo.cached_thumbnail_path
                 else None,
                 "mime_type": photo.mime_type,
                 "file_size": photo.file_size,
@@ -459,7 +459,7 @@ async def get_photo(
         "storage_path": photo.storage_path,
         "thumbnail_path": photo.thumbnail_path,
         "thumbnail_url": f"/api/v1/photos/{photo.id.value}/thumbnail"
-        if photo.thumbnail_path or photo.is_remote
+        if photo.thumbnail_path or photo.cached_thumbnail_path
         else None,
         "mime_type": photo.mime_type,
         "file_size": photo.file_size,
@@ -669,11 +669,14 @@ async def get_photo_thumbnail(
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
 
-    if not photo.thumbnail_path:
+    # Try cached thumbnail first (for Google Photos), then regular thumbnail
+    thumbnail_path = photo.cached_thumbnail_path or photo.thumbnail_path
+
+    if not thumbnail_path:
         raise HTTPException(status_code=404, detail="Thumbnail not available")
 
     try:
-        thumbnail_data = await file_storage.get_file(photo.thumbnail_path)
+        thumbnail_data = await file_storage.get_file(thumbnail_path)
         if not thumbnail_data:
             raise HTTPException(status_code=404, detail="Thumbnail file not found")
 

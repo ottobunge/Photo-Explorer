@@ -257,3 +257,20 @@ class PhotoRepositoryPostgres(PhotoRepository):
         result = await self._session.execute(stmt)
         await self._session.flush()
         return result.rowcount
+
+    async def exists_by_external_id(self, connector_id: UUID, external_id: str) -> bool:
+        """
+        Check if a photo with given external_id exists for a connector.
+
+        Uses an optimized EXISTS query instead of loading the full photo entity.
+        This is significantly faster than fetching all photos and checking in memory.
+        """
+        stmt = select(
+            select(PhotoModel.id)
+            .where(PhotoModel.connector_id == connector_id)
+            .where(PhotoModel.external_id == external_id)
+            .exists()
+        )
+        result = await self._session.execute(stmt)
+        exists = result.scalar()
+        return bool(exists) if exists is not None else False

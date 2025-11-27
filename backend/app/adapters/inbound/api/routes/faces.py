@@ -14,11 +14,24 @@ from app.adapters.inbound.api.schemas.face_schemas import (
     ClusterNameRequest,
     ClusterResponse,
     FaceMoveRequest,
+    GraphEdge,
+    GraphNode,
     PaginationMeta,
+    RelationshipPhotosData,
+    RelationshipPhotosResponse,
     RepresentativeFace,
+    SocialGraphData,
+    SocialGraphResponse,
 )
 from app.dependencies import FaceRepoDep, FaceServiceDep, FileStorageDep, SearchServiceDep
 from app.domain.entities import FaceCluster
+from app.domain.exceptions import (
+    DomainException,
+    EntityNotFoundException,
+    FaceClusterNotFoundError,
+    FaceNotFoundError,
+    InvalidOperationException,
+)
 
 router = APIRouter()
 
@@ -144,11 +157,7 @@ async def list_clusters(
     cluster_data_list = []
     for cluster in clusters:
         # Get unique photo count for this cluster
-        photo_ids = await face_repo.find_photo_ids_by_cluster(
-            cluster.id.value,
-            limit=10000,  # Get all to count
-        )
-        photo_count = len(photo_ids)
+        photo_count = await face_repo.count_photos_by_cluster(cluster.id.value)
 
         cluster_data_list.append(_build_cluster_data(cluster, photo_count))
 
@@ -210,8 +219,7 @@ async def get_cluster(cluster_id: UUID, face_repo: FaceRepoDep) -> ClusterRespon
         raise HTTPException(status_code=404, detail="Cluster not found")
 
     # Get unique photo count
-    photo_ids = await face_repo.find_photo_ids_by_cluster(cluster_id, limit=10000)
-    photo_count = len(photo_ids)
+    photo_count = await face_repo.count_photos_by_cluster(cluster_id)
 
     cluster_data = _build_cluster_data(cluster, photo_count)
 
@@ -322,8 +330,7 @@ async def name_cluster(
     cluster = await face_repo.save_cluster(cluster)
 
     # Get photo count for response
-    photo_ids = await face_repo.find_photo_ids_by_cluster(cluster_id, limit=10000)
-    photo_count = len(photo_ids)
+    photo_count = await face_repo.count_photos_by_cluster(cluster_id)
 
     cluster_data = _build_cluster_data(cluster, photo_count)
 
@@ -345,15 +352,13 @@ async def merge_clusters(
             source_cluster_ids=request.source_cluster_ids,
             target_cluster_id=request.target_cluster_id,
         )
-    except Exception as e:
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(status_code=404, detail=error_msg)
-        raise HTTPException(status_code=400, detail=error_msg)
+    except (EntityNotFoundException, FaceClusterNotFoundError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except (DomainException, InvalidOperationException) as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Get photo count for response
-    photo_ids = await face_repo.find_photo_ids_by_cluster(merged_cluster.id.value, limit=10000)
-    photo_count = len(photo_ids)
+    photo_count = await face_repo.count_photos_by_cluster(merged_cluster.id.value)
 
     cluster_data = _build_cluster_data(merged_cluster, photo_count)
 
@@ -372,15 +377,13 @@ async def split_face(
     """Split a face from its cluster into a new cluster."""
     try:
         new_cluster = await face_service.split_face(face_id)
-    except Exception as e:
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(status_code=404, detail=error_msg)
-        raise HTTPException(status_code=400, detail=error_msg)
+    except (EntityNotFoundException, FaceNotFoundError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except (DomainException, InvalidOperationException) as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Get photo count for response (will be 1 for new single-face cluster)
-    photo_ids = await face_repo.find_photo_ids_by_cluster(new_cluster.id.value, limit=10000)
-    photo_count = len(photo_ids)
+    photo_count = await face_repo.count_photos_by_cluster(new_cluster.id.value)
 
     cluster_data = _build_cluster_data(new_cluster, photo_count)
 
@@ -399,11 +402,10 @@ async def move_face(
     """Move a face to a different cluster."""
     try:
         await face_service.move_face(face_id, request.target_cluster_id)
-    except Exception as e:
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(status_code=404, detail=error_msg)
-        raise HTTPException(status_code=400, detail=error_msg)
+    except (EntityNotFoundException, FaceNotFoundError, FaceClusterNotFoundError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except (DomainException, InvalidOperationException) as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return {"success": True, "data": {"moved": True}}
 
@@ -538,3 +540,234 @@ async def search_by_face(
     ]
 
     return {"success": True, "data": {"results": photo_results}}
+
+
+@router.get(
+    "/graph",
+    response_model=SocialGraphResponse,
+    summary="Get social graph of face relationships",
+    description="""
+    Get the social graph showing relationships between people based on photo co-appearances.
+
+    The social graph represents people as nodes and relationships as edges. Each edge
+    indicates that two people appear together in one or more photos.
+
+    **Query Parameters:**
+    - **person_id** (optional): Filter the graph to show only direct connections
+      to this specific person. If not provided, returns the complete graph.
+
+    **Response includes:**
+    - **Nodes**: All people (face clusters) in the graph
+      - ID, name, face count, representative face ID
+    - **Edges**: Relationships between people
+      - Person A ID, Person B ID, shared photo count
+      - Sample photo IDs (up to 5) showing them together
+    - **Metadata**: Node count, edge count, is_empty, has_connections
+
+    **Use cases:**
+    - Visualize social connections in photo collection
+    - Find photos of people who appear together frequently
+    - Build interactive network graph UI
+    - Discover relationships between people
+    """,
+    responses={
+        200: {
+            "description": "Social graph with nodes and edges",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "data": {
+                            "nodes": [
+                                {
+                                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                                    "name": "John Doe",
+                                    "face_count": 45,
+                                    "representative_face_id": "550e8400-e29b-41d4-a716-446655440000",
+                                },
+                                {
+                                    "id": "223e4567-e89b-12d3-a456-426614174001",
+                                    "name": "Jane Smith",
+                                    "face_count": 32,
+                                    "representative_face_id": "650e8400-e29b-41d4-a716-446655440001",
+                                },
+                            ],
+                            "edges": [
+                                {
+                                    "person_a_id": "123e4567-e89b-12d3-a456-426614174000",
+                                    "person_b_id": "223e4567-e89b-12d3-a456-426614174001",
+                                    "shared_photo_count": 15,
+                                    "sample_photo_ids": [
+                                        "aaa11111-e89b-12d3-a456-426614174000",
+                                        "bbb22222-e89b-12d3-a456-426614174001",
+                                    ],
+                                }
+                            ],
+                            "node_count": 2,
+                            "edge_count": 1,
+                            "is_empty": False,
+                            "has_connections": True,
+                        },
+                        "error": None,
+                    }
+                }
+            },
+        }
+    },
+)
+async def get_social_graph(
+    face_service: FaceServiceDep,
+    person_id: Annotated[UUID | None, Query(description="Filter by person ID")] = None,
+) -> SocialGraphResponse:
+    """Get the social graph of face relationships."""
+    try:
+        # Get social graph from service
+        graph = await face_service.get_social_graph(filtered_by_person_id=person_id)
+
+        # Convert to response format
+        nodes = []
+        for cluster in graph.nodes:
+            node = GraphNode(
+                id=str(cluster.id.value),
+                name=cluster.name,
+                face_count=cluster.face_count,
+                representative_face_id=str(cluster.representative_face_id)
+                if cluster.representative_face_id
+                else None,
+            )
+            nodes.append(node)
+
+        edges = []
+        for relationship in graph.edges:
+            edge = GraphEdge(
+                person_a_id=str(relationship.person_a_id),
+                person_b_id=str(relationship.person_b_id),
+                shared_photo_count=relationship.shared_photo_count,
+                sample_photo_ids=[str(photo_id) for photo_id in relationship.sample_photo_ids],
+            )
+            edges.append(edge)
+
+        data = SocialGraphData(
+            nodes=nodes,
+            edges=edges,
+            node_count=graph.node_count,
+            edge_count=graph.edge_count,
+            is_empty=graph.is_empty,
+            has_connections=graph.has_connections,
+        )
+
+        return SocialGraphResponse(success=True, data=data, error=None)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to build social graph: {e!s}")
+
+
+@router.get(
+    "/relationships/{person_a_id}/{person_b_id}/photos",
+    response_model=RelationshipPhotosResponse,
+    summary="Get photos showing two people together",
+    description="""
+    Get all photos where two specific people appear together.
+
+    This endpoint returns the complete list of photos containing both people,
+    along with information about each person (cluster data).
+
+    **Path Parameters:**
+    - **person_a_id**: UUID of first person's cluster
+    - **person_b_id**: UUID of second person's cluster
+
+    **Response includes:**
+    - **photo_ids**: List of all photo IDs containing both people
+    - **person_a**: Cluster data for first person (name, face count, etc.)
+    - **person_b**: Cluster data for second person
+    - **total**: Total count of shared photos
+
+    **Use cases:**
+    - Show all photos of two people together
+    - Build relationship detail view in UI
+    - Find photos by relationship/co-appearance
+    """,
+    responses={
+        200: {
+            "description": "List of photo IDs and person data",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "data": {
+                            "photo_ids": [
+                                "aaa11111-e89b-12d3-a456-426614174000",
+                                "bbb22222-e89b-12d3-a456-426614174001",
+                            ],
+                            "person_a": {
+                                "id": "123e4567-e89b-12d3-a456-426614174000",
+                                "name": "John Doe",
+                                "face_count": 45,
+                                "photo_count": 32,
+                                "representative_face": {
+                                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                                    "crop_url": "/api/v1/faces/550e8400-e29b-41d4-a716-446655440000/crop",
+                                },
+                            },
+                            "person_b": {
+                                "id": "223e4567-e89b-12d3-a456-426614174001",
+                                "name": "Jane Smith",
+                                "face_count": 32,
+                                "photo_count": 28,
+                                "representative_face": {
+                                    "id": "650e8400-e29b-41d4-a716-446655440001",
+                                    "crop_url": "/api/v1/faces/650e8400-e29b-41d4-a716-446655440001/crop",
+                                },
+                            },
+                            "total": 15,
+                        },
+                        "error": None,
+                    }
+                }
+            },
+        },
+        404: {"description": "One or both clusters not found"},
+    },
+)
+async def get_relationship_photos(
+    person_a_id: UUID,
+    person_b_id: UUID,
+    face_service: FaceServiceDep,
+    face_repo: FaceRepoDep,
+) -> RelationshipPhotosResponse:
+    """Get photos where two people appear together."""
+    try:
+        # Verify both clusters exist
+        cluster_a = await face_repo.find_cluster_by_id(person_a_id)
+        if not cluster_a:
+            raise HTTPException(status_code=404, detail=f"Cluster {person_a_id} not found")
+
+        cluster_b = await face_repo.find_cluster_by_id(person_b_id)
+        if not cluster_b:
+            raise HTTPException(status_code=404, detail=f"Cluster {person_b_id} not found")
+
+        # Get shared photos
+        photo_ids = await face_service.get_relationship_photos(person_a_id, person_b_id)
+
+        # Build cluster data for both people
+        photo_count_a = await face_repo.count_photos_by_cluster(person_a_id)
+        cluster_data_a = _build_cluster_data(cluster_a, photo_count_a)
+
+        photo_count_b = await face_repo.count_photos_by_cluster(person_b_id)
+        cluster_data_b = _build_cluster_data(cluster_b, photo_count_b)
+
+        data = RelationshipPhotosData(
+            photo_ids=[str(photo_id) for photo_id in photo_ids],
+            person_a=cluster_data_a,
+            person_b=cluster_data_b,
+            total=len(photo_ids),
+        )
+
+        return RelationshipPhotosResponse(success=True, data=data, error=None)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get relationship photos: {e!s}"
+        )

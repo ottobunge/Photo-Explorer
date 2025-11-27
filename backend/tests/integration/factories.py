@@ -196,6 +196,41 @@ class ConnectorFactory:
         return connector
 
 
+class FaceClusterFactory:
+    """Factory for creating FaceCluster test instances."""
+
+    @staticmethod
+    def create(
+        id: Optional[UUID] = None,
+        name: Optional[str] = None,
+        representative_face_id: Optional[UUID] = None,
+        face_ids: Optional[list[UUID]] = None,
+        created_at: Optional[datetime] = None,
+    ) -> "FaceCluster":
+        """Create a FaceCluster entity with sensible defaults."""
+        from app.domain.entities import FaceCluster
+        from app.domain.value_objects import FaceClusterId
+
+        cluster_id = id or uuid4()
+        now = created_at or datetime.utcnow()
+
+        return FaceCluster(
+            id=FaceClusterId(cluster_id),
+            created_at=now,
+            updated_at=now,
+            name=name,
+            representative_face_id=representative_face_id,
+            face_ids=face_ids or [],
+        )
+
+    @staticmethod
+    def create_batch(count: int, **kwargs) -> list["FaceCluster"]:
+        """Create multiple clusters with unique names."""
+        return [
+            FaceClusterFactory.create(name=f"Person {i}", **kwargs) for i in range(count)
+        ]
+
+
 class EmbeddingFactory:
     """Factory for creating test embeddings."""
 

@@ -2,7 +2,6 @@
 
 import logging
 import time
-from typing import Any
 
 from celery import Celery, Task
 from celery.signals import (
@@ -14,6 +13,22 @@ from celery.signals import (
 )
 from prometheus_client import Counter, Gauge, Histogram
 
+from app.application.services.constants import (
+    CLEANUP_ORPHANS_INTERVAL_SECONDS,
+    DEFAULT_TASK_MAX_RETRIES,
+    MONITOR_DB_POOL_INTERVAL_SECONDS,
+    STALE_TASK_TIMEOUT_SECONDS,
+    TASK_DURATION_HISTOGRAM_BUCKETS,
+    TASK_HARD_TIME_LIMIT_SECONDS,
+    TASK_RESULT_EXPIRES_SECONDS,
+    TASK_RETRY_INITIAL_DELAY_SECONDS,
+    TASK_RETRY_MAX_DELAY_SECONDS,
+    TASK_SOFT_TIME_LIMIT_SECONDS,
+    TASK_START_TIMES_CLEANUP_THRESHOLD,
+    WORKER_MAX_TASKS_PER_CHILD,
+    WORKER_PREFETCH_MULTIPLIER,
+)
+from app.application.services.types import DeliveryInfoDict, TaskMetadataDict
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -26,7 +41,7 @@ task_duration_seconds = Histogram(
     "celery_task_duration_seconds",
     "Task execution duration in seconds",
     ["task_name", "queue"],
-    buckets=(1, 5, 10, 30, 60, 120, 300, 600, 1800, 3600),  # 1s to 1h
+    buckets=TASK_DURATION_HISTOGRAM_BUCKETS,
 )
 
 # Task failure counter
@@ -69,25 +84,40 @@ active_tasks = Gauge(
 _task_start_times = {}
 
 
-@task_prerun.connect
-def task_prerun_handler(task_id: str, task: Task, **kwargs: Any) -> None:
+@task_prerun.connect  # type: ignore[misc]
+def task_prerun_handler(task_id: str, task: Task, **kwargs: object) -> None:  # type: ignore[no-any-unimported]
     """Handle task prerun signal - record start time and increment active tasks."""
     _task_start_times[task_id] = time.time()
 
+    # Periodic cleanup of stale entries to prevent memory leak
+    if len(_task_start_times) % TASK_START_TIMES_CLEANUP_THRESHOLD == 0:
+        current_time = time.time()
+        stale = [
+            tid
+            for tid, start_time in _task_start_times.items()
+            if current_time - start_time > STALE_TASK_TIMEOUT_SECONDS
+        ]
+        for tid in stale:
+            _task_start_times.pop(tid, None)
+
+        if stale:
+            logger.warning(f"Cleaned up {len(stale)} stale task entries")
+
     # Extract queue name from task request
-    queue = getattr(task.request, "delivery_info", {}).get("routing_key", "default")
+    delivery_info_raw = getattr(task.request, "delivery_info", {})
+    queue = delivery_info_raw.get("routing_key", "default") if isinstance(delivery_info_raw, dict) else "default"
 
     # Increment active tasks
     active_tasks.labels(task_name=task.name, queue=queue).inc()
 
 
-@task_postrun.connect
-def task_postrun_handler(
+@task_postrun.connect  # type: ignore[misc]
+def task_postrun_handler(  # type: ignore[no-any-unimported]
     task_id: str,
     task: Task,
-    retval: Any,
+    retval: object,
     state: str,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> None:
     """Handle task postrun signal - record duration and update metrics."""
     # Calculate duration
@@ -96,7 +126,8 @@ def task_postrun_handler(
         duration = time.time() - start_time
 
         # Extract queue name
-        queue = getattr(task.request, "delivery_info", {}).get("routing_key", "default")
+        delivery_info_raw = getattr(task.request, "delivery_info", {})
+        queue = delivery_info_raw.get("routing_key", "default") if isinstance(delivery_info_raw, dict) else "default"
 
         # Record duration
         task_duration_seconds.labels(task_name=task.name, queue=queue).observe(duration)
@@ -117,22 +148,22 @@ def task_postrun_handler(
             ).inc()
 
 
-@celeryd_init.connect
-def setup_worker(**kwargs: Any) -> None:
+@celeryd_init.connect  # type: ignore[misc]
+def setup_worker(**kwargs: object) -> None:
     """Initialize worker with logging and signal handlers."""
     from app.adapters.inbound.workers.worker_lifecycle import init_worker
 
     init_worker()
 
 
-@worker_ready.connect
-def worker_ready_handler(**kwargs: Any) -> None:
+@worker_ready.connect  # type: ignore[misc]
+def worker_ready_handler(**kwargs: object) -> None:
     """Handle worker ready signal."""
     logger.info("Celery worker is ready to accept tasks")
 
 
-@worker_shutting_down.connect
-def worker_shutdown_handler(sig: Any, how: Any, exitcode: Any, **kwargs: Any) -> None:
+@worker_shutting_down.connect  # type: ignore[misc]
+def worker_shutdown_handler(sig: object, how: object, exitcode: object, **kwargs: object) -> None:
     """
     Handle graceful worker shutdown.
 
@@ -191,7 +222,7 @@ def worker_shutdown_handler(sig: Any, how: Any, exitcode: Any, **kwargs: Any) ->
     logger.info("Worker shutdown cleanup completed successfully")
 
 
-class LoggingTask(Task):
+class LoggingTask(Task):  # type: ignore[misc, no-any-unimported]
     """
     Custom Task class with enhanced logging.
 
@@ -200,7 +231,7 @@ class LoggingTask(Task):
     """
 
     def on_failure(
-        self, exc: Exception, task_id: str, args: tuple, kwargs: dict, einfo: Any
+        self, exc: Exception, task_id: str, args: tuple[object, ...], kwargs: dict[str, object], einfo: object
     ) -> None:
         """
         Log task failure with context.
@@ -221,7 +252,7 @@ class LoggingTask(Task):
         )
 
         # Check if task has exhausted retries
-        max_retries = self.max_retries if self.max_retries is not None else 5
+        max_retries = self.max_retries if self.max_retries is not None else DEFAULT_TASK_MAX_RETRIES
         current_retries = self.request.retries if hasattr(self.request, "retries") else 0
 
         if current_retries >= max_retries:
@@ -253,10 +284,11 @@ class LoggingTask(Task):
 
         super().on_failure(exc, task_id, args, kwargs, einfo)
 
-    def on_retry(self, exc: Exception, task_id: str, args: tuple, kwargs: dict, einfo: Any) -> None:
+    def on_retry(self, exc: Exception, task_id: str, args: tuple[object, ...], kwargs: dict[str, object], einfo: object) -> None:
         """Log task retry with context."""
         # Extract queue name
-        queue = getattr(self.request, "delivery_info", {}).get("routing_key", "default")
+        delivery_info_raw = getattr(self.request, "delivery_info", {})
+        queue = delivery_info_raw.get("routing_key", "default") if isinstance(delivery_info_raw, dict) else "default"
 
         # Increment retry counter
         task_retries_total.labels(task_name=self.name, queue=queue).inc()
@@ -275,7 +307,7 @@ class LoggingTask(Task):
         )
         super().on_retry(exc, task_id, args, kwargs, einfo)
 
-    def on_success(self, retval: Any, task_id: str, args: tuple, kwargs: dict) -> None:
+    def on_success(self, retval: object, task_id: str, args: tuple[object, ...], kwargs: dict[str, object]) -> None:
         """Log task success."""
         logger.info(
             f"Task {self.name} completed successfully",
@@ -309,20 +341,20 @@ celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     # Task timeout settings (prevent tasks from running indefinitely)
-    task_soft_time_limit=3600,  # 1 hour soft limit (raises SoftTimeLimitExceeded)
-    task_time_limit=3900,  # 1 hour 5 minutes hard limit (kills task)
+    task_soft_time_limit=TASK_SOFT_TIME_LIMIT_SECONDS,
+    task_time_limit=TASK_HARD_TIME_LIMIT_SECONDS,
     # Retry settings - DO NOT auto-retry all exceptions
     # Individual tasks should define their own retry behavior
-    task_default_retry_delay=60,  # 60 seconds initial delay
-    task_max_retries=5,  # Default max retries
+    task_default_retry_delay=TASK_RETRY_INITIAL_DELAY_SECONDS,
+    task_max_retries=DEFAULT_TASK_MAX_RETRIES,
     task_retry_backoff=True,  # Enable exponential backoff
-    task_retry_backoff_max=600,  # Max 10 minutes between retries
+    task_retry_backoff_max=TASK_RETRY_MAX_DELAY_SECONDS,
     task_retry_jitter=True,  # Add random jitter to avoid thundering herd
     # Worker settings
-    worker_prefetch_multiplier=1,
-    worker_max_tasks_per_child=100,
+    worker_prefetch_multiplier=WORKER_PREFETCH_MULTIPLIER,
+    worker_max_tasks_per_child=WORKER_MAX_TASKS_PER_CHILD,
     # Result settings
-    result_expires=3600,  # 1 hour
+    result_expires=TASK_RESULT_EXPIRES_SECONDS,
     # Task routing
     task_routes={
         "app.adapters.inbound.workers.tasks.photo_processing.*": {"queue": "processing"},
@@ -344,7 +376,11 @@ celery_app.conf.update(
     beat_schedule={
         "cleanup-orphaned-files": {
             "task": "app.adapters.inbound.workers.tasks.batch_operations.cleanup_orphans_task",
-            "schedule": 86400.0,  # Daily
+            "schedule": CLEANUP_ORPHANS_INTERVAL_SECONDS,
+        },
+        "monitor-db-pool": {
+            "task": "monitoring.monitor_db_pool",
+            "schedule": MONITOR_DB_POOL_INTERVAL_SECONDS,
         },
     },
 )

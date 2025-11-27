@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from app.domain.entities import Face, FaceCluster
+from app.domain.value_objects.social_graph import SocialGraph
 
 
 class FaceUseCases(ABC):
@@ -139,4 +140,40 @@ class FaceUseCases(ABC):
 
         Returns:
             List of photo IDs
+        """
+
+    @abstractmethod
+    async def get_social_graph(
+        self,
+        filtered_by_person_id: UUID | None = None,
+    ) -> SocialGraph:
+        """
+        Get the social graph of face relationships.
+
+        Builds a graph showing relationships between people based on
+        photo co-appearances.
+
+        Args:
+            filtered_by_person_id: Optional UUID to filter graph to show only
+                                   that person's direct connections.
+
+        Returns:
+            SocialGraph containing nodes (people) and edges (relationships)
+        """
+
+    @abstractmethod
+    async def get_relationship_photos(
+        self,
+        person_a_id: UUID,
+        person_b_id: UUID,
+    ) -> list[UUID]:
+        """
+        Get photo IDs where two people appear together.
+
+        Args:
+            person_a_id: ID of first person's cluster
+            person_b_id: ID of second person's cluster
+
+        Returns:
+            List of photo IDs containing both people
         """

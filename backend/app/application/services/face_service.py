@@ -10,8 +10,15 @@ from app.application.ports.outbound import (
     FileStorage,
     VectorStore,
 )
+from app.application.services.constants import (
+    DEFAULT_CLUSTER_LIMIT,
+    DEFAULT_CLUSTER_OFFSET,
+    RELATIONSHIP_SAMPLE_PHOTO_LIMIT,
+)
 from app.domain.entities import Face, FaceCluster
 from app.domain.exceptions import EntityNotFoundException
+from app.domain.value_objects.face_relationship import FaceRelationship
+from app.domain.value_objects.social_graph import SocialGraph
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +44,8 @@ class FaceService(FaceUseCases):
         self,
         named_only: bool = False,
         unnamed_only: bool = False,
-        limit: int = 50,
-        offset: int = 0,
+        limit: int = DEFAULT_CLUSTER_LIMIT,
+        offset: int = DEFAULT_CLUSTER_OFFSET,
     ) -> list[FaceCluster]:
         """List face clusters."""
         return await self._face_repo.find_all_clusters(
@@ -56,7 +63,7 @@ class FaceService(FaceUseCases):
         """Assign a name to a face cluster."""
         cluster = await self._face_repo.find_cluster_by_id(cluster_id)
         if not cluster:
-            raise EntityNotFoundException(f"Cluster {cluster_id} not found")
+            raise EntityNotFoundException("Cluster", str(cluster_id))
 
         cluster.set_name(name)
         cluster = await self._face_repo.save_cluster(cluster)
@@ -73,7 +80,7 @@ class FaceService(FaceUseCases):
         # Get target cluster
         target = await self._face_repo.find_cluster_by_id(target_cluster_id)
         if not target:
-            raise EntityNotFoundException(f"Target cluster {target_cluster_id} not found")
+            raise EntityNotFoundException("Cluster", str(target_cluster_id))
 
         total_moved = 0
 
@@ -89,18 +96,19 @@ class FaceService(FaceUseCases):
             moved_faces = target.merge_from(source)
             total_moved += len(moved_faces)
 
-            # Update face assignments in database
-            for face_id in source.face_ids:
-                face = await self._face_repo.find_face_by_id(face_id)
-                if face:
-                    face.assign_to_cluster(target_cluster_id)
-                    await self._face_repo.save_face(face)
+            # Update face assignments in database - batch operation to avoid N+1 queries
+            faces = await self._face_repo.find_faces_by_ids(source.face_ids)
+            for face in faces:
+                face.assign_to_cluster(target_cluster_id)
 
-                    # Update vector store
-                    await self._vector_store.update_face_payload(
-                        face_id,
-                        {"cluster_id": str(target_cluster_id)},
-                    )
+                # Update vector store
+                await self._vector_store.update_face_payload(
+                    face.id.value,
+                    {"cluster_id": str(target_cluster_id)},
+                )
+
+            # Save all faces in a single batch
+            await self._face_repo.save_faces_batch(faces)
 
             # Delete source cluster
             await self._face_repo.delete_cluster(source_id)
@@ -117,7 +125,7 @@ class FaceService(FaceUseCases):
         """Split a face from its cluster into a new cluster."""
         face = await self._face_repo.find_face_by_id(face_id)
         if not face:
-            raise EntityNotFoundException(f"Face {face_id} not found")
+            raise EntityNotFoundException("Face", str(face_id))
 
         old_cluster_id = face.cluster_id
 
@@ -153,11 +161,11 @@ class FaceService(FaceUseCases):
         """Move a face to a different cluster."""
         face = await self._face_repo.find_face_by_id(face_id)
         if not face:
-            raise EntityNotFoundException(f"Face {face_id} not found")
+            raise EntityNotFoundException("Face", str(face_id))
 
         target_cluster = await self._face_repo.find_cluster_by_id(target_cluster_id)
         if not target_cluster:
-            raise EntityNotFoundException(f"Target cluster {target_cluster_id} not found")
+            raise EntityNotFoundException("Cluster", str(target_cluster_id))
 
         old_cluster_id = face.cluster_id
 
@@ -208,8 +216,8 @@ class FaceService(FaceUseCases):
     async def get_photos_for_cluster(
         self,
         cluster_id: UUID,
-        limit: int = 50,
-        offset: int = 0,
+        limit: int = DEFAULT_CLUSTER_LIMIT,
+        offset: int = DEFAULT_CLUSTER_OFFSET,
     ) -> list[UUID]:
         """Get photo IDs containing faces from a cluster."""
         return await self._face_repo.find_photo_ids_by_cluster(
@@ -229,3 +237,90 @@ class FaceService(FaceUseCases):
             return None
 
         return await self.get_face_crop(cluster.representative_face_id)
+
+    # Social graph operations
+
+    async def get_social_graph(
+        self,
+        filtered_by_person_id: UUID | None = None,
+    ) -> SocialGraph:
+        """
+        Get the social graph of face relationships.
+
+        Builds a graph showing relationships between people based on
+        photo co-appearances.
+
+        Args:
+            filtered_by_person_id: Optional UUID to filter graph to show only
+                                   that person's direct connections.
+
+        Returns:
+            SocialGraph containing nodes (people) and edges (relationships)
+        """
+        logger.info(
+            f"Building social graph"
+            + (f" filtered by person {filtered_by_person_id}" if filtered_by_person_id else "")
+        )
+
+        # Get co-appearances from repository
+        co_appearances = await self._face_repo.get_co_appearances(cluster_id=filtered_by_person_id)
+
+        # Get all unique cluster IDs involved
+        cluster_ids: set[UUID] = set()
+        for person_a_id, person_b_id, _ in co_appearances:
+            cluster_ids.add(person_a_id)
+            cluster_ids.add(person_b_id)
+
+        # Fetch all clusters
+        clusters = []
+        for cluster_id in cluster_ids:
+            cluster = await self._face_repo.find_cluster_by_id(cluster_id)
+            if cluster:
+                clusters.append(cluster)
+
+        # Build relationships
+        relationships = []
+        for person_a_id, person_b_id, photo_count in co_appearances:
+            # Get sample photo IDs (first few photos they appear together in)
+            sample_photos = await self._face_repo.get_shared_photos(person_a_id, person_b_id)
+            sample_photo_ids = sample_photos[:RELATIONSHIP_SAMPLE_PHOTO_LIMIT]
+
+            relationship = FaceRelationship(
+                person_a_id=person_a_id,
+                person_b_id=person_b_id,
+                shared_photo_count=photo_count,
+                sample_photo_ids=sample_photo_ids,
+            )
+            relationships.append(relationship)
+
+        # Build graph
+        graph = SocialGraph(nodes=clusters, edges=relationships)
+
+        logger.info(
+            f"Built social graph with {graph.node_count} nodes and {graph.edge_count} edges"
+        )
+
+        return graph
+
+    async def get_relationship_photos(
+        self,
+        person_a_id: UUID,
+        person_b_id: UUID,
+    ) -> list[UUID]:
+        """
+        Get photo IDs where two people appear together.
+
+        Args:
+            person_a_id: ID of first person's cluster
+            person_b_id: ID of second person's cluster
+
+        Returns:
+            List of photo IDs containing both people
+        """
+        logger.info(f"Getting shared photos for persons {person_a_id} and {person_b_id}")
+
+        photo_ids = await self._face_repo.get_shared_photos(person_a_id, person_b_id)
+
+        logger.info(f"Found {len(photo_ids)} shared photos")
+
+        return photo_ids

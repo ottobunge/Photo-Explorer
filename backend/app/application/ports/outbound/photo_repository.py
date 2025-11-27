@@ -117,3 +117,19 @@ class PhotoRepository(ABC):
         Returns:
             Number of photos deleted
         """
+
+    @abstractmethod
+    async def exists_by_external_id(self, connector_id: UUID, external_id: str) -> bool:
+        """
+        Check if a photo with given external_id exists for a connector.
+
+        This is an optimized alternative to loading all photos just to check existence.
+        Uses an indexed query for efficient lookups.
+
+        Args:
+            connector_id: The connector's unique identifier
+            external_id: The external ID from the source system
+
+        Returns:
+            True if photo exists, False otherwise
+        """

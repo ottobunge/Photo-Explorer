@@ -276,9 +276,9 @@ class QdrantVectorStore(VectorStore):
                 return []
 
             # Search for similar faces
-            search_results = await self._client.search(
+            search_response = await self._client.query_points(
                 collection_name=self._faces_collection,
-                query_vector=vector,
+                query=vector,
                 limit=limit + 1,  # +1 because the query face will be included
                 score_threshold=threshold,
             )
@@ -286,12 +286,12 @@ class QdrantVectorStore(VectorStore):
             # Filter out the query face itself
             return [
                 VectorSearchResult(
-                    id=UUID(result.id),
+                    id=UUID(str(result.id)),
                     score=result.score,
                     payload=result.payload or {},
                 )
-                for result in search_results
-                if result.id != str(face_id)
+                for result in search_response.points
+                if str(result.id) != str(face_id)
             ]
         except Exception as e:
             logger.error(f"Error finding similar faces: {e}")

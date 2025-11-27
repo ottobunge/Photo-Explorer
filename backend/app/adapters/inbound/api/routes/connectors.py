@@ -1,11 +1,12 @@
 """Connectors API routes."""
 
+import httpx
 import logging
 import os
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
@@ -204,9 +205,12 @@ async def delete_connector(
     connector_id: UUID,
     connector_service: ConnectorServiceDep,
     db_session: DbSession,
-    delete_photos: Annotated[bool, Query(description="Also delete indexed photos")] = False,
+    delete_photos: Annotated[bool, Query(description="Also delete indexed photos")] = True,
 ) -> dict:
-    """Delete a connector.
+    """Delete a connector and all associated photos.
+
+    By default, deletes all photos indexed from this connector.
+    Set delete_photos=false to orphan photos instead (not recommended).
 
     Uses transaction management to ensure atomic deletion:
     - All operations succeed together, or all are rolled back
@@ -283,6 +287,7 @@ async def delete_connector(
 @limiter.limit("5/minute")
 async def trigger_sync(
     request: Request,
+    response: Response,
     connector_id: UUID,
     connector_service: ConnectorServiceDep,
 ) -> dict:
@@ -330,6 +335,7 @@ async def trigger_sync(
 @limiter.limit("2/hour")
 async def trigger_reprocess(
     request: Request,
+    response: Response,
     connector_id: UUID,
     connector_service: ConnectorServiceDep,
 ) -> dict:
@@ -624,6 +630,7 @@ async def get_google_photos_status(
 @limiter.limit("10/minute")
 async def create_picker_session(
     request: Request,
+    response: Response,
     connector_id: UUID,
     connector_service: ConnectorServiceDep,
 ) -> PickerSessionResponse:
@@ -674,6 +681,29 @@ async def create_picker_session(
                 "poll_interval_seconds": session.poll_interval_seconds,
                 "expire_time": session.expire_time.isoformat() if session.expire_time else None,
             },
+        )
+    except httpx.HTTPStatusError as e:
+        # Handle HTTP errors from Google Photos API
+        if e.response.status_code == 401:
+            raise HTTPException(
+                status_code=401,
+                detail="Google Photos authentication expired. Please reconnect your account."
+            )
+        elif e.response.status_code == 403:
+            raise HTTPException(
+                status_code=403,
+                detail="Access forbidden. Please check your Google Photos API permissions and ensure the Photos Picker API is enabled."
+            )
+        else:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Google Photos API error: {e.response.status_code} - {e.response.reason_phrase}"
+            )
+    except Exception as e:
+        # Handle other errors
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create picker session: {str(e)}"
         )
     finally:
         await client.close()

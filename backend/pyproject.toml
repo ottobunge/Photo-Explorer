@@ -216,6 +216,12 @@ strict = true
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
+disallow_any_unimported = true
+disallow_any_expr = false  # Too strict, causes issues with libraries
+disallow_any_decorated = false  # FastAPI decorators would fail
+disallow_any_explicit = true  # Forbid explicit Any
+disallow_any_generics = true  # Require type parameters for generics
+disallow_subclassing_any = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]

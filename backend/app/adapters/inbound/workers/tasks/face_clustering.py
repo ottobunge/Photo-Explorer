@@ -7,15 +7,16 @@ from typing import Generator
 from uuid import UUID
 
 import redis
+from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.exc import OperationalError
 
 from app.adapters.inbound.workers.celery_app import celery_app
 from app.adapters.inbound.workers.exceptions import TransientError
+from app.adapters.inbound.workers.service_container import get_services
 from app.adapters.outbound.persistence.postgres import (
     FaceRepositoryPostgres,
 )
 from app.adapters.outbound.persistence.postgres.database import get_worker_session_context
-from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
 from app.config import get_settings
 from app.domain.entities import FaceCluster
 
@@ -118,8 +119,9 @@ async def _cluster_faces_async(similarity_threshold: float) -> dict:
     """Async implementation of face clustering."""
     # Acquire distributed lock to prevent concurrent clustering
     with acquire_clustering_lock():
-        # Initialize vector store (singleton, no cleanup needed)
-        vector_store = QdrantVectorStore()
+        # Get services from container (lazy-loaded singletons)
+        services = get_services()
+        vector_store = services.vector_store
 
         try:
             async with get_worker_session_context() as session:
@@ -202,6 +204,10 @@ async def _cluster_faces_async(similarity_threshold: float) -> dict:
                     "clusters_created": clusters_created,
                     "faces_clustered": faces_clustered,
                 }
+        except SoftTimeLimitExceeded:
+            logger.error("Task soft timeout during face clustering")
+            # Partial clustering is acceptable - clustered faces are saved
+            raise
         except Exception as e:
             logger.exception(f"Error during face clustering: {e}")
             return {"status": "error", "message": str(e)}
@@ -244,8 +250,9 @@ async def _update_clusters_async(
     similarity_threshold: float,
 ) -> dict:
     """Async implementation of incremental cluster update."""
-    # Initialize vector store (singleton, no cleanup needed)
-    vector_store = QdrantVectorStore()
+    # Get services from container (lazy-loaded singletons)
+    services = get_services()
+    vector_store = services.vector_store
 
     try:
         async with get_worker_session_context() as session:
@@ -345,6 +352,10 @@ async def _update_clusters_async(
                 "faces_assigned": faces_assigned,
                 "new_clusters": new_clusters,
             }
+    except SoftTimeLimitExceeded:
+        logger.error("Task soft timeout during cluster update")
+        # Partial updates are acceptable - assigned faces are saved
+        raise
     except Exception as e:
         logger.exception(f"Error updating clusters: {e}")
         return {"status": "error", "message": str(e)}
@@ -384,8 +395,9 @@ async def _merge_clusters_async(
     target_cluster_id: str,
 ) -> dict:
     """Async implementation of cluster merge."""
-    # Initialize vector store (singleton, no cleanup needed)
-    vector_store = QdrantVectorStore()
+    # Get services from container (lazy-loaded singletons)
+    services = get_services()
+    vector_store = services.vector_store
 
     try:
         async with get_worker_session_context() as session:

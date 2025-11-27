@@ -1,12 +1,14 @@
 """Google Photos sync tasks for background execution."""
 
 import asyncio
+import io
 import logging
 import os
 from datetime import datetime
 from uuid import UUID
 
 import httpx
+from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.exc import OperationalError
 
 from app.adapters.inbound.workers.celery_app import celery_app
@@ -20,17 +22,16 @@ from app.adapters.inbound.workers.exceptions import (
     TransientError,
 )
 from app.adapters.inbound.workers.rate_limiter import RateLimiter
+from app.adapters.inbound.workers.service_container import get_services
 from app.adapters.outbound.connectors.google_photos import (
     GooglePhotosClient,
     GooglePhotosPickerClient,
 )
-from app.adapters.outbound.ml import get_ml_services
 from app.adapters.outbound.persistence.postgres import (
     ConnectorRepositoryPostgres,
     PhotoRepositoryPostgres,
 )
-from app.adapters.outbound.persistence.qdrant import QdrantVectorStore
-from app.adapters.outbound.storage import LocalFileStorage, SecureTokenStorage
+from app.adapters.outbound.storage import SecureTokenStorage
 from app.domain.entities import Photo
 from app.domain.entities.connector import ConnectorStatus, ConnectorType, SyncStats
 
@@ -106,6 +107,9 @@ def sync_google_photos_task(self, connector_id: str) -> dict:
     Automatically retries on network errors, rate limits, and transient failures
     with exponential backoff.
 
+    Uses task execution tracking for idempotency - if the task completes successfully
+    and is retried, it will detect the previous completion and skip processing.
+
     Args:
         connector_id: UUID of the Google Photos connector
 
@@ -118,7 +122,9 @@ def sync_google_photos_task(self, connector_id: str) -> dict:
         RateLimitError: When API rate limit is exceeded (will retry with backoff)
     """
     try:
-        return run_async(_sync_google_photos_async(connector_id))
+        # Get task_id for idempotency tracking
+        task_id = self.request.id
+        return run_async(_sync_google_photos_async(connector_id, task_id=task_id))
     except (AuthenticationError, InvalidDataError):
         logger.error(
             f"Permanent error syncing Google Photos {connector_id}, will not retry",
@@ -145,7 +151,9 @@ def sync_google_photos_task(self, connector_id: str) -> dict:
         raise PermanentError(f"Unexpected sync error: {e!s}", {"connector_id": connector_id})
 
 
-async def _sync_google_photos_async(connector_id: str) -> dict:
+async def _sync_google_photos_async(
+    connector_id: str, task_id: str | None = None
+) -> dict:
     """Async implementation of Google Photos sync."""
     from app.adapters.outbound.persistence.postgres.database import get_worker_session_context
 
@@ -153,6 +161,30 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
     started_at = datetime.utcnow()
 
     async with get_worker_session_context() as session:
+        # Check idempotency if task_id provided
+        if task_id:
+            from app.adapters.inbound.workers.idempotency import (
+                check_task_completed,
+                mark_task_running,
+            )
+
+            if await check_task_completed(session, task_id):
+                logger.info(f"Task {task_id} already completed, skipping sync")
+                return {
+                    "status": "already_completed",
+                    "connector_id": connector_id,
+                    "message": "Sync already completed",
+                }
+
+            # Mark task as running
+            await mark_task_running(
+                session,
+                task_id,
+                "sync_google_photos_task",
+                context={"connector_id": connector_id},
+            )
+            await session.commit()
+
         connector_repo = ConnectorRepositoryPostgres(session)
         photo_repo = PhotoRepositoryPostgres(session)
 
@@ -207,12 +239,6 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
                 refresh_token=tokens.refresh_token,
             )
 
-            # Get existing photos for this connector
-            existing_photos = await photo_repo.find_by_connector(connector_uuid, limit=100000)
-            known_external_ids = {
-                p.external_id: p.id.value for p in existing_photos if p.external_id
-            }
-
             # Use mutable counters during sync (SyncStats is frozen/immutable)
             sync_counters = {
                 "total_items": 0,
@@ -221,96 +247,160 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
                 "failed": 0,
             }
 
-            try:
-                # Iterate through all photos from Google Photos
-                async for metadata in client.iter_all_photos():
-                    # Check rate limit before processing each item
-                    allowed = await rate_limiter.wait_if_limited(
-                        f"connector_{connector_id}", max_retries=3
-                    )
-                    if not allowed:
-                        logger.error(
-                            f"Rate limit exceeded for connector {connector_id}, aborting sync",
-                            extra={"connector_id": connector_id}
+            # Get services from container (lazy-loaded singletons)
+            services = get_services()
+            ml_services = services.ml_services
+            vector_store = services.vector_store
+            file_storage = services.file_storage
+
+            # Create HTTP client once for all downloads (reuse connection pool)
+            async with httpx.AsyncClient(timeout=60.0) as http_client:
+                try:
+                    # Iterate through all photos from Google Photos
+                    async for metadata in client.iter_all_photos():
+                        # Check rate limit before processing each item
+                        allowed = await rate_limiter.wait_if_limited(
+                            f"connector_{connector_id}", max_retries=3
                         )
-                        raise RateLimitError(
-                            "Google Photos API rate limit exceeded",
-                            {"connector_id": connector_id}
+                        if not allowed:
+                            logger.error(
+                                f"Rate limit exceeded for connector {connector_id}, aborting sync",
+                                extra={"connector_id": connector_id}
+                            )
+                            raise RateLimitError(
+                                "Google Photos API rate limit exceeded",
+                                {"connector_id": connector_id}
+                            )
+
+                        sync_counters["total_items"] += 1
+
+                        # Check if photo already exists - optimized with indexed query
+                        if await photo_repo.exists_by_external_id(connector_uuid, metadata.external_id):
+                            sync_counters["skipped"] += 1
+                            continue
+
+                        try:
+                            # Create new photo reference
+                            photo = Photo.create_from_connector(
+                                filename=metadata.filename or f"photo_{metadata.external_id}",
+                                connector_type="google_photos",
+                                connector_id=connector_uuid,
+                                external_id=metadata.external_id,
+                                source_path=None,  # Google Photos doesn't have local path
+                            )
+
+                            # Set metadata from Google Photos API
+                            photo.set_metadata(
+                                mime_type=metadata.mime_type,
+                                file_size=None,  # Not provided by API
+                                width=metadata.width,
+                                height=metadata.height,
+                                taken_at=metadata.taken_at,
+                            )
+
+                            # Set description if available
+                            if metadata.description:
+                                photo.description = metadata.description
+
+                            # Fetch image and generate thumbnail + embeddings
+                            if metadata.base_url:
+                                image_data = None
+                                try:
+                                    # Request a high-quality image for processing
+                                    # 2048px is good for CLIP, face detection, and general viewing
+                                    image_url = f"{metadata.base_url}=w2048-h2048"
+
+                                    # Need to include auth token for accessing the image
+                                    headers = {"Authorization": f"Bearer {client._access_token}"}
+
+                                    # Reuse http_client for all downloads
+                                    response = await http_client.get(
+                                        image_url, headers=headers
+                                    )
+                                    response.raise_for_status()
+                                    image_data = response.content
+
+                                    # Save the full image to storage_path for processing
+                                    storage_path = await file_storage.save_photo(
+                                        io.BytesIO(image_data), photo.filename
+                                    )
+                                    photo.storage_path = storage_path
+
+                                    # Also save as thumbnail
+                                    thumbnail_path = await file_storage.save_thumbnail(
+                                        image_data, str(photo.id.value)
+                                    )
+                                    photo.thumbnail_path = thumbnail_path
+
+                                    logger.debug(f"Saved image and thumbnail for {metadata.external_id}")
+                                except Exception as fetch_err:
+                                    logger.warning(f"Failed to fetch image for {metadata.external_id}: {fetch_err}")
+
+                                # Generate CLIP embedding if we have image data
+                                if image_data:
+                                    try:
+                                        embedding = await ml_services.encode_image(image_data)
+                                        await vector_store.store_photo_embedding(
+                                            photo.id.value,
+                                            embedding,
+                                            payload={
+                                                "filename": photo.filename,
+                                                "connector_type": photo.connector_type,
+                                            },
+                                        )
+                                        photo.set_processing_status("completed")
+                                        logger.debug(f"Generated embedding for {metadata.external_id}")
+                                    except Exception as emb_err:
+                                        logger.warning(
+                                            f"Failed to generate embedding for {metadata.external_id}: {emb_err}"
+                                        )
+                                        # Continue without embedding
+
+                            # Save photo
+                            photo = await photo_repo.save(photo)
+                            sync_counters["indexed"] += 1
+
+                            logger.debug(f"Indexed Google Photos item: {metadata.external_id}")
+
+                            # Queue face detection if we have a stored image
+                            if photo.storage_path:
+                                from app.adapters.inbound.workers.tasks.photo_processing import detect_faces_task
+                                detect_faces_task.delay(str(photo.id.value))
+                                logger.debug(f"Queued face detection for {metadata.external_id}")
+
+                        except Exception as e:
+                            logger.error(f"Error indexing {metadata.external_id}: {e}")
+                            sync_counters["failed"] += 1
+
+                    # If tokens were refreshed, save them
+                    if client._access_token != tokens.access_token:
+                        from app.application.ports.outbound import OAuthTokens
+
+                        new_tokens = OAuthTokens(
+                            access_token=client._access_token,
+                            refresh_token=client._refresh_token,
+                            token_type="Bearer",
+                            expires_at=client._token_expires_at,
+                            scopes=GooglePhotosClient.SCOPES,
                         )
+                        try:
+                            await token_storage.save_tokens(f"google_photos_{connector_id}", new_tokens)
+                        except Exception as token_err:
+                            logger.error(
+                                f"Failed to save refreshed tokens for connector {connector_id}: {token_err}",
+                                extra={
+                                    "connector_id": connector_id,
+                                    "error": str(token_err),
+                                    "error_type": type(token_err).__name__,
+                                },
+                                exc_info=True,
+                            )
+                            # Don't fail the sync task if token save fails - the sync completed successfully
+                            # The tokens will be refreshed again on the next sync
 
-                    sync_counters["total_items"] += 1
-
-                    # Check if photo already exists
-                    if metadata.external_id in known_external_ids:
-                        sync_counters["skipped"] += 1
-                        continue
-
-                    try:
-                        # Create new photo reference
-                        photo = Photo.create_from_connector(
-                            filename=metadata.filename or f"photo_{metadata.external_id}",
-                            connector_type="google_photos",
-                            connector_id=connector_uuid,
-                            external_id=metadata.external_id,
-                            source_path=None,  # Google Photos doesn't have local path
-                        )
-
-                        # Set metadata from Google Photos API
-                        photo.set_metadata(
-                            mime_type=metadata.mime_type,
-                            file_size=None,  # Not provided by API
-                            width=metadata.width,
-                            height=metadata.height,
-                            taken_at=metadata.taken_at,
-                        )
-
-                        # Set description if available
-                        if metadata.description:
-                            photo.description = metadata.description
-
-                        # Save photo
-                        photo = await photo_repo.save(photo)
-                        sync_counters["indexed"] += 1
-
-                        logger.debug(f"Indexed Google Photos item: {metadata.external_id}")
-
-                        # Note: Don't queue processing tasks here - Google Photos
-                        # images need to be fetched first. Processing will happen
-                        # when the photo is viewed or explicitly fetched.
-
-                    except Exception as e:
-                        logger.error(f"Error indexing {metadata.external_id}: {e}")
-                        sync_counters["failed"] += 1
-
-                # If tokens were refreshed, save them
-                if client._access_token != tokens.access_token:
-                    from app.application.ports.outbound import OAuthTokens
-
-                    new_tokens = OAuthTokens(
-                        access_token=client._access_token,
-                        refresh_token=client._refresh_token,
-                        token_type="Bearer",
-                        expires_at=client._token_expires_at,
-                        scopes=GooglePhotosClient.SCOPES,
-                    )
-                    try:
-                        await token_storage.save_tokens(f"google_photos_{connector_id}", new_tokens)
-                    except Exception as token_err:
-                        logger.error(
-                            f"Failed to save refreshed tokens for connector {connector_id}: {token_err}",
-                            extra={
-                                "connector_id": connector_id,
-                                "error": str(token_err),
-                                "error_type": type(token_err).__name__,
-                            },
-                            exc_info=True,
-                        )
-                        # Don't fail the sync task if token save fails - the sync completed successfully
-                        # The tokens will be refreshed again on the next sync
-
-            finally:
-                await client.close()
-                await rate_limiter.close()
+                finally:
+                    await client.close()
+                    await rate_limiter.close()
 
             # Create final immutable SyncStats value object
             stats = SyncStats(
@@ -331,7 +421,7 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
                 f"{stats.indexed} new, {stats.skipped} skipped, {stats.failed} failed"
             )
 
-            return {
+            result = {
                 "status": "completed",
                 "connector_id": connector_id,
                 "total_items": stats.total_items,
@@ -341,6 +431,21 @@ async def _sync_google_photos_async(connector_id: str) -> dict:
                 "duration_seconds": stats.duration_seconds,
             }
 
+            # Mark task as completed for idempotency
+            if task_id:
+                from app.adapters.inbound.workers.idempotency import mark_task_completed
+
+                await mark_task_completed(session, task_id, result=result)
+                await session.commit()
+
+            return result
+
+        except SoftTimeLimitExceeded:
+            logger.error(f"Task soft timeout during Google Photos sync for connector {connector_id}")
+            # Mark connector as timeout status
+            connector.set_error("Sync timeout - partial sync completed")
+            await connector_repo.save(connector)
+            raise
         except Exception as e:
             logger.exception(
                 f"Error syncing Google Photos connector {connector_id}: {e}",
@@ -541,12 +646,10 @@ async def _fetch_photo_bytes_async(photo_id: str) -> dict:
                 if not photo_bytes:
                     return {"status": "error", "message": "Could not fetch photo"}
 
-                # Store the photo using file storage
-                from app.adapters.outbound.storage import LocalFileStorage
-
-                file_storage = LocalFileStorage()
-                storage_path = await file_storage.save_photo(
-                    photo.id.value, photo_bytes, photo.mime_type or "image/jpeg"
+                # Store the photo using file storage (from container)
+                services = get_services()
+                storage_path = await services.file_storage.save_photo(
+                    io.BytesIO(photo_bytes), photo.filename
                 )
 
                 # Update photo with storage path
@@ -710,10 +813,11 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
                 "failed": 0,
             }
 
-            # Initialize services ONCE for all photos (singletons, no cleanup needed)
-            ml_services = get_ml_services()
-            vector_store = QdrantVectorStore()
-            file_storage = LocalFileStorage()
+            # Get services from container (lazy-loaded singletons)
+            services = get_services()
+            ml_services = services.ml_services
+            vector_store = services.vector_store
+            file_storage = services.file_storage
 
             try:
                 # Iterate through all selected photos
@@ -748,29 +852,35 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
                         if item.base_url:
                             image_data = None
                             try:
-                                # Request a medium-sized image for processing
-                                # 512px is good for CLIP and face detection
-                                image_url = f"{item.base_url}=w512-h512"
+                                # Request a high-quality image for processing
+                                # 2048px is good for CLIP, face detection, and general viewing
+                                image_url = f"{item.base_url}=w2048-h2048"
 
                                 # Need to include auth token for accessing the image
                                 headers = {"Authorization": f"Bearer {client._access_token}"}
 
                                 async with httpx.AsyncClient() as http_client:
                                     response = await http_client.get(
-                                        image_url, headers=headers, timeout=30.0
+                                        image_url, headers=headers, timeout=60.0
                                     )
                                     response.raise_for_status()
                                     image_data = response.content
 
-                                # Save as thumbnail (using pre-initialized file_storage)
+                                # Save the full image to storage_path for processing
+                                storage_path = await file_storage.save_photo(
+                                    io.BytesIO(image_data), photo.filename
+                                )
+                                photo.storage_path = storage_path
+
+                                # Also save as thumbnail (using pre-initialized file_storage)
                                 thumbnail_path = await file_storage.save_thumbnail(
                                     image_data, str(photo.id.value)
                                 )
                                 photo.thumbnail_path = thumbnail_path
 
-                                logger.debug(f"Saved thumbnail for {item.id}")
-                            except Exception as thumb_err:
-                                logger.warning(f"Failed to fetch image for {item.id}: {thumb_err}")
+                                logger.debug(f"Saved image and thumbnail for {item.id}")
+                            except Exception as fetch_err:
+                                logger.warning(f"Failed to fetch image for {item.id}: {fetch_err}")
 
                             # Generate CLIP embedding if we have image data
                             # (using pre-initialized ml_services and vector_store)
@@ -798,6 +908,12 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
                         sync_counters["indexed"] += 1
 
                         logger.debug(f"Indexed Google Photos item: {item.id}")
+
+                        # Queue face detection if we have a stored image
+                        if photo.storage_path:
+                            from app.adapters.inbound.workers.tasks.photo_processing import detect_faces_task
+                            detect_faces_task.delay(str(photo.id.value))
+                            logger.debug(f"Queued face detection for {item.id}")
 
                     except Exception as e:
                         logger.error(f"Error indexing {item.id}: {e}")
