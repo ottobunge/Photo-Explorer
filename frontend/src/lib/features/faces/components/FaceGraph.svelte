@@ -123,8 +123,8 @@
 			cy.on('mouseover', 'node', (event) => {
 				const node = event.target;
 				const name = node.data('name') || 'Unknown';
-				const photoCount = node.data('photoCount') || 0;
-				node.data('label', `${name}\n${photoCount} photos`);
+				const faceCount = node.data('faceCount') || 0;
+				node.data('label', `${name}\n${faceCount} faces`);
 			});
 
 			cy.on('mouseover', 'edge', (event) => {
@@ -161,10 +161,9 @@
 			data: {
 				id: node.id,
 				name: node.name || 'Unknown',
-				photoCount: node.photoCount || 0,
-				faceCount: node.faceCount || 0,
-				size: Math.max(30, Math.min(80, (node.photoCount || 0) * 2)), // Size based on photo count
-				representativeFaceId: node.representativeFaceId
+				faceCount: node.face_count || 0,
+				size: Math.max(30, Math.min(80, (node.face_count || 0) * 2)), // Size based on face count
+				representativeFaceId: node.representative_face_id
 			},
 			classes: currentFilteredPersonId === node.id ? 'highlighted' : ''
 		}));
@@ -172,12 +171,12 @@
 		// Convert edges to Cytoscape format
 		const cytoscapeEdges: ElementDefinition[] = edges.map((edge) => ({
 			data: {
-				id: `${edge.personAId}-${edge.personBId}`,
-				source: edge.personAId,
-				target: edge.personBId,
-				sharedPhotoCount: edge.sharedPhotoCount || 0,
-				thickness: Math.max(1, Math.min(8, (edge.sharedPhotoCount || 0) / 2)), // Thickness based on shared photos
-				samplePhotoIds: edge.samplePhotoIds || []
+				id: `${edge.person_a_id}-${edge.person_b_id}`,
+				source: edge.person_a_id,
+				target: edge.person_b_id,
+				sharedPhotoCount: edge.shared_photo_count || 0,
+				thickness: Math.max(1, Math.min(8, (edge.shared_photo_count || 0) / 2)), // Thickness based on shared photos
+				samplePhotoIds: edge.sample_photo_ids || []
 			}
 		}));
 
