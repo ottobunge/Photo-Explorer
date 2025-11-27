@@ -11,7 +11,11 @@
 		PICKER_WINDOW_HEIGHT
 	} from '$lib/constants';
 
-	export let connector: Connector;
+	interface Props {
+		connector: Connector;
+	}
+
+	let { connector }: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		remove: { id: string };
