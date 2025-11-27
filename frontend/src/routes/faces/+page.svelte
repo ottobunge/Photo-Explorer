@@ -26,9 +26,9 @@
 
 	type TabType = 'list' | 'graph';
 
-	// Derive activeTab from URL parameter
-	let activeTab = $derived<TabType>(
-		$page.url.searchParams.get('view') === 'graph' ? 'graph' : 'list'
+	// Derive activeTab from URL parameter - must be reactive to $page changes
+	let activeTab: TabType = $derived(
+		($page.url.searchParams.get('view') === 'graph' ? 'graph' : 'list') as TabType
 	);
 
 	let clusters = $state<FaceCluster[]>([]);
@@ -224,7 +224,7 @@
 		}
 
 		const newUrl = params.toString() ? `/faces?${params.toString()}` : '/faces';
-		await goto(newUrl, { replaceState: true, keepFocus: true });
+		await goto(newUrl, { keepFocus: true });
 
 		// activeTab is derived from URL params and will update automatically
 	}
