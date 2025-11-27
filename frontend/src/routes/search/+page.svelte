@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { SearchBar } from '$features/search';
+	import SimilarityThresholdSlider from '$lib/features/search/components/SimilarityThresholdSlider.svelte';
 	import { client, API_HOST } from '$lib/api/client';
 
 	interface Photo {
@@ -63,6 +64,9 @@
 	let selectedConnectorId = $state<string | null>(null);
 	let selectedAlbumId = $state<string | null>(null);
 
+	// Similarity threshold filter
+	let similarityThreshold = $state<number | null>(null);
+
 	const totalPages = $derived(Math.ceil(total / perPage));
 
 	// Initialize from URL params
@@ -72,6 +76,7 @@
 		const urlPerPage = $page.url.searchParams.get('per_page');
 		const urlConnector = $page.url.searchParams.get('connector_id');
 		const urlAlbum = $page.url.searchParams.get('album_id');
+		const urlSimilarity = $page.url.searchParams.get('similarity_threshold');
 
 		if (urlQuery !== null) {
 			query = urlQuery;
@@ -94,6 +99,12 @@
 		}
 		if (urlAlbum !== null) {
 			selectedAlbumId = urlAlbum;
+		}
+		if (urlSimilarity !== null) {
+			const parsed = parseFloat(urlSimilarity);
+			if (!isNaN(parsed) && parsed >= 0.0 && parsed <= 1.0) {
+				similarityThreshold = parsed;
+			}
 		}
 
 		// Load filter options
@@ -141,6 +152,9 @@
 		if (selectedAlbumId) {
 			params.set('album_id', selectedAlbumId);
 		}
+		if (similarityThreshold !== null) {
+			params.set('similarity_threshold', similarityThreshold.toString());
+		}
 
 		const newUrl = params.toString() ? `?${params.toString()}` : '/search';
 		void goto(newUrl, { replaceState: true, keepFocus: true });
@@ -186,6 +200,9 @@
 			}
 			if (selectedAlbumId) {
 				url += `&album_id=${encodeURIComponent(selectedAlbumId)}`;
+			}
+			if (similarityThreshold !== null) {
+				url += `&similarity_threshold=${similarityThreshold.toString()}`;
 			}
 			const res = await client.get<SearchResponse>(url);
 			if (res.success && res.data) {
@@ -265,6 +282,20 @@
 	<div class="mb-6">
 		<SearchBar bind:query onSearch={onSearchSubmit} {loading} />
 	</div>
+
+	<!-- Similarity Threshold Slider -->
+	{#if isSearchMode && query.trim()}
+		<div class="mb-6">
+			<SimilarityThresholdSlider
+				value={similarityThreshold}
+				onchange={(value) => {
+					similarityThreshold = value;
+					currentPage = 1;
+					void handleSearch();
+				}}
+			/>
+		</div>
+	{/if}
 
 	<!-- Scope Filters -->
 	<div class="mb-6 flex flex-wrap gap-4">
