@@ -22,16 +22,16 @@ export interface MockAlbum {
  * const album = createMockAlbum({ name: 'Summer Vacation', photo_count: 50 });
  */
 export function createMockAlbum(overrides: Partial<MockAlbum> = {}): MockAlbum {
-	const id = overrides.id || `album-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+	const id = overrides.id ?? `album-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 	return {
 		id,
-		name: overrides.name || 'My Album',
-		description: overrides.description !== undefined ? overrides.description : null,
-		cover_photo_id: overrides.cover_photo_id !== undefined ? overrides.cover_photo_id : null,
-		photo_count: overrides.photo_count !== undefined ? overrides.photo_count : 0,
-		created_at: overrides.created_at || new Date().toISOString(),
-		updated_at: overrides.updated_at || new Date().toISOString()
+		name: overrides.name ?? 'My Album',
+		description: overrides.description ?? null,
+		cover_photo_id: overrides.cover_photo_id ?? null,
+		photo_count: overrides.photo_count ?? 0,
+		created_at: overrides.created_at ?? new Date().toISOString(),
+		updated_at: overrides.updated_at ?? new Date().toISOString()
 	};
 }
 

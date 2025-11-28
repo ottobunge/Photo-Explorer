@@ -27,7 +27,7 @@
 			.filter((cluster: FaceClusterType) => {
 				if (!searchQuery.trim()) {return true;}
 				const query = searchQuery.toLowerCase();
-				const name = cluster.name?.toLowerCase() || 'unknown';
+				const name = cluster.name?.toLowerCase() ?? 'unknown';
 				return name.includes(query);
 			})
 			.sort((a: FaceClusterType, b: FaceClusterType) => {
@@ -129,7 +129,7 @@
 								{#if cluster.representativeFace}
 									<img
 										src={getCropUrl(cluster)}
-										alt={cluster.name || 'Unknown person'}
+										alt={cluster.name ?? 'Unknown person'}
 										class="h-16 w-16 rounded-full object-cover"
 									/>
 								{:else}
@@ -144,7 +144,7 @@
 							<!-- Cluster info -->
 							<div class="flex-1 min-w-0">
 								<p class="font-medium text-gray-900 truncate">
-									{cluster.name || 'Unknown'}
+									{cluster.name ?? 'Unknown'}
 								</p>
 								<p class="text-sm text-gray-500">
 									{cluster.faceCount} {cluster.faceCount === 1 ? 'face' : 'faces'} ·

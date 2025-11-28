@@ -262,7 +262,7 @@ describe('ClusterPicker', () => {
 
 		// Get only cluster buttons (inside the scrollable container, not Cancel or X buttons)
 		const scrollContainer = _container.querySelector('.overflow-y-auto');
-		const clusterButtons = scrollContainer?.querySelectorAll('button[type="button"]') || [];
+		const clusterButtons = scrollContainer?.querySelectorAll('button[type="button"]') ?? [];
 
 		// Named clusters should appear first, alphabetically: Alice, Bob, Charlie, Unknown
 		const textContent = Array.from(clusterButtons).map((btn) => btn.textContent);

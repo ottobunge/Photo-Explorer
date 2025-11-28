@@ -22,8 +22,8 @@ export interface MockConnector {
  * const connector = createMockConnector({ type: 'local', name: 'My Photos' });
  */
 export function createMockConnector(overrides: Partial<MockConnector> = {}): MockConnector {
-	const id = overrides.id || `connector-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-	const type = overrides.type || 'local';
+	const id = overrides.id ?? `connector-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+	const type = overrides.type ?? 'local';
 
 	// Type-specific defaults
 	const typeDefaults: Record<string, Partial<MockConnector>> = {
@@ -44,11 +44,11 @@ export function createMockConnector(overrides: Partial<MockConnector> = {}): Moc
 	return {
 		id,
 		type,
-		name: overrides.name || typeDefaults[type]?.name || 'Connector',
-		enabled: overrides.enabled !== undefined ? overrides.enabled : true,
-		config: overrides.config || typeDefaults[type]?.config || {},
-		created_at: overrides.created_at || new Date().toISOString(),
-		updated_at: overrides.updated_at || new Date().toISOString()
+		name: overrides.name ?? typeDefaults[type]?.name ?? 'Connector',
+		enabled: overrides.enabled ?? true,
+		config: overrides.config ?? typeDefaults[type]?.config ?? {},
+		created_at: overrides.created_at ?? new Date().toISOString(),
+		updated_at: overrides.updated_at ?? new Date().toISOString()
 	};
 }
 

@@ -23,7 +23,7 @@
 		dragOver = false;
 		if (disabled) {return;}
 
-		const files = Array.from(e.dataTransfer?.files || []).filter((f) =>
+		const files = Array.from(e.dataTransfer?.files ?? []).filter((f) =>
 			f.type.startsWith('image/')
 		);
 		if (files.length > 0) {
@@ -33,7 +33,7 @@
 
 	function handleFileSelect(e: Event): void {
 		const input = e.target as HTMLInputElement;
-		const files = Array.from(input.files || []);
+		const files = Array.from(input.files ?? []);
 		if (files.length > 0) {
 			dispatch('filesSelected', files);
 		}

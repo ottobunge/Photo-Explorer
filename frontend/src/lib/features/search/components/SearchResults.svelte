@@ -27,7 +27,7 @@
 				>
 					<img
 						src={result.photo.thumbnailUrl}
-						alt={result.photo.description || result.photo.filename}
+						alt={result.photo.description ?? result.photo.filename}
 						class="h-full w-full object-cover transition-transform group-hover:scale-105"
 						loading="lazy"
 					/>

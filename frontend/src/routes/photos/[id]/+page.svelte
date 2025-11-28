@@ -133,7 +133,7 @@
 					{#if photo.thumbnail_url}
 						<img
 							src="{API_HOST}{photo.thumbnail_url}"
-							alt={photo.description || photo.filename}
+							alt={photo.description ?? photo.filename}
 							class="w-full h-auto"
 						/>
 					{:else}
@@ -168,7 +168,7 @@
 					{/if}
 
 					<!-- Scene Classification -->
-					{#if photo.scene_type || photo.is_indoor !== null}
+					{#if (photo.scene_type !== null && photo.scene_type !== undefined && photo.scene_type !== '') || photo.is_indoor !== null}
 						<div class="bg-white rounded-lg shadow p-6">
 							<h2 class="text-lg font-semibold text-gray-900 mb-3">Scene Analysis</h2>
 							<div class="space-y-2">

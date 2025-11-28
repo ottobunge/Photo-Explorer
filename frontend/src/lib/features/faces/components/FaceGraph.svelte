@@ -174,7 +174,7 @@
 		const cytoscapeNodes: ElementDefinition[] = nodes.map((node) => ({
 			data: {
 				id: node.id,
-				name: node.name || 'Unknown',
+				name: node.name ?? 'Unknown',
 				faceCount: node.face_count || 0,
 				size: Math.max(30, Math.min(80, (node.face_count || 0) * 2)), // Size based on face count
 				representativeFaceId: node.representative_face_id

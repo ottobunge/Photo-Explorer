@@ -100,7 +100,7 @@ test.describe('Manual Face Clustering - Face Detail Page', () => {
 
 				// Should show selection count > 1
 				const selectionText = await page.getByText(/\d+ selected/i).textContent();
-				const selectedCount = parseInt(selectionText?.match(/\d+/)?.[0] || '0');
+				const selectedCount = parseInt(selectionText?.match(/\d+/)?.[0] ?? '0');
 				expect(selectedCount).toBeGreaterThan(1);
 			}
 		}

@@ -95,7 +95,7 @@ export function useUrlParam<T>(
 	// If validator provided, use it
 	if (validator) {
 		const validated = validator(parsed);
-		return validated !== null ? validated : defaultValue;
+		return validated ?? defaultValue;
 	}
 
 	return parsed;

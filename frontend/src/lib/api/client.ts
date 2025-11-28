@@ -177,8 +177,8 @@ async function handleResponse<T>(
 
 		if (!response.ok || !data.success) {
 			throw new ApiError(
-				data.error?.message || 'Request failed',
-				data.error?.code || 'UNKNOWN_ERROR',
+				data.error?.message ?? 'Request failed',
+				data.error?.code ?? 'UNKNOWN_ERROR',
 				data.error?.details
 			);
 		}
@@ -192,8 +192,8 @@ async function handleResponse<T>(
 
 	if (!response.ok || !data.success) {
 		throw new ApiError(
-			data.error?.message || 'Request failed',
-			data.error?.code || 'UNKNOWN_ERROR',
+			data.error?.message ?? 'Request failed',
+			data.error?.code ?? 'UNKNOWN_ERROR',
 			data.error?.details
 		);
 	}

@@ -120,7 +120,7 @@
 								{#if cluster.representativeFace}
 									<img
 										src={getCropUrl(cluster)}
-										alt={cluster.name || 'Unknown person'}
+										alt={cluster.name ?? 'Unknown person'}
 										class="h-16 w-16 rounded-full object-cover"
 									/>
 								{:else}
@@ -135,7 +135,7 @@
 							<!-- Cluster info -->
 							<div class="flex-1 min-w-0">
 								<p class="font-medium text-gray-900 truncate">
-									{cluster.name || 'Unknown'}
+									{cluster.name ?? 'Unknown'}
 								</p>
 								<p class="text-sm text-gray-500">
 									{cluster.faceCount} {cluster.faceCount === 1 ? 'face' : 'faces'} ·
@@ -167,7 +167,7 @@
 							<p class="text-sm text-yellow-700 mt-1">
 								{sourceCount}
 								{sourceCount === 1 ? 'cluster' : 'clusters'} will be merged into
-								<strong>{targetCluster.name || 'Unknown'}</strong>
+								<strong>{targetCluster.name ?? 'Unknown'}</strong>
 								and deleted.
 							</p>
 						</div>

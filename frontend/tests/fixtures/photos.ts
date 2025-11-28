@@ -29,19 +29,17 @@ export interface MockSearchResult {
  * const photo = createMockPhoto({ filename: 'sunset.jpg', id: 'photo-123' });
  */
 export function createMockPhoto(overrides: Partial<MockPhoto> = {}): MockPhoto {
-	const id = overrides.id || `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+	const id = overrides.id ?? `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 	return {
 		id,
-		filename: overrides.filename || 'default-photo.jpg',
-		thumbnail_url: overrides.thumbnail_url !== undefined
-			? overrides.thumbnail_url
-			: `/api/v1/photos/${id}/thumbnail`,
-		connector_type: overrides.connector_type || 'local',
-		width: overrides.width !== undefined ? overrides.width : 1920,
-		height: overrides.height !== undefined ? overrides.height : 1080,
-		taken_at: overrides.taken_at !== undefined ? overrides.taken_at : null,
-		created_at: overrides.created_at || new Date().toISOString(),
+		filename: overrides.filename ?? 'default-photo.jpg',
+		thumbnail_url: overrides.thumbnail_url ?? `/api/v1/photos/${id}/thumbnail`,
+		connector_type: overrides.connector_type ?? 'local',
+		width: overrides.width ?? 1920,
+		height: overrides.height ?? 1080,
+		taken_at: overrides.taken_at ?? null,
+		created_at: overrides.created_at ?? new Date().toISOString(),
 		...(overrides.score !== undefined && { score: overrides.score })
 	};
 }
@@ -58,7 +56,7 @@ export function createMockSearchResult(
 ): MockSearchResult {
 	return {
 		photo: createMockPhoto(photoOverrides),
-		score: scoreOverrides.score !== undefined ? scoreOverrides.score : 0.85
+		score: scoreOverrides.score ?? 0.85
 	};
 }
 
@@ -94,7 +92,7 @@ export function createMockSearchResults(
 		const overrides = overridesFn ? overridesFn(index) : {};
 		return createMockSearchResult(
 			overrides.score !== undefined ? { score: overrides.score } : {},
-			overrides.photo || {}
+			overrides.photo ?? {}
 		);
 	});
 }

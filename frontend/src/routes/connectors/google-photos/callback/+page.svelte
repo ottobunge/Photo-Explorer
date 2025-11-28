@@ -13,7 +13,7 @@
 
 		if (error) {
 			status = 'error';
-			errorMessage = $page.url.searchParams.get('error_description') || 'Authorization was denied';
+			errorMessage = $page.url.searchParams.get('error_description') ?? 'Authorization was denied';
 			return;
 		}
 

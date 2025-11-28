@@ -7,7 +7,7 @@
 
 	const dispatch = createEventDispatcher<{ close: void; tagged: void }>();
 
-	let name = cluster.name || '';
+	let name = cluster.name ?? '';
 	let loading = false;
 	let error = '';
 

@@ -19,7 +19,7 @@
 <div class="card p-4" data-testid="folder-card">
 	<div class="flex items-start justify-between">
 		<div class="flex-1">
-			<h3 class="font-medium text-gray-900">{folder.name || folder.path}</h3>
+			<h3 class="font-medium text-gray-900">{folder.name ?? folder.path}</h3>
 			<p class="mt-1 text-sm text-gray-500">{folder.path}</p>
 			<div class="mt-2 flex gap-3 text-xs text-gray-400">
 				<span>{folder.recursive ? '📁 Recursive' : '📄 Top-level only'}</span>

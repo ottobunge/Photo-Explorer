@@ -152,12 +152,12 @@
 	}): void {
 		const urlParams = new URLSearchParams();
 
-		const finalQuery = params.query !== undefined ? params.query : query;
-		const finalPage = params.page !== undefined ? params.page : currentPage;
-		const finalPerPage = params.perPage !== undefined ? params.perPage : perPage;
-		const finalConnectorId = params.connectorId !== undefined ? params.connectorId : selectedConnectorId;
-		const finalAlbumId = params.albumId !== undefined ? params.albumId : selectedAlbumId;
-		const finalThreshold = params.similarityThreshold !== undefined ? params.similarityThreshold : similarityThreshold;
+		const finalQuery = params.query ?? query;
+		const finalPage = params.page ?? currentPage;
+		const finalPerPage = params.perPage ?? perPage;
+		const finalConnectorId = params.connectorId ?? selectedConnectorId;
+		const finalAlbumId = params.albumId ?? selectedAlbumId;
+		const finalThreshold = params.similarityThreshold ?? similarityThreshold;
 
 		if (finalQuery.trim()) {
 			urlParams.set('q', finalQuery);
@@ -364,7 +364,7 @@
 			</select>
 		</div>
 
-		{#if selectedConnectorId || selectedAlbumId}
+		{#if (selectedConnectorId !== null && selectedConnectorId !== undefined) || (selectedAlbumId !== null && selectedAlbumId !== undefined)}
 			<button
 				class="text-sm text-blue-600 hover:underline"
 				onclick={() => {
