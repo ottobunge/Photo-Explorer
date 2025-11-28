@@ -56,8 +56,8 @@ class PhotoModel(Base):
 
     # Basic info
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Connector reference
     connector_type: Mapped[str] = mapped_column(String(50), nullable=False, default="local")
@@ -67,13 +67,13 @@ class PhotoModel(Base):
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     source_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     source_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
-    last_synced: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_synced: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Storage paths
     storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     thumbnail_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     cached_thumbnail_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    thumbnail_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    thumbnail_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Legacy field
     original_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
@@ -83,7 +83,7 @@ class PhotoModel(Base):
     file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    taken_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
 
     # EXIF data (stored as JSON)
     exif_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -132,8 +132,8 @@ class AlbumModel(Base):
     # Basic info
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Cover photo
     cover_photo_id: Mapped[UUID | None] = mapped_column(
@@ -184,7 +184,7 @@ class FaceModel(Base):
     detection_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     # Relationships
     photo: Mapped["PhotoModel"] = relationship(back_populates="faces")
@@ -208,8 +208,8 @@ class FaceClusterModel(Base):
     )
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     faces: Mapped[list["FaceModel"]] = relationship(back_populates="cluster")
@@ -250,13 +250,13 @@ class ConnectorModel(Base):
     config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     # Sync state
-    last_sync: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_sync: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_sync_stats: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     photos: Mapped[list["PhotoModel"]] = relationship(back_populates="connector")
@@ -274,8 +274,8 @@ class OAuthTokenModel(Base):
     encrypted_data: Mapped[str] = mapped_column(String(4096), nullable=False)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
 class TaskExecutionModel(Base):
@@ -293,9 +293,9 @@ class TaskExecutionModel(Base):
     )
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
 
     # Retry tracking
     retries: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -25,7 +25,7 @@ function createAlbumsStore(): AlbumsStore {
 			update((state) => ({ ...state, loading: true, error: null }));
 
 			try {
-				const result = await client.get<{ albums: any[] }>('/albums');
+				const result = await client.get<{ albums: Album[] }>('/albums');
 				update((state) => ({
 					...state,
 					albums: result.data.albums,

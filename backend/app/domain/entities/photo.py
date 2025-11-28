@@ -1,7 +1,7 @@
 """Photo aggregate root entity."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -86,7 +86,7 @@ class Photo:
         Returns:
             New Photo instance
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         album_ids = [album_id] if album_id else []
 
         return cls(
@@ -112,7 +112,7 @@ class Photo:
         source_path: Optional[str] = None,
     ) -> "Photo":
         """Factory method to create a photo from a remote connector."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         return cls(
             id=PhotoId(uuid4()),
@@ -225,7 +225,7 @@ class Photo:
 
     def update_sync(self) -> None:
         """Update the last synced timestamp."""
-        self.last_synced = datetime.utcnow()
+        self.last_synced = datetime.now(timezone.utc)
         self.source_deleted = False
         self._touch()
 
@@ -240,8 +240,8 @@ class Photo:
         """Check if the cached thumbnail is still valid."""
         if not self.cached_thumbnail_path or not self.thumbnail_expires_at:
             return False
-        return datetime.utcnow() < self.thumbnail_expires_at
+        return datetime.now(timezone.utc) < self.thumbnail_expires_at
 
     def _touch(self) -> None:
         """Update the updated_at timestamp."""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)

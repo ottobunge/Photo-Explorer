@@ -1,7 +1,7 @@
 """Album aggregate root entity."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -31,7 +31,7 @@ class Album:
     @classmethod
     def create(cls, name: str, description: Optional[str] = None) -> "Album":
         """Factory method to create a new album."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return cls(
             id=AlbumId(uuid4()),
             name=name,
@@ -77,4 +77,4 @@ class Album:
 
     def _touch(self) -> None:
         """Update the updated_at timestamp."""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)

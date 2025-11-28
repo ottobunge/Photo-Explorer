@@ -158,12 +158,12 @@
 		showClusterPicker = true;
 	}
 
-	async function handleClusterSelected(cluster: any): Promise<void> {
+	async function handleClusterSelected(selectedCluster: ClusterData): Promise<void> {
 		showClusterPicker = false;
 		operationInProgress = true;
 
 		try {
-			await faceSelectionStore.moveSelectedFaces(cluster.id);
+			await faceSelectionStore.moveSelectedFaces(selectedCluster.id);
 			await loadCluster();
 		} catch (err) {
 			console.error('Failed to move faces:', err);

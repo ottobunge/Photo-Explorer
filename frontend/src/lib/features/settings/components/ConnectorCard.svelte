@@ -58,7 +58,23 @@
 	});
 
 	// Map connector status to StatusBadge status type
-	const status = $derived(connector.status as StatusType);
+	// All ConnectorStatus values are valid StatusType values
+	const status = $derived((): StatusType => {
+		const connectorStatus = connector.status;
+		// Explicit mapping without type casting
+		switch (connectorStatus) {
+			case 'connected':
+				return 'connected';
+			case 'disconnected':
+				return 'disconnected';
+			case 'syncing':
+				return 'syncing';
+			case 'error':
+				return 'error';
+			default:
+				return 'info'; // fallback for any unexpected status
+		}
+	});
 	const statusLabel = $derived(connector.status === 'syncing' ? 'Syncing...' : connector.status.charAt(0).toUpperCase() + connector.status.slice(1));
 
 	function getConnectorIcon(type: string): string {
@@ -202,10 +218,10 @@
 			}
 
 			// Continue polling
-			setTimeout(poll, pollInterval);
+			setTimeout(() => void poll(), pollInterval);
 		};
 
-		poll();
+		void poll();
 	}
 
 	async function importSelectedPhotos(): Promise<void> {
@@ -265,7 +281,7 @@
 		pickerMessage = null;
 		pickerPolling = false;
 
-		cleanupSession();
+		void cleanupSession();
 	}
 </script>
 
@@ -334,7 +350,7 @@
 
 	<div class="connector-actions">
 		<label class="toggle-switch">
-			<input type="checkbox" checked={connector.enabled} onchange={handleToggle} />
+			<input type="checkbox" checked={connector.enabled} onchange={() => void handleToggle()} />
 			<span class="toggle-slider"></span>
 		</label>
 

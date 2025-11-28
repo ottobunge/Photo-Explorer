@@ -4,7 +4,14 @@
       "Bash(while read f)",
       "Bash(do awk 'NR==177 && /\\|\\|/ {print FILENAME\"\"\"\":\"\"\"\"NR\"\"\"\":\"\"\"\"$0}' \"$f\")",
       "Bash(npx eslint:*)",
-      "Bash(python -m mypy:*)"
+      "Bash(python -m mypy:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(npm run lint:*)",
+      "Bash(find:*)",
+      "Bash(pytest:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(cat:*)",
+      "Bash(poetry run ruff check:*)"
     ],
     "deny": [],
     "ask": []

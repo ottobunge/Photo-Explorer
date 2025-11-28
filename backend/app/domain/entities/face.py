@@ -1,7 +1,7 @@
 """Face entity."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -47,7 +47,7 @@ class Face:
             bbox=bbox,
             quality_score=quality_score,
             detection_confidence=detection_confidence,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
     def assign_to_cluster(self, cluster_id: UUID) -> None:

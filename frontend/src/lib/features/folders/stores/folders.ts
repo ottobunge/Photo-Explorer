@@ -4,10 +4,16 @@ import { writable } from 'svelte/store';
 import { client, ApiError } from '$lib/api/client';
 import type { FoldersState, WatchedFolder } from '../types';
 
+interface AddFolderOptions {
+	name?: string;
+	recursive?: boolean;
+	autoAlbum?: boolean;
+}
+
 interface FoldersStore {
 	subscribe: (run: (value: FoldersState) => void) => () => void;
 	load: () => Promise<void>;
-	add: (path: string, options?: { name?: string; recursive?: boolean; autoAlbum?: boolean }) => Promise<WatchedFolder>;
+	add: (path: string, options?: AddFolderOptions) => Promise<WatchedFolder>;
 	triggerScan: (folderId: string) => Promise<void>;
 	remove: (folderId: string, deletePhotos?: boolean) => Promise<void>;
 }
@@ -26,7 +32,7 @@ function createFoldersStore(): FoldersStore {
 			update((state) => ({ ...state, loading: true, error: null }));
 
 			try {
-				const result = await client.get<{ folders: any[] }>('/folders');
+				const result = await client.get<{ folders: WatchedFolder[] }>('/folders');
 				update((state) => ({
 					...state,
 					folders: result.data.folders,
@@ -42,7 +48,7 @@ function createFoldersStore(): FoldersStore {
 			}
 		},
 
-		async add(path: string, options?: { name?: string; recursive?: boolean; autoAlbum?: boolean }): Promise<WatchedFolder> {
+		async add(path: string, options?: AddFolderOptions): Promise<WatchedFolder> {
 			const result = await client.post<WatchedFolder>('/folders', {
 				path,
 				name: options?.name,
@@ -62,7 +68,7 @@ function createFoldersStore(): FoldersStore {
 			await client.post(`/folders/${folderId}/scan`);
 		},
 
-		async remove(folderId: string, deletePhotos = false): Promise<void> {
+		async remove(folderId: string, deletePhotos: boolean | undefined = false): Promise<void> {
 			await client.delete(`/folders/${folderId}?delete_photos=${deletePhotos}`);
 			update((state) => ({
 				...state,

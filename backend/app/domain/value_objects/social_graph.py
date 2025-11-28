@@ -1,10 +1,24 @@
 """SocialGraph value object - Social network graph of face relationships."""
 
 from dataclasses import dataclass
+from typing import Optional
 from uuid import UUID
 
-from app.domain.entities.face_cluster import FaceCluster
 from app.domain.value_objects.face_relationship import FaceRelationship
+
+
+@dataclass(frozen=True)
+class ClusterNode:
+    """Immutable cluster metadata for use in social graphs.
+
+    This value object represents essential cluster information without
+    maintaining a reference to the mutable FaceCluster entity.
+    """
+
+    id: UUID
+    name: Optional[str]
+    face_count: int
+    representative_face_id: Optional[UUID]
 
 
 @dataclass(frozen=True)
@@ -14,9 +28,12 @@ class SocialGraph:
 
     Represents the complete social network of people (face clusters) and their
     relationships based on photo co-appearances.
+
+    Uses immutable ClusterNode objects instead of mutable FaceCluster entities
+    to ensure the value object contract is maintained.
     """
 
-    nodes: list[FaceCluster]
+    nodes: list[ClusterNode]
     edges: list[FaceRelationship]
 
     @property
@@ -70,7 +87,7 @@ class SocialGraph:
         # Filter nodes to only those in the connected set
         filtered_nodes = [
             node for node in self.nodes
-            if node.id.value in connected_person_ids
+            if node.id in connected_person_ids
         ]
 
         # Include all edges between nodes in the filtered set
@@ -84,7 +101,7 @@ class SocialGraph:
 
         return SocialGraph(nodes=filtered_nodes, edges=filtered_edges)
 
-    def get_node_by_id(self, person_id: UUID) -> FaceCluster | None:
+    def get_node_by_id(self, person_id: UUID) -> ClusterNode | None:
         """
         Get a node (person) by their ID.
 
@@ -92,10 +109,10 @@ class SocialGraph:
             person_id: The ID of the person to find.
 
         Returns:
-            FaceCluster | None: The face cluster if found, None otherwise.
+            ClusterNode | None: The cluster node if found, None otherwise.
         """
         for node in self.nodes:
-            if node.id.value == person_id:
+            if node.id == person_id:
                 return node
         return None
 
@@ -130,19 +147,19 @@ class SocialGraph:
             "has_connections": self.has_connections,
         }
 
-    def _serialize_node(self, node: FaceCluster) -> dict[str, object]:
+    def _serialize_node(self, node: ClusterNode) -> dict[str, object]:
         """
-        Serialize a face cluster node to dictionary.
+        Serialize a cluster node to dictionary.
 
         Args:
-            node: The face cluster to serialize.
+            node: The cluster node to serialize.
 
         Returns:
             dict: Node representation with essential fields.
         """
         return {
-            "id": str(node.id.value),
+            "id": str(node.id),
             "name": node.name,
-            "face_count": len(node.face_ids),
+            "face_count": node.face_count,
             "representative_face_id": str(node.representative_face_id) if node.representative_face_id else None,
         }

@@ -66,7 +66,7 @@ class SearchFilters(BaseModel):  # type: ignore[explicit-any]
 
     @field_validator("end_date")
     @classmethod
-    def validate_date_range(
+    def validate_date_range(  # type: ignore[explicit-any]
         cls, v: Optional[date], info: Any  # type: ignore[explicit-any]
     ) -> Optional[date]:
         """Validate date range is logical."""
