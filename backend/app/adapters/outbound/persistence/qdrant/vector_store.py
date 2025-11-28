@@ -12,6 +12,10 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 from app.application.ports.outbound.vector_store import VectorSearchResult, VectorStore
 from app.config import get_settings
 from app.domain.value_objects import Embedding
+from app.infrastructure.monitoring import (
+    log_circuit_breaker_events,
+    monitor_circuit_breaker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +86,8 @@ class QdrantVectorStore(VectorStore):
 
     # Photo embeddings
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("store_photo_embedding")
     @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def store_photo_embedding(
         self,
@@ -105,6 +111,8 @@ class QdrantVectorStore(VectorStore):
         )
         logger.debug(f"Stored embedding for photo {photo_id}")
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("search_photos")
     @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def search_photos(
         self,
@@ -184,6 +192,8 @@ class QdrantVectorStore(VectorStore):
 
     # Face embeddings
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("store_face_embedding")
     @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def store_face_embedding(
         self,
@@ -249,6 +259,8 @@ class QdrantVectorStore(VectorStore):
             logger.error(f"Error deleting face embedding: {e}")
             return False
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("find_similar_faces")
     @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def find_similar_faces(
         self,

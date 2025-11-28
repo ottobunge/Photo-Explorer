@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { FolderList, AddFolderModal } from '$features/folders';
+	import { FolderList, AddFolderModal, type WatchedFolder } from '$features/folders';
 
-	const folders: any[] = [];
+	const folders: WatchedFolder[] = [];
 	let showAddModal = false;
 </script>
 

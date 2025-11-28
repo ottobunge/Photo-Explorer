@@ -396,7 +396,7 @@ describe('SimilarityThresholdSlider', () => {
 			expect(valueDisplay.textContent).toBe('18%');
 
 			// Update prop from parent
-			rerender({ value: 0.75, onchange });
+			await rerender({ value: 0.75, onchange });
 
 			await waitFor(() => {
 				expect(valueDisplay.textContent).toBe('75%');

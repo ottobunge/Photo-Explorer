@@ -267,10 +267,10 @@ export const client = {
 	 * // Without validation (legacy, less safe)
 	 * const response = await client.post<Photo>('/photos', { name: 'photo.jpg' });
 	 */
-	async post<T>(path: string, schemaOrBody?: z.ZodType<T> | unknown, body?: unknown): Promise<ApiResponse<T>> {
+	async post<T>(path: string, schemaOrBody?: z.ZodType<T> | Record<string, unknown>, body?: unknown): Promise<ApiResponse<T>> {
 		// Determine if first arg is schema or body
-		const isSchema = schemaOrBody !== undefined && schemaOrBody !== null && typeof schemaOrBody === 'object' && 'parse' in schemaOrBody;
-		const schema = isSchema ? schemaOrBody as z.ZodType<T> : undefined;
+		const isSchema = schemaOrBody !== undefined && 'parse' in schemaOrBody;
+		const schema = isSchema ? (schemaOrBody as z.ZodType<T>) : undefined;
 		const requestBody = isSchema ? body : schemaOrBody;
 		try {
 			const response = await fetchWithTimeout(`${API_BASE}${path}`, {
@@ -328,10 +328,10 @@ export const client = {
 	/**
 	 * PATCH request with optional runtime validation
 	 */
-	async patch<T>(path: string, schemaOrBody: z.ZodType<T> | unknown, body?: unknown): Promise<ApiResponse<T>> {
+	async patch<T>(path: string, schemaOrBody?: z.ZodType<T> | Record<string, unknown>, body?: unknown): Promise<ApiResponse<T>> {
 		// Determine if first arg is schema or body
-		const isSchema = schemaOrBody !== undefined && schemaOrBody !== null && typeof schemaOrBody === 'object' && 'parse' in schemaOrBody;
-		const schema = isSchema ? schemaOrBody as z.ZodType<T> : undefined;
+		const isSchema = schemaOrBody !== undefined && 'parse' in schemaOrBody;
+		const schema = isSchema ? (schemaOrBody as z.ZodType<T>) : undefined;
 		const requestBody = isSchema ? body : schemaOrBody;
 		try {
 			const response = await fetchWithTimeout(`${API_BASE}${path}`, {

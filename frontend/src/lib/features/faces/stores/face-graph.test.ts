@@ -90,21 +90,21 @@ describe('faceGraphStore', () => {
 		});
 
 		it('should set loading state while fetching', async () => {
-			let resolvePromise: (value: any) => void;
-			const promise = new Promise((resolve) => {
+			let resolvePromise: (value: ApiResponse<SocialGraph>) => void;
+			const promise = new Promise<ApiResponse<SocialGraph>>((resolve) => {
 				resolvePromise = resolve;
 			});
 
 			const mockGet = getMockedClient().get;
-		mockGet.mockReturnValueOnce(promise as any);
+			mockGet.mockReturnValueOnce(promise);
 
 			const loadPromise = faceGraphStore.loadGraph();
 
 			// Check loading state is true
 			expect(faceGraphStore.loading).toBe(true);
 
-			// Resolve the promise
-			resolvePromise!({
+			// Resolve the promise (resolvePromise is guaranteed to be set by Promise constructor)
+			resolvePromise({
 				success: true,
 				data: {
 					nodes: [],

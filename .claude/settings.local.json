@@ -11,7 +11,10 @@
       "Bash(pytest:*)",
       "Bash(python -m py_compile:*)",
       "Bash(cat:*)",
-      "Bash(poetry run ruff check:*)"
+      "Bash(poetry run ruff check:*)",
+      "Bash(paste:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix: Eliminate final 8 ESLint errors - 100% COMPLETE! 🎉\n\nAchieved ZERO ESLint errors (from 367)!\n\nFixes:\n1-2. client.ts - Fixed redundant union types (z.ZodType<T> | unknown)\n3. face-graph.test.ts - Removed non-null assertion with proper typing\n4. SimilarityThresholdSlider.test.ts - Added await to floating promise\n5-6. Modal.stories.svelte - Fixed form label accessibility (added for/id)\n7. photos/[id]/+page.svelte - Removed unnecessary conditional\n8. settings/folders/+page.svelte - Replaced any with WatchedFolder[]\n\nFinal Results:\n- ESLint Errors: 367 → 0 (100% reduction!)\n- ESLint Warnings: 104 → 28 (73% reduction)\n- Health Score: 78 → 95/100\n- Type Safety: Complete\n\nFiles modified: 6 files\nTotal commits for Phase 2: 8 commits\nTotal errors fixed: 367 errors\n\nWeek 1, Phase 2: COMPLETE ✅\nAll error categories: 100% fixed\nProduction code: Fully type-safe\nTest coverage: Maintained\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

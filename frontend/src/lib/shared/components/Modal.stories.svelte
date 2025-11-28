@@ -82,17 +82,19 @@ Modal component displays content in a dialog overlay.
 			<Modal title="Create New Album" on:close={() => { isOpen3.set(false); }}>
 			<div style="display: flex; flex-direction: column; gap: 1rem;">
 				<div>
-					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Album Name</label>
+					<label for="album-name" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Album Name</label>
 					<input
+						id="album-name"
 						type="text"
 						placeholder="Summer 2024"
 						style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;"
 					/>
 				</div>
 				<div>
-					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Description</label
+					<label for="album-description" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Description</label
 					>
 					<textarea
+						id="album-description"
 						placeholder="Vacation photos from our trip..."
 						rows="4"
 						style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;"
