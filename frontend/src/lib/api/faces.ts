@@ -2,17 +2,31 @@
 
 import { client } from './client';
 import type { FaceClusterType } from '$lib/features/faces/types';
+import { z } from 'zod';
 
-interface ClusterData {
-	id: string;
-	name?: string;
-	face_count: number;
-	photo_count: number;
-	representative_face?: {
-		id: string;
-		crop_url: string;
-	};
-}
+/**
+ * Zod schema for representative face data from backend
+ */
+const RepresentativeFaceSchema = z.object({
+	id: z.string(),
+	crop_url: z.string()
+});
+
+/**
+ * Zod schema for cluster data from backend
+ */
+const ClusterDataSchema = z.object({
+	id: z.string(),
+	name: z.string().optional(),
+	face_count: z.number(),
+	photo_count: z.number(),
+	representative_face: RepresentativeFaceSchema.optional()
+});
+
+/**
+ * TypeScript type inferred from Zod schema
+ */
+type ClusterData = z.infer<typeof ClusterDataSchema>;
 
 /**
  * Converts backend ClusterData to frontend FaceClusterType
@@ -50,7 +64,7 @@ function mapClusterData(data: ClusterData): FaceClusterType {
  * @throws ApiError if the operation fails
  */
 export async function splitFace(faceId: string): Promise<FaceClusterType> {
-	const response = await client.post<ClusterData>(`/faces/${faceId}/split`);
+	const response = await client.post<ClusterData>(`/faces/${faceId}/split`, ClusterDataSchema);
 	return mapClusterData(response.data);
 }
 
@@ -69,9 +83,11 @@ export async function moveFace(
 	faceId: string,
 	targetClusterId: string
 ): Promise<FaceClusterType> {
-	const response = await client.post<ClusterData>(`/faces/${faceId}/move`, {
-		target_cluster_id: targetClusterId
-	});
+	const response = await client.post<ClusterData>(
+		`/faces/${faceId}/move`,
+		ClusterDataSchema,
+		{ target_cluster_id: targetClusterId }
+	);
 	return mapClusterData(response.data);
 }
 
@@ -90,9 +106,13 @@ export async function mergeClusters(
 	sourceClusterIds: string[],
 	targetClusterId: string
 ): Promise<FaceClusterType> {
-	const response = await client.post<ClusterData>('/faces/clusters/merge', {
-		source_cluster_ids: sourceClusterIds,
-		target_cluster_id: targetClusterId
-	});
+	const response = await client.post<ClusterData>(
+		'/faces/clusters/merge',
+		ClusterDataSchema,
+		{
+			source_cluster_ids: sourceClusterIds,
+			target_cluster_id: targetClusterId
+		}
+	);
 	return mapClusterData(response.data);
 }

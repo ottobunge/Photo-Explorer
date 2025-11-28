@@ -7,5 +7,5 @@ export { default as LoadingSpinner } from './LoadingSpinner.svelte';
 export { default as Modal } from './Modal.svelte';
 export { default as StatusBadge } from './StatusBadge.svelte';
 
-// Re-export types
-export type { StatusType } from './StatusBadge.svelte';
+// Note: Types can be imported directly from the component files
+// e.g., import type { StatusType } from './StatusBadge.svelte';

@@ -3,7 +3,8 @@
 	import { isLocalFolderConfig } from '../types';
 	import { settingsStore } from '../stores/settings.svelte';
 	import { createEventDispatcher, onDestroy } from 'svelte';
-	import { StatusBadge, type StatusType } from '$lib/shared/components';
+	import { StatusBadge } from '$lib/shared/components';
+	import type { StatusType } from '$lib/shared/components/StatusBadge.svelte';
 	import {
 		MESSAGE_DISMISS_TIMEOUT,
 		PICKER_CLOSE_DELAY,
