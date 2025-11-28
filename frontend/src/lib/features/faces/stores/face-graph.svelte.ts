@@ -9,10 +9,10 @@ import type { SocialGraph } from '../types';
  */
 class FaceGraphStore {
 	// State properties
-	graph = $state<SocialGraph | null>(null);
-	filteredPersonId = $state<string | null>(null);
-	loading = $state<boolean>(false);
-	error = $state<string | null>(null);
+	graph: SocialGraph | null = $state<SocialGraph | null>(null);
+	filteredPersonId: string | null = $state<string | null>(null);
+	loading: boolean = $state<boolean>(false);
+	error: string | null = $state<string | null>(null);
 
 	/**
 	 * Load the social graph, optionally filtered by a person

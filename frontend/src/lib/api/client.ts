@@ -79,7 +79,7 @@ class ApiError extends Error {
 async function fetchWithTimeout(
 	url: string,
 	options?: RequestInit,
-	timeout = API_DEFAULT_TIMEOUT
+	timeout: number = API_DEFAULT_TIMEOUT
 ): Promise<Response> {
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => { controller.abort(); }, timeout);

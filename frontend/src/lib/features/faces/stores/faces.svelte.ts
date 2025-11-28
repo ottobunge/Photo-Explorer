@@ -9,9 +9,9 @@ import type { FaceClusterType } from '../types';
  */
 class FacesStore {
 	// State properties
-	clusters = $state<FaceClusterType[]>([]);
-	loading = $state<boolean>(false);
-	error = $state<string | null>(null);
+	clusters: FaceClusterType[] = $state<FaceClusterType[]>([]);
+	loading: boolean = $state<boolean>(false);
+	error: string | null = $state<string | null>(null);
 
 	/**
 	 * Load face clusters with optional filters

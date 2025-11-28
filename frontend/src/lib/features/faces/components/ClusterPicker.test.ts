@@ -17,6 +17,12 @@ vi.mock('../stores/faces.svelte', () => ({
 	}
 }));
 
+// Helper to get mocked facesStore methods without unbound-method errors
+const getMockedLoad = (): ReturnType<typeof vi.fn> => {
+	const store = facesStore as { load: ReturnType<typeof vi.fn> };
+	return store.load;
+};
+
 describe('ClusterPicker', () => {
 	const mockClusters: FaceClusterType[] = [
 		{
@@ -67,7 +73,8 @@ describe('ClusterPicker', () => {
 		facesStore.loading = false;
 		facesStore.error = null;
 		// Reset the load mock to resolve immediately
-		vi.mocked(facesStore.load).mockResolvedValue(undefined);
+		const mockLoad = getMockedLoad();
+		mockLoad.mockResolvedValue(undefined);
 	});
 
 	it('should render with default title', () => {
@@ -111,7 +118,8 @@ describe('ClusterPicker', () => {
 		facesStore.clusters = [];
 		facesStore.loading = false;
 		facesStore.error = 'Failed to load clusters';
-		vi.mocked(facesStore.load).mockRejectedValue(new Error('Failed to load clusters'));
+		const mockLoad = getMockedLoad();
+		mockLoad.mockRejectedValue(new Error('Failed to load clusters'));
 
 		render(ClusterPicker, {
 			props: {
@@ -163,7 +171,9 @@ describe('ClusterPicker', () => {
 
 	it('should show face and photo counts', async () => {
 		// Set store state directly (Svelte 5 pattern)
-		facesStore.clusters = [mockClusters[0]!];
+		const cluster = mockClusters[0];
+		expect(cluster).toBeDefined();
+		facesStore.clusters = [cluster];
 		facesStore.loading = false;
 		facesStore.error = null;
 
@@ -246,6 +256,7 @@ describe('ClusterPicker', () => {
 
 	it('should sort clusters: named first, then by name alphabetically', async () => {
 		// Set store state directly (Svelte 5 pattern)
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		facesStore.clusters = [mockClusters[3]!, mockClusters[2]!, mockClusters[0]!, mockClusters[1]!];
 		facesStore.loading = false;
 		facesStore.error = null;
@@ -402,6 +413,7 @@ describe('ClusterPicker', () => {
 
 	it('should show representative face image when available', async () => {
 		// Set store state directly (Svelte 5 pattern)
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		facesStore.clusters = [mockClusters[0]!];
 		facesStore.loading = false;
 		facesStore.error = null;
@@ -473,7 +485,8 @@ describe('ClusterPicker', () => {
 		});
 
 		await waitFor(() => {
-			expect(facesStore.load).toHaveBeenCalled();
+			const mockLoad = getMockedLoad();
+			expect(mockLoad).toHaveBeenCalled();
 		});
 	});
 

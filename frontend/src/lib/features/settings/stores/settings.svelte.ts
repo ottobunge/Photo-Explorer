@@ -45,15 +45,15 @@ function mapAppSettingsToApi(settings: Partial<AppSettings>): Record<string, unk
  */
 class SettingsStore {
 	// State properties
-	connectors = $state<Connector[]>([]);
-	googlePhotosStatus = $state<GooglePhotosStatus | null>(null);
-	appSettings = $state<AppSettings | null>(null);
-	activeModels = $state<ActiveModels | null>(null);
-	downloadedModels = $state<string[]>([]);
-	recommendedModels = $state<Record<string, HFModel[]>>({});
-	loading = $state<boolean>(false);
-	connecting = $state<boolean>(false);
-	error = $state<string | null>(null);
+	connectors: Connector[] = $state<Connector[]>([]);
+	googlePhotosStatus: GooglePhotosStatus | null = $state<GooglePhotosStatus | null>(null);
+	appSettings: AppSettings | null = $state<AppSettings | null>(null);
+	activeModels: ActiveModels | null = $state<ActiveModels | null>(null);
+	downloadedModels: string[] = $state<string[]>([]);
+	recommendedModels: Record<string, HFModel[]> = $state<Record<string, HFModel[]>>({});
+	loading: boolean = $state<boolean>(false);
+	connecting: boolean = $state<boolean>(false);
+	error: string | null = $state<string | null>(null);
 
 	// ==================
 	// Connector Management

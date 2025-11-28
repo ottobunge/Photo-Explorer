@@ -13,6 +13,21 @@ vi.mock('$lib/api/client', () => ({
 
 import { client } from '$lib/api/client';
 
+// Helper to get mocked client methods without unbound-method errors
+const getMockedClient = (): {
+	get: ReturnType<typeof vi.fn>;
+	post: ReturnType<typeof vi.fn>;
+	patch: ReturnType<typeof vi.fn>;
+	delete: ReturnType<typeof vi.fn>;
+} => {
+	return client as {
+		get: ReturnType<typeof vi.fn>;
+		post: ReturnType<typeof vi.fn>;
+		patch: ReturnType<typeof vi.fn>;
+		delete: ReturnType<typeof vi.fn>;
+	};
+};
+
 const mockGooglePhotosConnector = {
 	id: 'gp-123',
 	type: 'google_photos' as const,
@@ -47,7 +62,8 @@ describe('settingsStore', () => {
 
 	describe('loadConnectors', () => {
 		it('should load connectors from the API', async () => {
-			vi.mocked(client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: { connectors: [mockGooglePhotosConnector, mockLocalConnector] }
 			});
@@ -60,7 +76,8 @@ describe('settingsStore', () => {
 		});
 
 		it('should handle errors when loading connectors', async () => {
-			vi.mocked(client.get).mockRejectedValueOnce(new Error('Network error'));
+			const mockGet = getMockedClient().get;
+		mockGet.mockRejectedValueOnce(new Error('Network error'));
 
 			await settingsStore.loadConnectors();
 
@@ -71,7 +88,8 @@ describe('settingsStore', () => {
 
 	describe('addLocalFolder', () => {
 		it('should add a local folder connector', async () => {
-			vi.mocked(client.post).mockResolvedValueOnce({
+			const mockPost = getMockedClient().post;
+		mockPost.mockResolvedValueOnce({
 				success: true,
 				data: mockLocalConnector
 			});
@@ -92,13 +110,15 @@ describe('settingsStore', () => {
 	describe('removeConnector', () => {
 		it('should remove a connector from the list', async () => {
 			// First add some connectors
-			vi.mocked(client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: { connectors: [mockGooglePhotosConnector, mockLocalConnector] }
 			});
 			await settingsStore.loadConnectors();
 
-			vi.mocked(client.delete).mockResolvedValueOnce({ success: true, data: {} });
+			const mockDelete = getMockedClient().delete;
+		mockDelete.mockResolvedValueOnce({ success: true, data: {} });
 
 			await settingsStore.removeConnector('local-456');
 
@@ -109,13 +129,15 @@ describe('settingsStore', () => {
 
 	describe('toggleConnector', () => {
 		it('should toggle connector enabled state', async () => {
-			vi.mocked(client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: { connectors: [mockLocalConnector] }
 			});
 			await settingsStore.loadConnectors();
 
-			vi.mocked(client.patch).mockResolvedValueOnce({
+			const mockPatch = getMockedClient().patch;
+		mockPatch.mockResolvedValueOnce({
 				success: true,
 				data: { ...mockLocalConnector, enabled: false }
 			});
@@ -128,7 +150,8 @@ describe('settingsStore', () => {
 
 	describe('loadSettings', () => {
 		it('should load app settings from API', async () => {
-			vi.mocked(client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: {
 					thumbnailQuality: 90,
@@ -145,7 +168,8 @@ describe('settingsStore', () => {
 		});
 
 		it('should use defaults when settings API fails', async () => {
-			vi.mocked(client.get).mockRejectedValueOnce(new Error('Not found'));
+			const mockGet = getMockedClient().get;
+		mockGet.mockRejectedValueOnce(new Error('Not found'));
 
 			await settingsStore.loadSettings();
 

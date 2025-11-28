@@ -17,6 +17,12 @@ vi.mock('$lib/api/client', () => ({
 	}
 }));
 
+// Extract client reference to avoid unbound method issues
+const getMockedClient = (): { get: ReturnType<typeof vi.fn> } => {
+	const mockClient = apiClient.client as { get: ReturnType<typeof vi.fn> };
+	return mockClient;
+};
+
 describe('faceGraphStore', () => {
 	beforeEach(() => {
 		// Reset store state before each test
@@ -68,7 +74,8 @@ describe('faceGraphStore', () => {
 				has_connections: true
 			};
 
-			vi.mocked(apiClient.client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: mockGraph
 			});
@@ -87,7 +94,8 @@ describe('faceGraphStore', () => {
 				resolvePromise = resolve;
 			});
 
-			vi.mocked(apiClient.client.get).mockReturnValueOnce(promise as any);
+			const mockGet = getMockedClient().get;
+		mockGet.mockReturnValueOnce(promise as any);
 
 			const loadPromise = faceGraphStore.loadGraph();
 
@@ -115,7 +123,8 @@ describe('faceGraphStore', () => {
 
 		it('should handle API errors', async () => {
 			const error = new apiClient.ApiError('Network error', 'NETWORK_ERROR');
-			vi.mocked(apiClient.client.get).mockRejectedValueOnce(error);
+			const mockGet = getMockedClient().get;
+		mockGet.mockRejectedValueOnce(error);
 
 			await faceGraphStore.loadGraph();
 
@@ -126,7 +135,8 @@ describe('faceGraphStore', () => {
 
 		it('should handle unknown errors', async () => {
 			const error = new Error('Unknown error');
-			vi.mocked(apiClient.client.get).mockRejectedValueOnce(error);
+			const mockGet = getMockedClient().get;
+		mockGet.mockRejectedValueOnce(error);
 
 			await faceGraphStore.loadGraph();
 
@@ -164,7 +174,8 @@ describe('faceGraphStore', () => {
 				has_connections: true
 			};
 
-			vi.mocked(apiClient.client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: mockGraph
 			});
@@ -175,7 +186,8 @@ describe('faceGraphStore', () => {
 			expect(faceGraphStore.filteredPersonId).toBe('1');
 
 			// Verify API was called with correct params
-			expect(apiClient.client.get).toHaveBeenCalledWith(
+			const mockGet = getMockedClient().get;
+		expect(mockGet).toHaveBeenCalledWith(
 				'/faces/graph',
 				{ person_id: '1' }
 			);
@@ -200,7 +212,8 @@ describe('faceGraphStore', () => {
 				has_connections: false
 			};
 
-			vi.mocked(apiClient.client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: mockGraph
 			});
@@ -208,7 +221,8 @@ describe('faceGraphStore', () => {
 			await faceGraphStore.filterByPerson('1');
 
 			expect(faceGraphStore.filteredPersonId).toBe('1');
-			expect(apiClient.client.get).toHaveBeenCalledWith(
+			const mockGet = getMockedClient().get;
+		expect(mockGet).toHaveBeenCalledWith(
 				'/faces/graph',
 				{ person_id: '1' }
 			);
@@ -218,7 +232,8 @@ describe('faceGraphStore', () => {
 	describe('clearFilter', () => {
 		it('should load unfiltered graph', async () => {
 			// First load a filtered graph
-			vi.mocked(apiClient.client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: {
 					nodes: [],
@@ -233,7 +248,8 @@ describe('faceGraphStore', () => {
 			await faceGraphStore.filterByPerson('1');
 
 			// Then clear the filter
-			vi.mocked(apiClient.client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: {
 					nodes: [],
@@ -248,7 +264,8 @@ describe('faceGraphStore', () => {
 			await faceGraphStore.clearFilter();
 
 			expect(faceGraphStore.filteredPersonId).toBeNull();
-			expect(apiClient.client.get).toHaveBeenLastCalledWith(
+			const mockGet = getMockedClient().get;
+		expect(mockGet).toHaveBeenLastCalledWith(
 				'/faces/graph',
 				{}
 			);
@@ -258,7 +275,8 @@ describe('faceGraphStore', () => {
 	describe('reset', () => {
 		it('should reset store to initial state', async () => {
 			// Load some data first
-			vi.mocked(apiClient.client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: {
 					nodes: [{ id: '1', name: 'Alice', face_count: 15, representative_face_id: 'face-1' }],
@@ -297,7 +315,8 @@ describe('faceGraphStore', () => {
 				has_connections: false
 			};
 
-			vi.mocked(apiClient.client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: emptyGraph
 			});
@@ -324,7 +343,8 @@ describe('faceGraphStore', () => {
 				has_connections: false
 			};
 
-			vi.mocked(apiClient.client.get).mockResolvedValueOnce({
+			const mockGet = getMockedClient().get;
+		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: graphWithIsolatedNodes
 			});

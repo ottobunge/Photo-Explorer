@@ -9,12 +9,12 @@ import type { Face, FaceClusterType } from '../types';
  */
 class FaceSelectionStore {
 	// State properties
-	editMode = $state<boolean>(false);
+	editMode: boolean = $state<boolean>(false);
 	// Use arrays instead of Sets for better reactivity with Svelte 5 runes
-	private _selectedFaceIds = $state<string[]>([]);
-	private _selectedClusterIds = $state<string[]>([]);
-	operationInProgress = $state<boolean>(false);
-	error = $state<string | null>(null);
+	private _selectedFaceIds: string[] = $state<string[]>([]);
+	private _selectedClusterIds: string[] = $state<string[]>([]);
+	operationInProgress: boolean = $state<boolean>(false);
+	error: string | null = $state<string | null>(null);
 
 	// Expose as Sets for backwards compatibility
 	get selectedFaceIds(): Set<string> {
