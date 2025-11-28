@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { client, ApiError, API_HOST } from './client';
 

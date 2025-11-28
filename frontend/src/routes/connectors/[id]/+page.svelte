@@ -255,7 +255,7 @@
 				if (pollTimeoutId !== null) {
 					clearTimeout(pollTimeoutId);
 				}
-				pollTimeoutId = setTimeout(() => pollPickerStatus(), 2000);
+				pollTimeoutId = setTimeout(() => { void pollPickerStatus(); }, 2000);
 				return;
 			}
 
@@ -312,7 +312,8 @@
 			pickerSession = await settingsStore.createPickerSession(connectorId);
 
 			// Set up message listener for picker events
-			messageListener = async (event: MessageEvent) => {
+			messageListener = (event: MessageEvent) => {
+				void (async () => {
 				// Allowed origins for Google Photos Picker
 				const allowedOrigins = ['https://photospicker.google.com'];
 
@@ -320,7 +321,7 @@
 				if (import.meta.env.DEV) {
 					console.log('Window message received:', {
 						origin: event.origin,
-						data: event.data,
+						data: event.data as unknown,
 						type: typeof event.data
 					});
 				}
@@ -337,17 +338,19 @@
 				// Google Picker sends various events - we're looking for the selection complete event
 				// The exact format depends on Google's implementation
 				// Try multiple possible event formats
+				const data: unknown = event.data;
 				const isPickerEvent =
-					event.data?.type === 'PICKER_API_READY' ||
-					event.data?.action === 'picked' ||
-					event.data?.action === 'loaded' ||
-					event.data === 'PICKER_SELECTION_COMPLETE' ||
-					(typeof event.data === 'string' && event.data.includes('picker'));
+					(typeof data === 'object' && data !== null && (data as { type?: string }).type === 'PICKER_API_READY') ||
+					(typeof data === 'object' && data !== null && (data as { action?: string }).action === 'picked') ||
+					(typeof data === 'object' && data !== null && (data as { action?: string }).action === 'loaded') ||
+					data === 'PICKER_SELECTION_COMPLETE' ||
+					(typeof data === 'string' && data.includes('picker'));
 
 				if (isPickerEvent) {
 					console.log('Picker event detected, checking status...');
 					await handlePickerComplete();
 				}
+				})();
 			};
 
 			window.addEventListener('message', messageListener);

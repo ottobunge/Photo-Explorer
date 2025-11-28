@@ -318,7 +318,7 @@
 	<div class="mb-6">
 		<SimilarityThresholdSlider
 			value={similarityThreshold}
-			onchange={(value) => {
+			onchange={(value: number) => {
 				updateUrl({ similarityThreshold: value, page: 1 });
 			}}
 		/>
@@ -332,7 +332,7 @@
 				id="connector-filter"
 				class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 				value={selectedConnectorId ?? ''}
-				onchange={(e) => {
+				onchange={(e: Event) => {
 					const target = e.currentTarget as HTMLSelectElement;
 					const value = target.value || null;
 					updateUrl({ connectorId: value, page: 1 });
@@ -351,7 +351,7 @@
 				id="album-filter"
 				class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 				value={selectedAlbumId ?? ''}
-				onchange={(e) => {
+				onchange={(e: Event) => {
 					const target = e.currentTarget as HTMLSelectElement;
 					const value = target.value || null;
 					updateUrl({ albumId: value, page: 1 });
@@ -364,7 +364,7 @@
 			</select>
 		</div>
 
-		{#if (selectedConnectorId !== null && selectedConnectorId !== undefined) || (selectedAlbumId !== null && selectedAlbumId !== undefined)}
+		{#if selectedConnectorId !== null || selectedAlbumId !== null}
 			<button
 				class="text-sm text-blue-600 hover:underline"
 				onclick={() => {

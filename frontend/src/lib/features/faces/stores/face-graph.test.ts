@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { faceGraphStore } from './face-graph.svelte';
 import * as apiClient from '$lib/api/client';

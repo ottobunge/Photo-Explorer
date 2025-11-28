@@ -2,7 +2,7 @@
 
 import { writable } from 'svelte/store';
 import { client, ApiError } from '$lib/api/client';
-import type { SearchState, SearchFilters } from '../types';
+import type { SearchState, SearchFilters, SearchResult } from '../types';
 
 interface SearchStore {
 	subscribe: (run: (value: SearchState) => void) => () => void;
@@ -36,7 +36,7 @@ function createSearchStore(): SearchStore {
 			update((state) => ({ ...state, query, loading: true, error: null }));
 
 			try {
-				const result = await client.post<{ results: any[] }>('/search', { query, filters });
+				const result = await client.post<{ results: SearchResult[] }>('/search', { query, filters });
 				update((state) => ({
 					...state,
 					results: result.data.results,

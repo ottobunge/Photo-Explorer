@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import cytoscape from 'cytoscape';
-	import type { Core, ElementDefinition } from 'cytoscape';
+	import type { Core, ElementDefinition, EventObject, NodeSingular, EdgeSingular } from 'cytoscape';
 	import { faceGraphStore } from '../stores/face-graph.svelte';
 	import { goto } from '$app/navigation';
 	import type { GraphNode, GraphEdge } from '../types';
@@ -100,43 +100,43 @@
 			});
 
 			// Handle node clicks
-			cy.on('tap', 'node', (event) => {
-				const node = event.target;
-				const personId = node.data('id');
+			cy.on('tap', 'node', (event: EventObject) => {
+				const node = event.target as NodeSingular;
+				const personId = node.data('id') as string;
 
 				// If already filtered by this person, clear filter
 				if (filteredPersonId === personId) {
-					faceGraphStore.clearFilter();
+					void faceGraphStore.clearFilter();
 				} else {
 					// Filter to this person's network
-					faceGraphStore.filterByPerson(personId);
+					void faceGraphStore.filterByPerson(personId);
 				}
 			});
 
 			// Handle edge clicks
-			cy.on('tap', 'edge', (event) => {
-				const edge = event.target;
-				const personAId = edge.data('source');
-				const personBId = edge.data('target');
+			cy.on('tap', 'edge', (event: EventObject) => {
+				const edge = event.target as EdgeSingular;
+				const personAId = edge.data('source') as string;
+				const personBId = edge.data('target') as string;
 
 				// Navigate to relationship photos page
-				goto(`/faces/relationships/${personAId}/${personBId}`);
+				void goto(`/faces/relationships/${personAId}/${personBId}`);
 			});
 
 			// Add hover tooltips
-			cy.on('mouseover', 'node', (event) => {
-				const node = event.target;
-				const nameData: unknown = node.data('name');
-				const name = (nameData !== null && nameData !== '') ? String(nameData) : 'Unknown';
-				const faceCountData: unknown = node.data('faceCount');
-				const faceCount = (faceCountData !== null) ? Number(faceCountData) : 0;
+			cy.on('mouseover', 'node', (event: EventObject) => {
+				const node = event.target as NodeSingular;
+				const nameData = node.data('name') as string | null | undefined;
+				const name = (nameData !== null && nameData !== undefined && nameData !== '') ? nameData : 'Unknown';
+				const faceCountData = node.data('faceCount') as number | null | undefined;
+				const faceCount = faceCountData ?? 0;
 				node.data('label', `${name}\n${faceCount} faces`);
 			});
 
-			cy.on('mouseover', 'edge', (event) => {
-				const edge = event.target;
-				const sharedCountData: unknown = edge.data('sharedPhotoCount');
-				const sharedCount = (sharedCountData !== null) ? Number(sharedCountData) : 0;
+			cy.on('mouseover', 'edge', (event: EventObject) => {
+				const edge = event.target as EdgeSingular;
+				const sharedCountData = edge.data('sharedPhotoCount') as number | null | undefined;
+				const sharedCount = sharedCountData ?? 0;
 				container.title = `${sharedCount} photos together`;
 			});
 

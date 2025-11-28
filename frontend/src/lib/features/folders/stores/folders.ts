@@ -62,7 +62,7 @@ function createFoldersStore(): FoldersStore {
 			await client.post(`/folders/${folderId}/scan`);
 		},
 
-		async remove(folderId: string, deletePhotos: boolean = false): Promise<void> {
+		async remove(folderId: string, deletePhotos = false): Promise<void> {
 			await client.delete(`/folders/${folderId}?delete_photos=${deletePhotos}`);
 			update((state) => ({
 				...state,

@@ -412,19 +412,22 @@ export function useUrlParams<T extends Record<string, unknown>>(
 ): T {
 	const result = {} as T;
 
-	for (const [key, spec] of Object.entries(specs)) {
+	for (const [key, specAny] of Object.entries(specs)) {
+		const spec = specAny as UrlParamSpec<T[keyof T]>;
+
 		if (spec.type === 'string') {
 			result[key as keyof T] = useUrlParam(
 				page,
 				key,
-				spec.default as T[keyof T]
+				spec.default
 			);
 		} else if (spec.type === 'number') {
+			const numSpec = spec;
 			result[key as keyof T] = useUrlParamNumber(
 				page,
 				key,
-				spec.default as number,
-				{ min: spec.min, max: spec.max }
+				numSpec.default as number,
+				{ min: numSpec.min, max: numSpec.max }
 			) as T[keyof T];
 		} else if (spec.type === 'boolean') {
 			result[key as keyof T] = useUrlParamBoolean(
@@ -432,12 +435,13 @@ export function useUrlParams<T extends Record<string, unknown>>(
 				key,
 				spec.default as boolean
 			) as T[keyof T];
-		} else if (spec.type === 'enum') {
+		} else {
+			const enumSpec = spec;
 			result[key as keyof T] = useUrlParamEnum(
 				page,
 				key,
-				spec.default as string,
-				spec.allowed as readonly string[]
+				enumSpec.default as string,
+				enumSpec.allowed as readonly string[]
 			) as T[keyof T];
 		}
 	}

@@ -79,22 +79,23 @@
 		}
 	}
 
-	async function pollProgress(modelId: string): Promise<void> {
-		const interval = setInterval(async () => {
-			try {
-				const progress = await settingsStore.getDownloadProgress(modelId);
-				downloadingModels.set(modelId, progress);
-				downloadingModels = downloadingModels;
+	function pollProgress(modelId: string): void {
+		const interval = setInterval(() => {
+			settingsStore.getDownloadProgress(modelId)
+				.then((progress) => {
+					downloadingModels.set(modelId, progress);
+					downloadingModels = downloadingModels;
 
-				if (progress.status === 'completed' || progress.status === 'failed') {
-					clearInterval(interval);
-					if (progress.status === 'completed') {
-						await settingsStore.loadDownloadedModels();
+					if (progress.status === 'completed' || progress.status === 'failed') {
+						clearInterval(interval);
+						if (progress.status === 'completed') {
+							void settingsStore.loadDownloadedModels();
+						}
 					}
-				}
-			} catch {
-				clearInterval(interval);
-			}
+				})
+				.catch(() => {
+					clearInterval(interval);
+				});
 		}, 2000);
 	}
 
@@ -204,9 +205,10 @@
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
 							{:else if getModelStatus(settingsStore.activeModels.clip_model) === 'downloading'}
 								{@const progress = getProgress(settingsStore.activeModels.clip_model)}
+								<!-- eslint-disable-next-line @typescript-eslint/no-confusing-void-expression -->
 								{@render circularProgress(progress?.progress ?? 0, 36)}
 							{:else}
-								<button class="download-btn small" on:click={() => { downloadModel(settingsStore.activeModels.clip_model); }}>
+								<button class="download-btn small" on:click={() => { void downloadModel(settingsStore.activeModels.clip_model); }}>
 									Download
 								</button>
 							{/if}
@@ -228,6 +230,7 @@
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
 							{:else if getModelStatus(settingsStore.activeModels.face_model) === 'downloading'}
 								{@const progress = getProgress(settingsStore.activeModels.face_model)}
+								<!-- eslint-disable-next-line @typescript-eslint/no-confusing-void-expression -->
 								{@render circularProgress(progress?.progress ?? 0, 36)}
 							{:else}
 								<span class="status-badge pending">Pending</span>
@@ -286,6 +289,7 @@
 							{:else if getModelStatus(model.model_id) === 'downloading'}
 								{@const progress = getProgress(model.model_id)}
 								<div class="download-progress-inline">
+									<!-- eslint-disable-next-line @typescript-eslint/no-confusing-void-expression -->
 									{@render circularProgress(progress?.progress ?? 0, 28)}
 									{#if progress?.current_file}
 										<span class="current-file" title={progress.current_file}>
@@ -319,6 +323,7 @@
 										<span class="status-icon downloaded">✓</span>
 									{:else if getModelStatus(model.model_id) === 'downloading'}
 										{@const progress = getProgress(model.model_id)}
+										<!-- eslint-disable-next-line @typescript-eslint/no-confusing-void-expression -->
 										{@render circularProgress(progress?.progress ?? 0, 24)}
 									{:else}
 										<button class="mini-download-btn" on:click={() => downloadModel(model.model_id)}>
@@ -411,6 +416,7 @@
 							{:else if getModelStatus(lookupResult.model_id) === 'downloading'}
 								{@const progress = getProgress(lookupResult.model_id)}
 								<div class="download-progress-modal">
+									<!-- eslint-disable-next-line @typescript-eslint/no-confusing-void-expression -->
 									{@render circularProgress(progress?.progress ?? 0, 48)}
 									<div class="progress-details">
 										<span class="progress-label">Downloading...</span>
