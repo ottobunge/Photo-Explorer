@@ -2,9 +2,16 @@
 
 import { writable } from 'svelte/store';
 import { client, ApiError } from '$lib/api/client';
-import type { AlbumsState } from '../types';
+import type { AlbumsState, Album } from '../types';
 
-function createAlbumsStore() {
+interface AlbumsStore {
+	subscribe: (run: (value: AlbumsState) => void) => () => void;
+	load: () => Promise<void>;
+	create: (name: string, description?: string) => Promise<Album>;
+	delete: (albumId: string) => Promise<void>;
+}
+
+function createAlbumsStore(): AlbumsStore {
 	const { subscribe, update } = writable<AlbumsState>({
 		albums: [],
 		loading: false,
@@ -14,7 +21,7 @@ function createAlbumsStore() {
 	return {
 		subscribe,
 
-		async load() {
+		async load(): Promise<void> {
 			update((state) => ({ ...state, loading: true, error: null }));
 
 			try {
@@ -34,8 +41,8 @@ function createAlbumsStore() {
 			}
 		},
 
-		async create(name: string, description?: string) {
-			const result = await client.post<any>('/albums', { name, description });
+		async create(name: string, description?: string): Promise<Album> {
+			const result = await client.post<Album>('/albums', { name, description });
 			update((state) => ({
 				...state,
 				albums: [...state.albums, result.data]
@@ -43,7 +50,7 @@ function createAlbumsStore() {
 			return result.data;
 		},
 
-		async delete(albumId: string) {
+		async delete(albumId: string): Promise<void> {
 			await client.delete(`/albums/${albumId}`);
 			update((state) => ({
 				...state,

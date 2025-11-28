@@ -13,7 +13,7 @@
 	let localFolderName = '';
 	let recursive = true;
 
-	async function handleGooglePhotos() {
+	async function handleGooglePhotos(): Promise<void> {
 		connecting = true;
 		error = null;
 
@@ -27,7 +27,7 @@
 		}
 	}
 
-	async function handleCreateLocal() {
+	async function handleCreateLocal(): Promise<void> {
 		if (!localFolderPath.trim()) {
 			error = 'Please enter a folder path';
 			return;
@@ -55,7 +55,7 @@
 		}
 	}
 
-	function handleBack() {
+	function handleBack(): void {
 		selectedType = null;
 		error = null;
 	}

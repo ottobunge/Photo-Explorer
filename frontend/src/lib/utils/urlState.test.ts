@@ -74,16 +74,16 @@ describe('useUrlParam', () => {
 
 	it('should use custom validator when provided', () => {
 		const page = createMockPage({ rating: '5' });
-		const parser = (val: string) => parseInt(val, 10);
-		const validator = (val: number) => (val >= 1 && val <= 5 ? val : null);
+		const parser = (val: string): number => parseInt(val, 10);
+		const validator = (val: number): number | null => (val >= 1 && val <= 5 ? val : null);
 		const value = useUrlParam(page, 'rating', 3, parser, validator);
 		expect(value).toBe(5);
 	});
 
 	it('should return default value when validator fails', () => {
 		const page = createMockPage({ rating: '10' });
-		const parser = (val: string) => parseInt(val, 10);
-		const validator = (val: number) => (val >= 1 && val <= 5 ? val : null);
+		const parser = (val: string): number => parseInt(val, 10);
+		const validator = (val: number): number | null => (val >= 1 && val <= 5 ? val : null);
 		const value = useUrlParam(page, 'rating', 3, parser, validator);
 		expect(value).toBe(3);
 	});

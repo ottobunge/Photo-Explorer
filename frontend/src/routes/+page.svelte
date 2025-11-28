@@ -48,21 +48,21 @@
 		try {
 			// Fetch photos
 			const photosRes = await client.get<PhotosResponse>('/photos?per_page=12');
-			if (photosRes.success && photosRes.data) {
+			if (photosRes.success) {
 				recentPhotos = photosRes.data.photos;
 				stats.photos = photosRes.meta?.total ?? 0;
 			}
 
 			// Fetch connectors count
 			const connectorsRes = await client.get<ConnectorsResponse>('/connectors');
-			if (connectorsRes.success && connectorsRes.data) {
+			if (connectorsRes.success) {
 				stats.connectors = connectorsRes.data.connectors.length;
 			}
 
 			// Fetch albums count
 			try {
 				const albumsRes = await client.get<AlbumsResponse>('/albums');
-				if (albumsRes.success && albumsRes.data) {
+				if (albumsRes.success) {
 					stats.albums = albumsRes.data.albums.length;
 				}
 			} catch {
@@ -72,7 +72,7 @@
 			// Fetch people count
 			try {
 				const facesRes = await client.get<ClustersResponse>('/faces/clusters');
-				if (facesRes.success && facesRes.data) {
+				if (facesRes.success) {
 					stats.people = facesRes.data.clusters.filter((c) => c.name !== null).length;
 				}
 			} catch {

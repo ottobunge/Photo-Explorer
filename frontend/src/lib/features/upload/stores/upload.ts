@@ -3,7 +3,18 @@
 import { writable } from 'svelte/store';
 import type { UploadState } from '../types';
 
-function createUploadStore() {
+interface UploadStore {
+	subscribe: (run: (value: UploadState) => void) => () => void;
+	addFiles: (files: File[]) => void;
+	removeItem: (id: string) => void;
+	updateProgress: (id: string, progress: number) => void;
+	setCompleted: (id: string) => void;
+	setFailed: (id: string, error: string) => void;
+	clear: () => void;
+	setUploading: (uploading: boolean) => void;
+}
+
+function createUploadStore(): UploadStore {
 	const { subscribe, set, update } = writable<UploadState>({
 		items: [],
 		uploading: false
@@ -12,7 +23,7 @@ function createUploadStore() {
 	return {
 		subscribe,
 
-		addFiles(files: File[]) {
+		addFiles(files: File[]): void {
 			update((state) => ({
 				...state,
 				items: [
@@ -27,14 +38,14 @@ function createUploadStore() {
 			}));
 		},
 
-		removeItem(id: string) {
+		removeItem(id: string): void {
 			update((state) => ({
 				...state,
 				items: state.items.filter((item) => item.id !== id)
 			}));
 		},
 
-		updateProgress(id: string, progress: number) {
+		updateProgress(id: string, progress: number): void {
 			update((state) => ({
 				...state,
 				items: state.items.map((item) =>
@@ -43,7 +54,7 @@ function createUploadStore() {
 			}));
 		},
 
-		setCompleted(id: string) {
+		setCompleted(id: string): void {
 			update((state) => ({
 				...state,
 				items: state.items.map((item) =>
@@ -52,7 +63,7 @@ function createUploadStore() {
 			}));
 		},
 
-		setFailed(id: string, error: string) {
+		setFailed(id: string, error: string): void {
 			update((state) => ({
 				...state,
 				items: state.items.map((item) =>
@@ -61,11 +72,11 @@ function createUploadStore() {
 			}));
 		},
 
-		clear() {
+		clear(): void {
 			set({ items: [], uploading: false });
 		},
 
-		setUploading(uploading: boolean) {
+		setUploading(uploading: boolean): void {
 			update((state) => ({ ...state, uploading }));
 		}
 	};

@@ -8,7 +8,7 @@
 
 	let error = $state<string | null>(null);
 
-	async function handleConnect() {
+	async function handleConnect(): Promise<void> {
 		error = null;
 
 		try {
@@ -20,7 +20,7 @@
 		}
 	}
 
-	async function handleRemove(event: CustomEvent<{ id: string }>) {
+	async function handleRemove(event: CustomEvent<{ id: string }>): Promise<void> {
 		if (!confirm('Remove this Google Photos connection?\n\nWARNING: All imported photos and their data (embeddings, face detections, etc.) will be permanently deleted from Photo Explorer. Your photos in Google Photos will not be affected.')) {
 			return;
 		}

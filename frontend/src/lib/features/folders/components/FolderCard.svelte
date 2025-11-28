@@ -6,7 +6,7 @@
 
 	let scanning = false;
 
-	async function handleScan() {
+	async function handleScan(): Promise<void> {
 		scanning = true;
 		try {
 			await foldersStore.triggerScan(folder.id);

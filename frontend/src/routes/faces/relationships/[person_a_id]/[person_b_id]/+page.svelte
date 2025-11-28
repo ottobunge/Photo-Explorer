@@ -56,7 +56,7 @@
 				`/faces/relationships/${personAId}/${personBId}/photos`
 			);
 
-			if (res.success && res.data) {
+			if (res.success) {
 				personA = res.data.person_a;
 				personB = res.data.person_b;
 				photos = res.data.shared_photos;

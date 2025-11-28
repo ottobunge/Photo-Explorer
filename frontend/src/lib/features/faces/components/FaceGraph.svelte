@@ -124,21 +124,24 @@
 			// Add hover tooltips
 			cy.on('mouseover', 'node', (event) => {
 				const node = event.target;
-				const name = node.data('name') || 'Unknown';
-				const faceCount = node.data('faceCount') || 0;
+				const nameData: unknown = node.data('name');
+				const name = (nameData !== null && nameData !== undefined && nameData !== '') ? String(nameData) : 'Unknown';
+				const faceCountData: unknown = node.data('faceCount');
+				const faceCount = (faceCountData !== null && faceCountData !== undefined) ? Number(faceCountData) : 0;
 				node.data('label', `${name}\n${faceCount} faces`);
 			});
 
 			cy.on('mouseover', 'edge', (event) => {
 				const edge = event.target;
-				const sharedCount = edge.data('sharedPhotoCount') || 0;
-				if (containerElement) {
+				const sharedCountData: unknown = edge.data('sharedPhotoCount');
+				const sharedCount = (sharedCountData !== null && sharedCountData !== undefined) ? Number(sharedCountData) : 0;
+				if (containerElement !== null && containerElement !== undefined) {
 					containerElement.title = `${sharedCount} photos together`;
 				}
 			});
 
 			cy.on('mouseout', 'edge', () => {
-				if (containerElement) {
+				if (containerElement !== null && containerElement !== undefined) {
 					containerElement.title = '';
 				}
 			});
@@ -154,8 +157,8 @@
 			hasConnections: graph?.has_connections,
 			nodeCount: graph?.node_count,
 			edgeCount: graph?.edge_count,
-			nodesLength: graph?.nodes?.length,
-			edgesLength: graph?.edges?.length
+			nodesLength: graph?.nodes.length,
+			edgesLength: graph?.edges.length
 		});
 		if (cy && graph) {
 			updateGraph(graph.nodes, graph.edges, filteredPersonId);
@@ -189,7 +192,7 @@
 				target: edge.person_b_id,
 				sharedPhotoCount: edge.shared_photo_count || 0,
 				thickness: Math.max(1, Math.min(8, (edge.shared_photo_count || 0) / 2)), // Thickness based on shared photos
-				samplePhotoIds: edge.sample_photo_ids || []
+				samplePhotoIds: (edge.sample_photo_ids !== null && edge.sample_photo_ids !== undefined) ? edge.sample_photo_ids : []
 			}
 		}));
 

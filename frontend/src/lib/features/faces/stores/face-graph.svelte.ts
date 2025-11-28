@@ -29,9 +29,9 @@ class FaceGraphStore {
 
 			const result = await client.get<SocialGraph>('/faces/graph', params);
 
-			if (result.success && result.data) {
+			if (result.success && result.data !== null && result.data !== undefined) {
 				this.graph = result.data;
-				this.filteredPersonId = personId || null;
+				this.filteredPersonId = personId ?? null;
 			}
 		} catch (err) {
 			const message = err instanceof ApiError ? err.message : 'Failed to load social graph';

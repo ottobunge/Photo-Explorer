@@ -93,7 +93,7 @@
 		try {
 			// Load connector info
 			const connectorRes = await client.get<Connector>(`/connectors/${connectorId}`);
-			if (connectorRes.success && connectorRes.data) {
+			if (connectorRes.success) {
 				connector = connectorRes.data;
 			}
 
@@ -112,7 +112,7 @@
 			const res = await client.get<PhotosResponse>(
 				`/connectors/${connectorId}/photos?page=${currentPage}&per_page=${perPage}`
 			);
-			if (res.success && res.data) {
+			if (res.success) {
 				photos = res.data.photos;
 				total = res.meta?.total ?? photos.length;
 			}

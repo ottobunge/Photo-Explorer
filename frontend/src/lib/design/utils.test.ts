@@ -266,14 +266,14 @@ describe('Design System Utilities', () => {
 		it('should only accept valid spacing tokens', () => {
 			// TypeScript should catch these at compile time
 			// Runtime tests verify the values
-			const validKeys: Array<keyof typeof spacing> = ['xs', 'sm', 'md', 'lg', 'xl'];
+			const validKeys: (keyof typeof spacing)[] = ['xs', 'sm', 'md', 'lg', 'xl'];
 			validKeys.forEach((key) => {
 				expect(spacing[key]).toBeDefined();
 			});
 		});
 
 		it('should only accept valid typography tokens', () => {
-			const validFontSizes: Array<keyof typeof typography.fontSize> = ['xs', 'sm', 'base', 'lg', 'xl'];
+			const validFontSizes: (keyof typeof typography.fontSize)[] = ['xs', 'sm', 'base', 'lg', 'xl'];
 			validFontSizes.forEach((key) => {
 				expect(typography.fontSize[key]).toBeDefined();
 			});

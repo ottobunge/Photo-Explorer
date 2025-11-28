@@ -4,7 +4,15 @@ import { writable } from 'svelte/store';
 import { client, ApiError } from '$lib/api/client';
 import type { SearchState, SearchFilters } from '../types';
 
-function createSearchStore() {
+interface SearchStore {
+	subscribe: (run: (value: SearchState) => void) => () => void;
+	setQuery: (query: string) => void;
+	setFilters: (filters: SearchFilters) => void;
+	search: (query: string, filters?: SearchFilters) => Promise<void>;
+	clear: () => void;
+}
+
+function createSearchStore(): SearchStore {
 	const { subscribe, set, update } = writable<SearchState>({
 		query: '',
 		results: [],
@@ -16,15 +24,15 @@ function createSearchStore() {
 	return {
 		subscribe,
 
-		setQuery(query: string) {
+		setQuery(query: string): void {
 			update((state) => ({ ...state, query }));
 		},
 
-		setFilters(filters: SearchFilters) {
+		setFilters(filters: SearchFilters): void {
 			update((state) => ({ ...state, filters }));
 		},
 
-		async search(query: string, filters?: SearchFilters) {
+		async search(query: string, filters?: SearchFilters): Promise<void> {
 			update((state) => ({ ...state, query, loading: true, error: null }));
 
 			try {
@@ -44,7 +52,7 @@ function createSearchStore() {
 			}
 		},
 
-		clear() {
+		clear(): void {
 			set({
 				query: '',
 				results: [],

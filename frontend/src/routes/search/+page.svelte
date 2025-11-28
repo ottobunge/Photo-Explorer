@@ -114,10 +114,10 @@
 				client.get<ConnectorsResponse>('/connectors'),
 				client.get<AlbumsResponse>('/albums')
 			]);
-			if (connectorsRes.success && connectorsRes.data) {
+			if (connectorsRes.success) {
 				connectors = connectorsRes.data.connectors;
 			}
-			if (albumsRes.success && albumsRes.data) {
+			if (albumsRes.success) {
 				albums = albumsRes.data.albums;
 			}
 		} catch (err: unknown) {
@@ -192,7 +192,7 @@
 				url += `&album_id=${encodeURIComponent(selectedAlbumId)}`;
 			}
 			const res = await client.get<PhotosResponse>(url);
-			if (res.success && res.data) {
+			if (res.success) {
 				photos = res.data.photos;
 				total = res.meta?.total ?? 0;
 			}
@@ -205,7 +205,7 @@
 
 	async function fetchSearchResults(): Promise<void> {
 		// Cancel previous request if it exists
-		if (abortController) {
+		if (abortController !== null && abortController !== undefined) {
 			abortController.abort();
 		}
 
@@ -234,7 +234,7 @@
 				return;
 			}
 
-			if (res.success && res.data) {
+			if (res.success) {
 				photos = res.data.results.map((r: SearchResultItem) => ({
 					id: r.photo.id,
 					filename: r.photo.filename,
@@ -309,7 +309,7 @@
 		<!-- Local input state for SearchBar, syncs to URL on submit -->
 		<SearchBar
 			bind:query={searchInput}
-			onSearch={() => onSearchSubmit(searchInput)}
+			onSearch={() => { onSearchSubmit(searchInput); }}
 			{loading}
 		/>
 	</div>

@@ -30,7 +30,7 @@ class FacesStore {
 				params
 			);
 
-			if (result.success && result.data) {
+			if (result.success && result.data !== null && result.data !== undefined) {
 				this.clusters = result.data.clusters;
 			}
 		} catch (err) {
@@ -51,7 +51,7 @@ class FacesStore {
 				name
 			});
 
-			if (result.success && result.data) {
+			if (result.success && result.data !== null && result.data !== undefined) {
 				// Update the cluster in the list
 				this.clusters = this.clusters.map((c) =>
 					c.id === clusterId ? result.data : c

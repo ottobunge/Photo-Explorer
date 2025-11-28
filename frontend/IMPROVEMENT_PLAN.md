@@ -18,7 +18,9 @@
   - Zero TypeScript build errors
 
 ### In Progress 🟡
-- **Week 1, Phase 2:** Fix ESLint Errors
+- **Week 1, Phase 2:** Fix ESLint Errors (2025-11-28)
+  - Categorized all 367 errors into 10 categories
+  - Starting systematic fixes
 
 ### Pending ⏳
 - Week 1, Phase 3: Complete Modal Migration
@@ -30,7 +32,8 @@
 | Metric | Before | Current | Target |
 |--------|--------|---------|--------|
 | TypeScript Errors | 0 | 0 | 0 |
-| ESLint Errors | 50+ | TBD | 0 |
+| ESLint Errors | 50+ (est.) | **367** | 0 |
+| ESLint Warnings | Unknown | 104 | <10 |
 | Type Coverage (API Client) | 98% | 100% | 100% |
 | Test Coverage | 40% | 40% | 70% |
 | Svelte 5 Adoption | 60% | 60% | 100% |
@@ -146,16 +149,22 @@ npx eslint . --rule '@typescript-eslint/explicit-function-return-type: error' --
 - [ ] ESLint rule enabled in config
 - [ ] Zero violations in CI/CD
 
-#### 1.3 Fix Critical ESLint Errors (8 hours)
+#### 1.3 Fix Critical ESLint Errors (20+ hours) 🟡 IN PROGRESS
 **Priority:** HIGH
-**Current State:** 50+ errors
+**Current State:** **367 errors, 104 warnings** (2025-11-28)
+**Status:** Categorized and prioritized
 
-**Categories:**
-1. **Unused variables** (15 errors) - Remove or prefix with `_`
-2. **Missing dependencies** (12 errors) - Fix useEffect/reactive dependencies
-3. **Type assertions** (8 errors) - Replace with proper type guards
-4. **Accessibility** (10 errors) - Add ARIA labels, roles
-5. **Security** (5 errors) - Fix innerHTML usage, validate inputs
+**Top 10 Error Categories:**
+1. **Missing function return types** (58 errors) - Add explicit return types
+2. **Strict boolean expressions** (44 errors) - Fix truthy/falsy checks
+3. **Unnecessary conditions** (36 errors) - Remove always-true/false conditions
+4. **Prefer nullish coalescing** (27 errors) - Replace `||` with `??`
+5. **Unbound methods** (26 errors) - Fix `this` binding issues
+6. **Unsafe member access** (25 errors) - Fix `any` type member access
+7. **Confusing void expressions** (24 errors) - Fix void return handling
+8. **Missing type annotations** (23 errors) - Add variable type annotations
+9. **Unsafe assignment** (21 errors) - Fix `any` type assignments
+10. **Other errors** (~83 errors) - Non-null assertions, floating promises, etc.
 
 **Action Items:**
 - [ ] Run `npm run lint -- --fix` to auto-fix

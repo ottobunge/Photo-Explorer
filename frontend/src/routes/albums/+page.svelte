@@ -79,7 +79,7 @@
 				sort_order: sortOrder
 			});
 			const res = await client.get<AlbumsResponse>(`/albums?${queryParams.toString()}`);
-			if (res.success && res.data) {
+			if (res.success) {
 				albums = res.data.albums;
 				total = res.meta?.total ?? albums.length;
 			}

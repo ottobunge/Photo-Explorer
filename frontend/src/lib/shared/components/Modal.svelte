@@ -13,13 +13,13 @@
 
 	const dispatch = createEventDispatcher<{ close: void }>();
 
-	function handleBackdropClick(e: MouseEvent) {
+	function handleBackdropClick(e: MouseEvent): void {
 		if (e.target === e.currentTarget) {
 			dispatch('close');
 		}
 	}
 
-	function handleKeydown(e: KeyboardEvent) {
+	function handleKeydown(e: KeyboardEvent): void {
 		if (e.key === 'Escape') {
 			dispatch('close');
 		}
@@ -58,7 +58,7 @@
 
 		{#if footer}
 			<div class="mt-4">
-				{@render footer?.()}
+				{@render footer()}
 			</div>
 		{/if}
 

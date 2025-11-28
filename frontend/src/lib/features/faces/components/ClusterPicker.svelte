@@ -49,13 +49,13 @@
 		}
 	});
 
-	function handleBackdropClick(e: MouseEvent) {
+	function handleBackdropClick(e: MouseEvent): void {
 		if (e.target === e.currentTarget) {
 			onclose?.();
 		}
 	}
 
-	function handleSelect(cluster: FaceClusterType) {
+	function handleSelect(cluster: FaceClusterType): void {
 		onselect?.(cluster);
 	}
 

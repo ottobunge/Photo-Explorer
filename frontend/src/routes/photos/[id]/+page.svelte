@@ -39,7 +39,7 @@
 		error = null;
 		try {
 			const res = await client.get<Photo>(`/photos/${photoId}`);
-			if (res.success && res.data) {
+			if (res.success) {
 				photo = res.data;
 			} else {
 				error = 'Failed to load photo';
@@ -53,7 +53,7 @@
 	}
 
 	function formatFileSize(bytes: number | null): string {
-		if (!bytes) {return 'Unknown';}
+		if (bytes === null || bytes === undefined) {return 'Unknown';}
 		const kb = bytes / 1024;
 		if (kb < 1024) {return `${kb.toFixed(1)} KB`;}
 		const mb = kb / 1024;
@@ -189,7 +189,7 @@
 					{/if}
 
 					<!-- Detected Objects -->
-					{#if photo.detected_objects && photo.detected_objects.length > 0}
+					{#if photo.detected_objects !== null && photo.detected_objects !== undefined && photo.detected_objects.length > 0}
 						<div class="bg-white rounded-lg shadow p-6">
 							<h2 class="text-lg font-semibold text-gray-900 mb-3">Detected Objects</h2>
 							<div class="flex flex-wrap gap-2">
@@ -206,7 +206,7 @@
 					<div class="bg-white rounded-lg shadow p-6">
 						<h2 class="text-lg font-semibold text-gray-900 mb-3">Metadata</h2>
 						<dl class="space-y-2">
-							{#if photo.width && photo.height}
+							{#if (photo.width !== null && photo.width !== undefined) && (photo.height !== null && photo.height !== undefined)}
 								<div class="flex justify-between">
 									<dt class="text-gray-600">Dimensions:</dt>
 									<dd class="font-medium text-gray-900">{photo.width} × {photo.height}</dd>

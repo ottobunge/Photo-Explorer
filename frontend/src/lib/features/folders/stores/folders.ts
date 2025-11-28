@@ -2,9 +2,17 @@
 
 import { writable } from 'svelte/store';
 import { client, ApiError } from '$lib/api/client';
-import type { FoldersState } from '../types';
+import type { FoldersState, WatchedFolder } from '../types';
 
-function createFoldersStore() {
+interface FoldersStore {
+	subscribe: (run: (value: FoldersState) => void) => () => void;
+	load: () => Promise<void>;
+	add: (path: string, options?: { name?: string; recursive?: boolean; autoAlbum?: boolean }) => Promise<WatchedFolder>;
+	triggerScan: (folderId: string) => Promise<void>;
+	remove: (folderId: string, deletePhotos?: boolean) => Promise<void>;
+}
+
+function createFoldersStore(): FoldersStore {
 	const { subscribe, update } = writable<FoldersState>({
 		folders: [],
 		loading: false,
@@ -14,7 +22,7 @@ function createFoldersStore() {
 	return {
 		subscribe,
 
-		async load() {
+		async load(): Promise<void> {
 			update((state) => ({ ...state, loading: true, error: null }));
 
 			try {
@@ -34,8 +42,8 @@ function createFoldersStore() {
 			}
 		},
 
-		async add(path: string, options?: { name?: string; recursive?: boolean; autoAlbum?: boolean }) {
-			const result = await client.post<any>('/folders', {
+		async add(path: string, options?: { name?: string; recursive?: boolean; autoAlbum?: boolean }): Promise<WatchedFolder> {
+			const result = await client.post<WatchedFolder>('/folders', {
 				path,
 				name: options?.name,
 				recursive: options?.recursive ?? true,
@@ -50,11 +58,11 @@ function createFoldersStore() {
 			return result.data;
 		},
 
-		async triggerScan(folderId: string) {
+		async triggerScan(folderId: string): Promise<void> {
 			await client.post(`/folders/${folderId}/scan`);
 		},
 
-		async remove(folderId: string, deletePhotos = false) {
+		async remove(folderId: string, deletePhotos = false): Promise<void> {
 			await client.delete(`/folders/${folderId}?delete_photos=${deletePhotos}`);
 			update((state) => ({
 				...state,

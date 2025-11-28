@@ -17,7 +17,7 @@
 	let autoAlbum = $state(false);
 	let adding = $state(false);
 
-	function openAddModal() {
+	function openAddModal(): void {
 		folderPath = '';
 		folderName = '';
 		recursive = true;
@@ -26,11 +26,11 @@
 		showAddModal = true;
 	}
 
-	function closeAddModal() {
+	function closeAddModal(): void {
 		showAddModal = false;
 	}
 
-	async function handleAddFolder() {
+	async function handleAddFolder(): Promise<void> {
 		if (!folderPath.trim()) {
 			error = 'Please enter a folder path';
 			return;
@@ -62,7 +62,7 @@
 		}
 	}
 
-	async function handleRemove(event: CustomEvent<{ id: string }>) {
+	async function handleRemove(event: CustomEvent<{ id: string }>): Promise<void> {
 		if (!confirm('Remove this folder from Photo Explorer?\n\nWARNING: All indexed photos and their data (embeddings, face detections, etc.) will be permanently deleted from Photo Explorer. Your original files on disk will not be affected.')) {
 			return;
 		}
@@ -119,7 +119,7 @@
 <!-- Add Folder Modal -->
 {#if showAddModal}
 	<div class="modal-overlay" onclick={closeAddModal} onkeydown={(e) => e.key === 'Escape' && closeAddModal()} role="button" tabindex="0">
-		<div class="modal" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
+		<div class="modal" onclick={(e) => { e.stopPropagation(); }} onkeydown={(e) => { e.stopPropagation(); }} role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
 			<div class="modal-header">
 				<h3 id="modal-title">Add Local Folder</h3>
 				<button class="close-btn" onclick={closeAddModal} aria-label="Close modal">×</button>

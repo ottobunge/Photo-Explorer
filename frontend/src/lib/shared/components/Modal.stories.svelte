@@ -42,16 +42,16 @@ Modal component displays content in a dialog overlay.
 <!-- Default modal -->
 <Story name="Default" asChild>
 	<div>
-		<Button onclick={() => isOpen1.set(true)}>Open Modal</Button>
+		<Button onclick={() => { isOpen1.set(true); }}>Open Modal</Button>
 		{#if $isOpen1}
-			<Modal title="Default Modal" on:close={() => isOpen1.set(false)}>
+			<Modal title="Default Modal" on:close={() => { isOpen1.set(false); }}>
 				<p style="margin: 0; color: #6b7280;">
 					This is a default modal with a title and some content.
 				</p>
 				{#snippet footer()}
 					<div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-						<Button variant="secondary" onclick={() => isOpen1.set(false)}>Cancel</Button>
-						<Button variant="primary" onclick={() => isOpen1.set(false)}>Confirm</Button>
+						<Button variant="secondary" onclick={() => { isOpen1.set(false); }}>Cancel</Button>
+						<Button variant="primary" onclick={() => { isOpen1.set(false); }}>Confirm</Button>
 					</div>
 				{/snippet}
 			</Modal>
@@ -62,12 +62,12 @@ Modal component displays content in a dialog overlay.
 <!-- Small modal -->
 <Story name="Small" asChild>
 	<div>
-		<Button onclick={() => isOpen2.set(true)}>Open Small Modal</Button>
+		<Button onclick={() => { isOpen2.set(true); }}>Open Small Modal</Button>
 		{#if $isOpen2}
-			<Modal title="Small Modal" on:close={() => isOpen2.set(false)}>
+			<Modal title="Small Modal" on:close={() => { isOpen2.set(false); }}>
 				<p style="margin: 0; color: #6b7280;">This is a small modal.</p>
 				{#snippet footer()}
-					<Button onclick={() => isOpen2.set(false)}>Close</Button>
+					<Button onclick={() => { isOpen2.set(false); }}>Close</Button>
 				{/snippet}
 			</Modal>
 		{/if}
@@ -77,9 +77,9 @@ Modal component displays content in a dialog overlay.
 <!-- Large modal with form -->
 <Story name="LargeWithForm" asChild>
 	<div>
-		<Button onclick={() => isOpen3.set(true)}>Open Large Modal</Button>
+		<Button onclick={() => { isOpen3.set(true); }}>Open Large Modal</Button>
 		{#if $isOpen3}
-			<Modal title="Create New Album" on:close={() => isOpen3.set(false)}>
+			<Modal title="Create New Album" on:close={() => { isOpen3.set(false); }}>
 			<div style="display: flex; flex-direction: column; gap: 1rem;">
 				<div>
 					<label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Album Name</label>
@@ -101,8 +101,8 @@ Modal component displays content in a dialog overlay.
 			</div>
 			{#snippet footer()}
 				<div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-					<Button variant="secondary" onclick={() => isOpen3.set(false)}>Cancel</Button>
-					<Button variant="primary" onclick={() => isOpen3.set(false)}>Create Album</Button>
+					<Button variant="secondary" onclick={() => { isOpen3.set(false); }}>Cancel</Button>
+					<Button variant="primary" onclick={() => { isOpen3.set(false); }}>Create Album</Button>
 				</div>
 			{/snippet}
 		</Modal>

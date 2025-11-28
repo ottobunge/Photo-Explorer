@@ -49,7 +49,7 @@
 		error = null;
 		try {
 			const res = await client.get<ClusterData>(`/faces/clusters/${clusterId}`);
-			if (res.success && res.data) {
+			if (res.success) {
 				cluster = res.data;
 				editName = cluster.name ?? '';
 			}
@@ -58,7 +58,7 @@
 			const facesRes = await client.get<{ faces: Face[] }>(
 				`/faces/clusters/${clusterId}/faces`
 			);
-			if (facesRes.success && facesRes.data) {
+			if (facesRes.success) {
 				faces = facesRes.data.faces;
 			}
 		} catch (err: unknown) {
@@ -88,7 +88,7 @@
 			const res = await client.patch<ClusterData>(`/faces/clusters/${clusterId}`, {
 				name: editName.trim()
 			});
-			if (res.success && res.data) {
+			if (res.success) {
 				cluster = res.data;
 				isEditing = false;
 			}

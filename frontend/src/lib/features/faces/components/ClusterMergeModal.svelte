@@ -21,7 +21,7 @@
 	$: targetCluster = clusters.find((c) => c.id === selectedTargetId);
 	$: sourceCount = clusters.length - 1;
 
-	async function handleMerge() {
+	async function handleMerge(): Promise<void> {
 		if (!selectedTargetId) {
 			error = 'Please select a target cluster';
 			return;
@@ -39,7 +39,7 @@
 		}
 	}
 
-	function handleBackdropClick(e: MouseEvent) {
+	function handleBackdropClick(e: MouseEvent): void {
 		if (e.target === e.currentTarget) {
 			dispatch('close');
 		}

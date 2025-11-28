@@ -323,16 +323,16 @@ test.describe('Face Graph Page - Integration Tests', () => {
 				representative_face_id: `face-${i + 1}`
 			}));
 
-			const edges: Array<{
+			const edges: {
 				person_a_id: string;
 				person_b_id: string;
 				shared_photo_count: number;
 				sample_photo_ids: string[];
-			}> = [];
+			}[] = [];
 			for (let i = 0; i < 15; i++) {
 				const a = Math.floor(Math.random() * 20) + 1;
 				let b = Math.floor(Math.random() * 20) + 1;
-				while (b === a) b = Math.floor(Math.random() * 20) + 1;
+				while (b === a) {b = Math.floor(Math.random() * 20) + 1;}
 
 				edges.push({
 					person_a_id: `${Math.min(a, b)}`,

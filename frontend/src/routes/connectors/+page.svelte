@@ -35,7 +35,7 @@
 		error = null;
 		try {
 			const res = await client.get<ConnectorsResponse>('/connectors');
-			if (res.success && res.data) {
+			if (res.success) {
 				connectors = res.data.connectors;
 			}
 		} catch (err: unknown) {
@@ -46,7 +46,7 @@
 		}
 	}
 
-	function handleModalClose() {
+	function handleModalClose(): void {
 		showAddModal = false;
 		// Reload connectors to show newly added one
 		void loadConnectors();

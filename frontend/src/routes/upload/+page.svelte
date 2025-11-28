@@ -13,16 +13,16 @@
 	let failedCount = 0;
 	let error: string | null = null;
 
-	function handleFilesSelected(event: CustomEvent<File[]>) {
+	function handleFilesSelected(event: CustomEvent<File[]>): void {
 		files = [...files, ...event.detail];
 		error = null;
 	}
 
-	function removeFile(index: number) {
+	function removeFile(index: number): void {
 		files = files.filter((_, i) => i !== index);
 	}
 
-	async function handleUpload() {
+	async function handleUpload(): Promise<void> {
 		if (files.length === 0) {return;}
 
 		uploading = true;
@@ -39,7 +39,7 @@
 			// Upload to API using centralized client
 			const result = await client.postForm<UploadResult>('/photos/upload', formData);
 
-			if (result.success && result.data) {
+			if (result.success) {
 				failedCount = result.data.failed.length || 0;
 
 				if (failedCount > 0) {

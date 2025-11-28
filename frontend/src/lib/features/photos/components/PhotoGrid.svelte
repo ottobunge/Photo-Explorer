@@ -81,8 +81,8 @@
 					aria-label={`View photo: ${photo.filename}`}
 					role={hasClickHandler ? 'button' : 'link'}
 					tabindex="0"
-					onclick={(e) => handlePhotoClick(photo, e)}
-					onkeydown={(e) => handleKeyDown(photo, e)}
+					onclick={(e) => { handlePhotoClick(photo, e); }}
+					onkeydown={(e) => { handleKeyDown(photo, e); }}
 				>
 					{#if thumbnailUrl}
 						<img

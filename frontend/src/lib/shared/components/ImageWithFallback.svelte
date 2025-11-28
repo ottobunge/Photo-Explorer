@@ -30,7 +30,7 @@
 	let hasError = $state(false);
 	let isLoading = $state(true);
 
-	function handleError(event: Event) {
+	function handleError(event: Event): void {
 		hasError = true;
 		isLoading = false;
 		console.error('Failed to load image:', src);
@@ -39,7 +39,7 @@
 		}
 	}
 
-	function handleLoad() {
+	function handleLoad(): void {
 		isLoading = false;
 	}
 

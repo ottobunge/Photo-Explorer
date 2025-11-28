@@ -17,7 +17,7 @@
 	// Download tracking
 	let downloadingModels = new Map<string, DownloadProgress>();
 
-	onMount(async () => {
+	onMount(async (): Promise<void> => {
 		await Promise.all([
 			settingsStore.loadActiveModels(),
 			settingsStore.loadDownloadedModels(),
@@ -25,7 +25,7 @@
 		]);
 	});
 
-	async function handleSearch() {
+	async function handleSearch(): Promise<void> {
 		if (!searchQuery.trim()) {return;}
 
 		searching = true;
@@ -40,13 +40,13 @@
 		}
 	}
 
-	function openLookupModal() {
+	function openLookupModal(): void {
 		lookupModelId = '';
 		lookupResult = null;
 		showLookupModal = true;
 	}
 
-	async function handleLookup() {
+	async function handleLookup(): Promise<void> {
 		if (!lookupModelId.trim()) {return;}
 
 		lookingUp = true;
@@ -64,7 +64,7 @@
 		}
 	}
 
-	async function downloadModel(modelId: string) {
+	async function downloadModel(modelId: string): Promise<void> {
 		try {
 			const progress = await settingsStore.downloadModel(modelId);
 			downloadingModels.set(modelId, progress);
@@ -79,7 +79,7 @@
 		}
 	}
 
-	async function pollProgress(modelId: string) {
+	async function pollProgress(modelId: string): Promise<void> {
 		const interval = setInterval(async () => {
 			try {
 				const progress = await settingsStore.getDownloadProgress(modelId);
@@ -98,7 +98,7 @@
 		}, 2000);
 	}
 
-	async function deleteModel(modelId: string) {
+	async function deleteModel(modelId: string): Promise<void> {
 		if (!confirm(`Delete downloaded model: ${modelId}?`)) {return;}
 
 		try {
@@ -202,11 +202,11 @@
 								<span class="status-badge ready">Ready</span>
 							{:else if settingsStore.activeModels.clip_status === 'auto_download'}
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
-							{:else if settingsStore.activeModels && getModelStatus(settingsStore.activeModels.clip_model) === 'downloading'}
+							{:else if settingsStore.activeModels !== null && settingsStore.activeModels !== undefined && getModelStatus(settingsStore.activeModels.clip_model) === 'downloading'}
 								{@const progress = getProgress(settingsStore.activeModels.clip_model)}
 								{@render circularProgress(progress?.progress ?? 0, 36)}
-							{:else if settingsStore.activeModels}
-								<button class="download-btn small" on:click={() => settingsStore.activeModels && downloadModel(settingsStore.activeModels.clip_model)}>
+							{:else if settingsStore.activeModels !== null && settingsStore.activeModels !== undefined}
+								<button class="download-btn small" on:click={() => (settingsStore.activeModels !== null && settingsStore.activeModels !== undefined) && downloadModel(settingsStore.activeModels.clip_model)}>
 									Download
 								</button>
 							{/if}
@@ -226,7 +226,7 @@
 								<span class="status-badge ready">Ready</span>
 							{:else if settingsStore.activeModels.face_status === 'auto_download'}
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
-							{:else if settingsStore.activeModels && getModelStatus(settingsStore.activeModels.face_model) === 'downloading'}
+							{:else if settingsStore.activeModels !== null && settingsStore.activeModels !== undefined && getModelStatus(settingsStore.activeModels.face_model) === 'downloading'}
 								{@const progress = getProgress(settingsStore.activeModels.face_model)}
 								{@render circularProgress(progress?.progress ?? 0, 36)}
 							{:else}
@@ -417,7 +417,7 @@
 										{#if progress?.current_file}
 											<span class="current-file">{progress.current_file.split('/').pop()}</span>
 										{/if}
-										{#if progress?.downloaded_bytes && progress.total_bytes}
+										{#if (progress?.downloaded_bytes !== null && progress?.downloaded_bytes !== undefined) && (progress.total_bytes !== null && progress.total_bytes !== undefined)}
 											<span class="progress-bytes">
 												{formatBytes(progress.downloaded_bytes)} / {formatBytes(progress.total_bytes)}
 											</span>

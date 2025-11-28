@@ -34,7 +34,7 @@
 		}
 	});
 
-	async function handleSave() {
+	async function handleSave(): Promise<void> {
 		saving = true;
 		error = null;
 		successMessage = null;

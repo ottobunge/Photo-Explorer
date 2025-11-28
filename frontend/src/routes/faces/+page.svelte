@@ -181,7 +181,7 @@
 			const res = await client.get<ClustersResponse>(
 				`/faces/clusters?${queryParams.toString()}`
 			);
-			if (res.success && res.data) {
+			if (res.success) {
 				clusters = res.data.clusters;
 				total = res.meta?.total ?? clusters.length;
 			}

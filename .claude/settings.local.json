@@ -59,7 +59,9 @@
       "Bash(pkill:*)",
       "WebFetch(domain:storybook.js.org)",
       "Bash(pytest:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(xargs -I{} sh -c 'npx eslint \"\"\"\"{}\"\"\"\" 2>&1 | grep -q \"\"\"\"32:26.*strict-boolean\"\"\"\" && echo \"\"\"\"{}\"\"\"\"')"
     ],
     "deny": [],
     "ask": []

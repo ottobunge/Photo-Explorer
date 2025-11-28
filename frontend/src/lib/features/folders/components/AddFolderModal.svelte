@@ -11,7 +11,7 @@
 	let loading = false;
 	let error = '';
 
-	async function handleSubmit() {
+	async function handleSubmit(): Promise<void> {
 		if (!path.trim()) {
 			error = 'Path is required';
 			return;
@@ -37,7 +37,7 @@
 		}
 	}
 
-	function handleBackdropClick(e: MouseEvent) {
+	function handleBackdropClick(e: MouseEvent): void {
 		if (e.target === e.currentTarget) {
 			dispatch('close');
 		}

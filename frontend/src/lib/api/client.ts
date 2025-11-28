@@ -4,7 +4,7 @@ import { API_DEFAULT_TIMEOUT } from '$lib/constants';
 import { z } from 'zod';
 
 /** Base API host URL - export for use in components that need direct URLs (images, etc.) */
-export const API_HOST = import.meta.env['PUBLIC_API_URL'] || 'http://localhost:8000';
+export const API_HOST = (import.meta.env['PUBLIC_API_URL'] !== undefined && import.meta.env['PUBLIC_API_URL'] !== null && import.meta.env['PUBLIC_API_URL'] !== '') ? String(import.meta.env['PUBLIC_API_URL']) : 'http://localhost:8000';
 const API_BASE = `${API_HOST}/api/v1`;
 
 /**
@@ -86,7 +86,7 @@ async function fetchWithTimeout(
 
 	// If external signal provided, listen to it and abort our controller
 	const externalSignal = options?.signal;
-	const abortHandler = () => { controller.abort(); };
+	const abortHandler = (): void => { controller.abort(); };
 	if (externalSignal) {
 		externalSignal.addEventListener('abort', abortHandler);
 	}
@@ -230,7 +230,7 @@ export const client = {
 	): Promise<ApiResponse<T>> {
 		// Determine if first arg is schema or options
 		const isSchema = schemaOrOptions && 'parse' in schemaOrOptions;
-		const schema = isSchema ? schemaOrOptions as z.ZodType<T> : undefined;
+		const schema = isSchema ? schemaOrOptions : undefined;
 		const opts = isSchema ? options : schemaOrOptions as { params?: Record<string, string>; signal?: AbortSignal } | undefined;
 		try {
 			const url = new URL(`${API_BASE}${path}`);
@@ -269,14 +269,14 @@ export const client = {
 	 */
 	async post<T>(path: string, schemaOrBody?: z.ZodType<T> | unknown, body?: unknown): Promise<ApiResponse<T>> {
 		// Determine if first arg is schema or body
-		const isSchema = schemaOrBody && typeof schemaOrBody === 'object' && 'parse' in schemaOrBody;
+		const isSchema = schemaOrBody !== undefined && schemaOrBody !== null && typeof schemaOrBody === 'object' && 'parse' in schemaOrBody;
 		const schema = isSchema ? schemaOrBody as z.ZodType<T> : undefined;
 		const requestBody = isSchema ? body : schemaOrBody;
 		try {
 			const response = await fetchWithTimeout(`${API_BASE}${path}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: requestBody ? JSON.stringify(requestBody) : null
+				body: requestBody !== undefined && requestBody !== null ? JSON.stringify(requestBody) : null
 			});
 			return handleResponse<T>(response, schema);
 		} catch (error) {
@@ -296,9 +296,9 @@ export const client = {
 	 */
 	async postForm<T>(path: string, schemaOrFormData: z.ZodType<T> | FormData, formData?: FormData): Promise<ApiResponse<T>> {
 		// Determine if first arg is schema or form data
-		const isSchema = schemaOrFormData && 'parse' in schemaOrFormData;
-		const schema = isSchema ? schemaOrFormData as z.ZodType<T> : undefined;
-		const data = isSchema ? formData : schemaOrFormData as FormData;
+		const isSchema = schemaOrFormData !== undefined && schemaOrFormData !== null && 'parse' in schemaOrFormData;
+		const schema = isSchema ? schemaOrFormData : undefined;
+		const data = isSchema ? formData : schemaOrFormData;
 
 		if (!data) {
 			throw new ApiError(
@@ -330,7 +330,7 @@ export const client = {
 	 */
 	async patch<T>(path: string, schemaOrBody: z.ZodType<T> | unknown, body?: unknown): Promise<ApiResponse<T>> {
 		// Determine if first arg is schema or body
-		const isSchema = schemaOrBody && typeof schemaOrBody === 'object' && 'parse' in schemaOrBody;
+		const isSchema = schemaOrBody !== undefined && schemaOrBody !== null && typeof schemaOrBody === 'object' && 'parse' in schemaOrBody;
 		const schema = isSchema ? schemaOrBody as z.ZodType<T> : undefined;
 		const requestBody = isSchema ? body : schemaOrBody;
 		try {

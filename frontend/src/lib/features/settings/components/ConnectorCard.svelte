@@ -72,11 +72,11 @@
 		}
 	}
 
-	async function handleToggle() {
+	async function handleToggle(): Promise<void> {
 		await settingsStore.toggleConnector(connector.id, !connector.enabled);
 	}
 
-	async function handleSync() {
+	async function handleSync(): Promise<void> {
 		syncing = true;
 		try {
 			await settingsStore.triggerSync(connector.id);
@@ -86,11 +86,11 @@
 		}
 	}
 
-	function handleRemove() {
+	function handleRemove(): void {
 		dispatch('remove', { id: connector.id });
 	}
 
-	async function handleReprocess() {
+	async function handleReprocess(): Promise<void> {
 		reprocessing = true;
 		reprocessMessage = 'Starting reprocess...';
 		try {
@@ -117,7 +117,7 @@
 	}
 
 	// Google Photos Picker functions
-	async function handleImportPhotos() {
+	async function handleImportPhotos(): Promise<void> {
 		if (connector.type !== 'google_photos') {return;}
 
 		pickerStatus = 'selecting';
@@ -151,13 +151,13 @@
 		}
 	}
 
-	function startPolling() {
+	function startPolling(): void {
 		if (!pickerSession || pickerPolling) {return;}
 
 		pickerPolling = true;
 		const pollInterval = (pickerSession.pollIntervalSeconds || PICKER_POLL_INTERVAL_FALLBACK) * 1000;
 
-		const poll = async () => {
+		const poll = async (): Promise<void> => {
 			if (!pickerSession || pickerStatus !== 'selecting') {
 				pickerPolling = false;
 				return;
@@ -208,7 +208,7 @@
 		poll();
 	}
 
-	async function importSelectedPhotos() {
+	async function importSelectedPhotos(): Promise<void> {
 		if (!pickerSession) {return;}
 
 		pickerStatus = 'importing';
@@ -243,7 +243,7 @@
 		}
 	}
 
-	async function cleanupSession() {
+	async function cleanupSession(): Promise<void> {
 		if (!pickerSession) {return;}
 
 		try {
@@ -256,7 +256,7 @@
 		pickerWindow = null;
 	}
 
-	function cancelPicker() {
+	function cancelPicker(): void {
 		if (pickerWindow && !pickerWindow.closed) {
 			pickerWindow.close();
 		}

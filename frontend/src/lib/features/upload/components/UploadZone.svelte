@@ -9,16 +9,16 @@
 	let dragOver = false;
 	let fileInput: HTMLInputElement;
 
-	function handleDragOver(e: DragEvent) {
+	function handleDragOver(e: DragEvent): void {
 		e.preventDefault();
 		if (!disabled) {dragOver = true;}
 	}
 
-	function handleDragLeave() {
+	function handleDragLeave(): void {
 		dragOver = false;
 	}
 
-	function handleDrop(e: DragEvent) {
+	function handleDrop(e: DragEvent): void {
 		e.preventDefault();
 		dragOver = false;
 		if (disabled) {return;}
@@ -31,7 +31,7 @@
 		}
 	}
 
-	function handleFileSelect(e: Event) {
+	function handleFileSelect(e: Event): void {
 		const input = e.target as HTMLInputElement;
 		const files = Array.from(input.files || []);
 		if (files.length > 0) {
@@ -40,11 +40,11 @@
 		input.value = '';
 	}
 
-	function handleClick() {
+	function handleClick(): void {
 		if (!disabled) {fileInput.click();}
 	}
 
-	function handleKeyDown(e: KeyboardEvent) {
+	function handleKeyDown(e: KeyboardEvent): void {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
 			handleClick();

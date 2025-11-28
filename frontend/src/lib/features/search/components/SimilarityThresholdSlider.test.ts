@@ -31,7 +31,7 @@ describe('SimilarityThresholdSlider', () => {
 			const onchange = vi.fn();
 			render(SimilarityThresholdSlider, { props: { value: 0.18, onchange } });
 
-			const slider = screen.getByTestId('similarity-slider') as HTMLInputElement;
+			const slider = screen.getByTestId('similarity-slider');
 
 			// Check slider attributes
 			expect(slider.type).toBe('range');
@@ -189,7 +189,7 @@ describe('SimilarityThresholdSlider', () => {
 				props: { value: 0.18, onchange }
 			});
 
-			const slider = screen.getByTestId('similarity-slider') as HTMLInputElement;
+			const slider = screen.getByTestId('similarity-slider');
 			expect(slider.value).toBe('0.18');
 
 			// Update prop
@@ -345,7 +345,7 @@ describe('SimilarityThresholdSlider', () => {
 			const onchange = vi.fn();
 			render(SimilarityThresholdSlider, { props: { value: 0, onchange } });
 
-			const slider = screen.getByTestId('similarity-slider') as HTMLInputElement;
+			const slider = screen.getByTestId('similarity-slider');
 			const valueDisplay = screen.getByTestId('similarity-value');
 
 			expect(slider.value).toBe('0');
@@ -356,7 +356,7 @@ describe('SimilarityThresholdSlider', () => {
 			const onchange = vi.fn();
 			render(SimilarityThresholdSlider, { props: { value: 1, onchange } });
 
-			const slider = screen.getByTestId('similarity-slider') as HTMLInputElement;
+			const slider = screen.getByTestId('similarity-slider');
 			const valueDisplay = screen.getByTestId('similarity-value');
 
 			expect(slider.value).toBe('1');
