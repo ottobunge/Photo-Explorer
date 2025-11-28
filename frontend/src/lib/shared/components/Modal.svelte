@@ -6,9 +6,10 @@
 	interface Props {
 		title?: string;
 		children?: Snippet;
+		footer?: Snippet;
 	}
 
-	const { title = '', children }: Props = $props();
+	const { title = '', children, footer }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -54,6 +55,12 @@
 		{/if}
 
 		{@render children?.()}
+
+		{#if footer}
+			<div class="mt-4">
+				{@render footer?.()}
+			</div>
+		{/if}
 
 		<button
 			type="button"
