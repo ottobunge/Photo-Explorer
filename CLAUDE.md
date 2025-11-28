@@ -207,17 +207,299 @@ graph TD
 
 3. **Type Safety**: All TypeScript interfaces in `types.ts`
 
-4. **Store Pattern**: Use factory pattern for stores
-   ```typescript
-   function createSearchStore() {
-     const results = writable<SearchResult[]>([]);
-     return {
-       results: { subscribe: results.subscribe },
-       search: async (query: string) => { /* ... */ }
-     };
-   }
-   export const searchStore = createSearchStore();
-   ```
+4. **Store Pattern**: **MUST use Svelte 5 runes** (see Svelte 5 Patterns section below)
+
+### Svelte 5 Patterns (MANDATORY)
+
+**THIS PROJECT USES SVELTE 5 EXCLUSIVELY**. All code MUST follow Svelte 5 patterns. Svelte 4 patterns are NOT allowed.
+
+#### 1. Reactive State: Use $state() Rune
+
+```svelte
+<script lang="ts">
+  // ✅ CORRECT - Svelte 5
+  let count = $state(0);
+  let user = $state<User | null>(null);
+  let items = $state<Item[]>([]);
+
+  // ❌ WRONG - Svelte 4 (DO NOT USE)
+  let count = 0;  // Not reactive
+  import { writable } from 'svelte/store';  // Don't use stores
+</script>
+```
+
+#### 2. Derived State: Use $derived() Rune
+
+```svelte
+<script lang="ts">
+  let count = $state(0);
+
+  // ✅ CORRECT - Svelte 5
+  const doubled = $derived(count * 2);
+  const isEven = $derived(count % 2 === 0);
+
+  // For complex derivations
+  const expensive = $derived.by(() => {
+    return items.filter(i => i.active).map(i => i.value);
+  });
+
+  // ❌ WRONG - Svelte 4 (DO NOT USE)
+  import { derived } from 'svelte/store';
+  $: doubled = count * 2;  // Don't use reactive statements
+</script>
+```
+
+#### 3. Side Effects: Use $effect() Rune
+
+```svelte
+<script lang="ts">
+  let count = $state(0);
+
+  // ✅ CORRECT - Svelte 5
+  $effect(() => {
+    console.log(`Count changed to ${count}`);
+    // Cleanup function (optional)
+    return () => {
+      console.log('Cleanup');
+    };
+  });
+
+  // ❌ WRONG - Svelte 4 (DO NOT USE)
+  import { onMount } from 'svelte';
+  $: console.log(count);  // Don't use reactive statements
+</script>
+```
+
+#### 4. Props: Use $props() Rune
+
+```svelte
+<script lang="ts">
+  interface Props {
+    title: string;
+    count?: number;
+    onSubmit?: (value: string) => void;
+    children?: Snippet;
+  }
+
+  // ✅ CORRECT - Svelte 5
+  const { title, count = 0, onSubmit, children }: Props = $props();
+
+  // ❌ WRONG - Svelte 4 (DO NOT USE)
+  export let title: string;  // Don't use export let
+  export let count = 0;
+</script>
+```
+
+#### 5. Snippets: Replace Slots
+
+```svelte
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  interface Props {
+    header?: Snippet;
+    children?: Snippet;
+    footer?: Snippet<[{ count: number }]>;  // Snippet with parameters
+  }
+
+  const { header, children, footer }: Props = $props();
+</script>
+
+<!-- ✅ CORRECT - Svelte 5 -->
+{#if header}
+  {@render header()}
+{/if}
+
+<div class="content">
+  {@render children?.()}
+</div>
+
+{#if footer}
+  {@render footer({ count: 42 })}
+{/if}
+
+<!-- ❌ WRONG - Svelte 4 (DO NOT USE) -->
+<!-- <slot name="header" /> -->
+<!-- <slot /> -->
+<!-- <slot name="footer" {count} /> -->
+```
+
+#### 6. Event Handlers: Callback Props Instead of Dispatch
+
+```svelte
+<script lang="ts">
+  interface Props {
+    value: string;
+    onchange?: (value: string) => void;
+    onclick?: (event: MouseEvent) => void;
+  }
+
+  const { value, onchange, onclick }: Props = $props();
+
+  function handleInput(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    onchange?.(target.value);
+  }
+</script>
+
+<!-- ✅ CORRECT - Svelte 5 -->
+<input {value} oninput={handleInput} />
+<button {onclick}>Click</button>
+
+<!-- ❌ WRONG - Svelte 4 (DO NOT USE) -->
+<!--
+import { createEventDispatcher } from 'svelte';
+const dispatch = createEventDispatcher();
+<input on:input={(e) => dispatch('change', e.target.value)} />
+-->
+```
+
+#### 7. Stores: Class-Based with Runes
+
+```typescript
+// ✅ CORRECT - Svelte 5 Store Pattern
+class SearchStore {
+  // State
+  query = $state('');
+  results = $state<SearchResult[]>([]);
+  loading = $state(false);
+  error = $state<string | null>(null);
+
+  // Derived
+  hasResults = $derived(this.results.length > 0);
+  resultCount = $derived(this.results.length);
+
+  // Actions
+  async search(query: string): Promise<void> {
+    this.loading = true;
+    this.error = null;
+
+    try {
+      const response = await fetch(`/api/search?q=${query}`);
+      const data = await response.json();
+      this.results = SearchResultsSchema.parse(data);
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : 'Search failed';
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  reset(): void {
+    this.query = '';
+    this.results = [];
+    this.loading = false;
+    this.error = null;
+  }
+}
+
+export const searchStore = new SearchStore();
+```
+
+```svelte
+<!-- Using the store in components -->
+<script lang="ts">
+  import { searchStore } from './stores/search.svelte';
+
+  // ✅ CORRECT - Access directly, no $ needed for runes
+  const query = $derived(searchStore.query);
+  const results = $derived(searchStore.results);
+
+  // ❌ WRONG - Don't use Svelte 4 store syntax
+  // $: query = $searchStore.query;
+</script>
+```
+
+#### 8. Bindings: Same Syntax
+
+```svelte
+<script lang="ts">
+  let value = $state('');
+  let checked = $state(false);
+  let inputElement = $state<HTMLInputElement | null>(null);
+</script>
+
+<!-- ✅ Bindings work the same in Svelte 5 -->
+<input bind:value />
+<input type="checkbox" bind:checked />
+<input bind:this={inputElement} />
+```
+
+#### 9. Complete Component Example
+
+```svelte
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+  import { client } from '$lib/api/client';
+
+  interface Props {
+    initialCount?: number;
+    onUpdate?: (count: number) => void;
+    children?: Snippet;
+    footer?: Snippet<[{ count: number }]>;
+  }
+
+  const { initialCount = 0, onUpdate, children, footer }: Props = $props();
+
+  // State
+  let count = $state(initialCount);
+  let loading = $state(false);
+
+  // Derived
+  const doubled = $derived(count * 2);
+  const message = $derived(`Count is ${count}`);
+
+  // Effects
+  $effect(() => {
+    console.log('Count changed:', count);
+    onUpdate?.(count);
+  });
+
+  // Actions
+  function increment(): void {
+    count++;
+  }
+
+  async function save(): Promise<void> {
+    loading = true;
+    try {
+      await client.post('/api/count', { count });
+    } finally {
+      loading = false;
+    }
+  }
+</script>
+
+<div class="counter">
+  <h2>{message}</h2>
+  <p>Doubled: {doubled}</p>
+
+  {@render children?.()}
+
+  <button onclick={increment} disabled={loading}>
+    Increment
+  </button>
+
+  <button onclick={save} disabled={loading}>
+    {loading ? 'Saving...' : 'Save'}
+  </button>
+
+  {#if footer}
+    {@render footer({ count })}
+  {/if}
+</div>
+```
+
+**Svelte 5 Migration Checklist:**
+- [ ] Replace `export let` with `$props()`
+- [ ] Replace `let var = value` with `let var = $state(value)` for reactive state
+- [ ] Replace `$: derived = ...` with `const derived = $derived(...)`
+- [ ] Replace `<slot>` with `{@render children?.()}`
+- [ ] Replace named `<slot name="foo">` with `{@render foo?.()}`
+- [ ] Replace `createEventDispatcher()` with callback props
+- [ ] Replace `on:event` with `onevent` (e.g., `on:click` → `onclick`)
+- [ ] Replace Svelte 4 stores with class-based rune stores
+- [ ] Replace `onMount` side effects with `$effect()` when appropriate
 
 ## Type Safety
 
@@ -255,27 +537,359 @@ async def find_by_id(self, photo_id: UUID):
 - `noUncheckedIndexedAccess: true`
 - `exactOptionalPropertyTypes: true`
 
-**Requirements**:
-- All functions, variables, and parameters must be typed
-- Use generic types for collections: `Array<Photo>`, `Map<string, Album>`
-- Define interfaces for all data structures
-- Use type guards for runtime checks
+**Critical Requirements**:
+1. **All functions MUST have explicit return types**
+2. **All parameters MUST be typed**
+3. **NO `any` types** - use `unknown` and type guards instead
+4. **System boundaries MUST use Zod for runtime validation**
+5. **Use type guards for runtime checks**
 
-**Example**:
+#### ESLint Rules (MANDATORY)
+
+**The following ESLint rules are STRICTLY ENFORCED in this project:**
+
+##### Type Safety Rules
+
+1. **@typescript-eslint/explicit-function-return-type**
+   - ALL functions MUST have explicit return types
+   - Prevents accidental `any` returns
+
+   ```typescript
+   // ✅ GOOD
+   function getPhoto(id: string): Promise<Photo> {
+     return apiClient.get(`/photos/${id}`);
+   }
+
+   // ❌ BAD - missing return type
+   function getPhoto(id: string) {
+     return apiClient.get(`/photos/${id}`);
+   }
+   ```
+
+2. **@typescript-eslint/no-explicit-any**
+   - NO `any` types allowed
+   - Use `unknown` with type guards instead
+
+   ```typescript
+   // ✅ GOOD
+   function processData(data: unknown): Photo {
+     const PhotoSchema = z.object({ id: z.string(), filename: z.string() });
+     return PhotoSchema.parse(data);
+   }
+
+   // ❌ BAD - using any
+   function processData(data: any): Photo {
+     return data as Photo;
+   }
+   ```
+
+3. **@typescript-eslint/no-unsafe-assignment**
+   - Prevents assigning `any` to typed variables
+   - Catches implicit any from JSON.parse, third-party libs
+
+   ```typescript
+   // ✅ GOOD
+   const response = await fetch('/api/photos');
+   const data = await response.json() as unknown;
+   const photos = PhotoArraySchema.parse(data);
+
+   // ❌ BAD - unsafe any from json()
+   const response = await fetch('/api/photos');
+   const photos: Photo[] = await response.json();
+   ```
+
+4. **@typescript-eslint/no-unsafe-member-access**
+   - Prevents accessing properties on `any` types
+
+   ```typescript
+   // ✅ GOOD
+   function getName(obj: unknown): string {
+     if (typeof obj === 'object' && obj !== null && 'name' in obj) {
+       return String(obj.name);
+     }
+     return 'Unknown';
+   }
+
+   // ❌ BAD - accessing any
+   function getName(obj: any): string {
+     return obj.name;
+   }
+   ```
+
+5. **@typescript-eslint/no-unsafe-call**
+   - Prevents calling `any` as a function
+
+   ```typescript
+   // ✅ GOOD
+   function callFn(fn: unknown): void {
+     if (typeof fn === 'function') {
+       fn();
+     }
+   }
+
+   // ❌ BAD - calling any
+   function callFn(fn: any): void {
+     fn();
+   }
+   ```
+
+##### Code Quality Rules
+
+6. **@typescript-eslint/no-unused-vars**
+   - No unused variables, parameters, or imports
+   - Use `_` prefix for intentionally unused params
+
+   ```typescript
+   // ✅ GOOD
+   function handleEvent(_event: Event, data: string): void {
+     console.log(data);
+   }
+
+   // ❌ BAD - unused variable
+   function handleEvent(event: Event, data: string): void {
+     console.log(data);
+   }
+   ```
+
+7. **@typescript-eslint/strict-boolean-expressions**
+   - Boolean contexts must be explicitly boolean
+   - Prevents truthy/falsy bugs
+
+   ```typescript
+   // ✅ GOOD
+   if (value !== null && value !== undefined) {
+     console.log(value);
+   }
+
+   // ❌ BAD - truthy check
+   if (value) {
+     console.log(value);
+   }
+   ```
+
+8. **@typescript-eslint/no-floating-promises**
+   - All promises must be awaited or explicitly handled
+
+   ```typescript
+   // ✅ GOOD
+   await uploadPhoto(file);
+   // or
+   uploadPhoto(file).catch(error => console.error(error));
+
+   // ❌ BAD - floating promise
+   uploadPhoto(file);
+   ```
+
+9. **@typescript-eslint/require-await**
+   - Functions marked async MUST use await
+
+   ```typescript
+   // ✅ GOOD
+   async function loadPhoto(): Promise<Photo> {
+     const response = await fetch('/api/photos/1');
+     return PhotoSchema.parse(await response.json());
+   }
+
+   // ❌ BAD - unnecessary async
+   async function loadPhoto(): Promise<Photo> {
+     return { id: '1', filename: 'photo.jpg' };
+   }
+   ```
+
+10. **@typescript-eslint/naming-convention**
+    - Types/Interfaces: PascalCase
+    - Variables/Functions: camelCase
+    - Constants: UPPER_SNAKE_CASE
+    - Private fields: _camelCase
+
+    ```typescript
+    // ✅ GOOD
+    interface PhotoMetadata { }
+    type SearchResult = { };
+    const API_BASE_URL = 'http://api.example.com';
+    let photoCount = 0;
+
+    class PhotoService {
+      private _cache: Map<string, Photo>;
+    }
+
+    // ❌ BAD
+    interface photoMetadata { }
+    type search_result = { };
+    const apiBaseUrl = 'http://api.example.com';
+    let PhotoCount = 0;
+    ```
+
+##### Svelte-Specific Rules
+
+11. **svelte/valid-compile**
+    - Svelte templates MUST compile without errors
+    - Enforces proper Svelte syntax
+
+12. **svelte/no-unused-svelte-ignore**
+    - Remove unnecessary svelte-ignore comments
+
+13. **svelte/button-has-type**
+    - All `<button>` elements MUST have explicit `type` attribute
+
+    ```svelte
+    <!-- ✅ GOOD -->
+    <button type="button" onclick={handleClick}>Click</button>
+
+    <!-- ❌ BAD - missing type -->
+    <button onclick={handleClick}>Click</button>
+    ```
+
+##### Import/Export Rules
+
+14. **import/no-duplicates**
+    - No duplicate imports from same module
+    - Combine into single import statement
+
+15. **import/order**
+    - Imports MUST be ordered:
+      1. Svelte imports (`import { onMount } from 'svelte'`)
+      2. External dependencies (`import type { Photo } from '@/types'`)
+      3. Internal imports (`import { apiClient } from '$lib/api'`)
+      4. Relative imports (`import Button from './Button.svelte'`)
+
+#### Running ESLint
+
+```bash
+# Check for errors
+npm run lint
+
+# Fix auto-fixable issues
+npm run lint:fix
+
+# Check specific file
+npx eslint src/lib/api/client.ts
+```
+
+**Pre-commit Hook**: ESLint runs automatically on staged files. Fix all errors before committing.
+
+#### Runtime Validation with Zod
+
+**MANDATORY: All system boundaries MUST use Zod validation**
+
+System boundaries include:
+- API responses from external services
+- User input from forms
+- Data from localStorage/sessionStorage
+- URL parameters and query strings
+- WebSocket messages
+- File uploads
+
+**Example - API Client:**
 ```typescript
-// GOOD
+import { z } from 'zod';
+
+// Define schema first
+const PhotoSchema = z.object({
+  id: z.string().uuid(),
+  filename: z.string().min(1),
+  created_at: z.string().datetime(),
+  metadata: z.object({
+    width: z.number().int().positive(),
+    height: z.number().int().positive()
+  }).nullable()
+});
+
+type Photo = z.infer<typeof PhotoSchema>;
+
+// Validate at system boundary
+async function getPhoto(id: string): Promise<Photo> {
+  const response = await fetch(`/api/photos/${id}`);
+  const data = await response.json(); // This is 'any' from network
+
+  // REQUIRED: Validate before using
+  return PhotoSchema.parse(data); // Throws if invalid
+}
+```
+
+**Example - Form Input:**
+```typescript
+const FormDataSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  age: z.number().int().min(0).max(150).optional()
+});
+
+function handleSubmit(formData: unknown): void {
+  // REQUIRED: Validate user input
+  const validated = FormDataSchema.safeParse(formData);
+
+  if (!validated.success) {
+    console.error('Validation errors:', validated.error.format());
+    return;
+  }
+
+  // Now safe to use validated.data
+  processForm(validated.data);
+}
+```
+
+**Example - URL Parameters:**
+```typescript
+const SearchParamsSchema = z.object({
+  q: z.string().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  per_page: z.coerce.number().int().min(10).max(100).default(30)
+});
+
+function parseSearchParams(url: URL): z.infer<typeof SearchParamsSchema> {
+  const params = Object.fromEntries(url.searchParams.entries());
+  return SearchParamsSchema.parse(params);
+}
+```
+
+#### TypeScript Best Practices
+
+**Example - Full Type Safety:**
+```typescript
+// GOOD - Explicit types everywhere
 interface SearchResult {
   photo: Photo;
   score: number;
 }
 
 async function search(query: string): Promise<SearchResult[]> {
-  // ...
+  const response = await fetch(`/api/search?q=${query}`);
+  const data = await response.json();
+
+  // REQUIRED: Validate at boundary
+  const SearchResultsSchema = z.array(z.object({
+    photo: PhotoSchema,
+    score: z.number().min(0).max(1)
+  }));
+
+  return SearchResultsSchema.parse(data);
 }
 
-// L BAD - missing types
-async function search(query) {
+// BAD - Missing types
+async function search(query) {  // ❌ No types
+  const data = await response.json();  // ❌ Returns any
+  return data;  // ❌ No validation
+}
+
+// BAD - Using 'any'
+async function search(query: string): Promise<any> {  // ❌ any return type
   // ...
+}
+```
+
+**Type Guards for Runtime Checks:**
+```typescript
+// Use type guards instead of 'any'
+function isPhoto(value: unknown): value is Photo {
+  return PhotoSchema.safeParse(value).success;
+}
+
+function processData(data: unknown): void {
+  if (isPhoto(data)) {
+    // TypeScript knows data is Photo here
+    console.log(data.filename);
+  }
 }
 ```
 
