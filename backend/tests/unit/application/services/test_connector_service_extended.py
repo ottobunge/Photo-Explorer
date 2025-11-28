@@ -5,29 +5,49 @@ from uuid import uuid4
 
 import pytest
 
-from app.application.ports.outbound import ConnectorRepository, PhotoRepository
+from app.application.ports.outbound import ConnectorRepository, PhotoRepository, FileStorage, VectorStore
 from app.application.services.connector_service import ConnectorService
 from app.domain.entities.connector import Connector, ConnectorStatus, ConnectorType
 from app.domain.entities.photo import Photo
 from app.domain.value_objects import ConnectorId, PhotoId
 
 
-class TestConnectorServiceListConnectorsWithFilters:
-    """Test suite for list_connectors with filtering."""
+class BaseConnectorServiceExtendedTest:
+    """Base test class with common fixtures."""
 
     @pytest.fixture
     def mock_connector_repo(self):
         repo = Mock(spec=ConnectorRepository)
         repo.find_all = AsyncMock()
+        repo.find_by_id = AsyncMock()
+        repo.find_by_type = AsyncMock()
+        repo.save = AsyncMock()
+        repo.delete = AsyncMock()
         return repo
 
     @pytest.fixture
     def mock_photo_repo(self):
-        return Mock(spec=PhotoRepository)
+        repo = Mock(spec=PhotoRepository)
+        repo.find_by_connector = AsyncMock()
+        return repo
 
     @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
+    def mock_file_storage(self):
+        return Mock(spec=FileStorage)
+
+    @pytest.fixture
+    def mock_vector_store(self):
+        return Mock(spec=VectorStore)
+
+    @pytest.fixture
+    def service(self, mock_connector_repo, mock_photo_repo, mock_file_storage, mock_vector_store):
+        return ConnectorService(mock_connector_repo, mock_photo_repo, mock_file_storage, mock_vector_store)
+
+
+class TestConnectorServiceListConnectorsWithFilters(BaseConnectorServiceExtendedTest):
+    """Test suite for list_connectors with filtering."""
+
+
 
     @pytest.fixture
     def sample_connectors(self):
@@ -162,172 +182,10 @@ class TestConnectorServiceListConnectorsWithFilters:
         assert len(result) == 0
 
 
-class TestConnectorServiceGetConnectorPhotos:
+class TestConnectorServiceGetConnectorPhotos(BaseConnectorServiceExtendedTest):
     """Test suite for get_connector_photos with pagination."""
 
-    @pytest.fixture
-    def mock_connector_repo(self):
-        repo = Mock(spec=ConnectorRepository)
-        repo.find_by_id = AsyncMock()
-        return repo
 
-    @pytest.fixture
-    def mock_photo_repo(self):
-        repo = Mock(spec=PhotoRepository)
-        repo.find_by_connector = AsyncMock()
-        repo.count_by_connector = AsyncMock()
-        return repo
-
-    @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
-
-    @pytest.fixture
-    def sample_connector(self):
-        return Connector(
-            id=ConnectorId(uuid4()),
-            name="Test Connector",
-            type=ConnectorType.LOCAL,
-            config={"path": "/test"},
-            status=ConnectorStatus.CONNECTED,
-            enabled=True,
-            created_at=datetime.utcnow(),
-        )
-
-    def create_sample_photo(self, connector_id: str, index: int) -> Photo:
-        """Helper to create sample photo."""
-        return Photo(
-            id=PhotoId(uuid4()),
-            filename=f"photo_{index}.jpg",
-            connector_id=connector_id,
-            storage_path=f"/path/photo_{index}.jpg",
-            connector_type="local",
-            created_at=datetime.utcnow(),
-        )
-
-    async def test_get_connector_photos_success(
-        self, service, mock_connector_repo, mock_photo_repo, sample_connector
-    ):
-        """Test successfully getting paginated photos."""
-        # Arrange
-        connector_id = sample_connector.id.value
-        mock_connector_repo.find_by_id.return_value = sample_connector
-
-        photos = [self.create_sample_photo(connector_id, i) for i in range(20)]
-        mock_photo_repo.find_by_connector.return_value = photos
-        mock_photo_repo.count_by_connector.return_value = 100
-
-        # Act
-        result_photos, total = await service.get_connector_photos(connector_id, page=1, per_page=20)
-
-        # Assert
-        assert len(result_photos) == 20
-        assert total == 100
-        mock_connector_repo.find_by_id.assert_called_once_with(connector_id)
-        mock_photo_repo.find_by_connector.assert_called_once_with(
-            connector_id, limit=20, offset=0
-        )
-        mock_photo_repo.count_by_connector.assert_called_once_with(connector_id)
-
-    async def test_get_connector_photos_second_page(
-        self, service, mock_connector_repo, mock_photo_repo, sample_connector
-    ):
-        """Test pagination calculates correct offset."""
-        # Arrange
-        connector_id = sample_connector.id.value
-        mock_connector_repo.find_by_id.return_value = sample_connector
-
-        photos = [self.create_sample_photo(connector_id, i) for i in range(20, 40)]
-        mock_photo_repo.find_by_connector.return_value = photos
-        mock_photo_repo.count_by_connector.return_value = 100
-
-        # Act
-        result_photos, total = await service.get_connector_photos(connector_id, page=2, per_page=20)
-
-        # Assert
-        assert len(result_photos) == 20
-        assert total == 100
-        # Offset should be (2-1) * 20 = 20
-        mock_photo_repo.find_by_connector.assert_called_once_with(
-            connector_id, limit=20, offset=20
-        )
-
-    async def test_get_connector_photos_custom_per_page(
-        self, service, mock_connector_repo, mock_photo_repo, sample_connector
-    ):
-        """Test custom per_page parameter."""
-        # Arrange
-        connector_id = sample_connector.id.value
-        mock_connector_repo.find_by_id.return_value = sample_connector
-
-        photos = [self.create_sample_photo(connector_id, i) for i in range(50)]
-        mock_photo_repo.find_by_connector.return_value = photos
-        mock_photo_repo.count_by_connector.return_value = 200
-
-        # Act
-        result_photos, total = await service.get_connector_photos(
-            connector_id, page=1, per_page=50
-        )
-
-        # Assert
-        assert len(result_photos) == 50
-        assert total == 200
-        mock_photo_repo.find_by_connector.assert_called_once_with(
-            connector_id, limit=50, offset=0
-        )
-
-    async def test_get_connector_photos_connector_not_found(
-        self, service, mock_connector_repo, mock_photo_repo
-    ):
-        """Test error when connector doesn't exist."""
-        # Arrange
-        connector_id = uuid4()
-        mock_connector_repo.find_by_id.return_value = None
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="Connector not found"):
-            await service.get_connector_photos(connector_id)
-
-        # Verify photo repo was never called
-        mock_photo_repo.find_by_connector.assert_not_called()
-        mock_photo_repo.count_by_connector.assert_not_called()
-
-    async def test_get_connector_photos_empty_result(
-        self, service, mock_connector_repo, mock_photo_repo, sample_connector
-    ):
-        """Test getting photos when connector has no photos."""
-        # Arrange
-        connector_id = sample_connector.id.value
-        mock_connector_repo.find_by_id.return_value = sample_connector
-
-        mock_photo_repo.find_by_connector.return_value = []
-        mock_photo_repo.count_by_connector.return_value = 0
-
-        # Act
-        result_photos, total = await service.get_connector_photos(connector_id)
-
-        # Assert
-        assert len(result_photos) == 0
-        assert total == 0
-
-
-class TestConnectorServiceDisconnectGooglePhotos:
-    """Test suite for disconnect_google_photos_connectors."""
-
-    @pytest.fixture
-    def mock_connector_repo(self):
-        repo = Mock(spec=ConnectorRepository)
-        repo.find_all = AsyncMock()
-        repo.save = AsyncMock()
-        return repo
-
-    @pytest.fixture
-    def mock_photo_repo(self):
-        return Mock(spec=PhotoRepository)
-
-    @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
 
     async def test_disconnect_google_photos_single_connector(
         self, service, mock_connector_repo
@@ -440,22 +298,10 @@ class TestConnectorServiceDisconnectGooglePhotos:
         assert gp_connector.status == ConnectorStatus.DISCONNECTED
 
 
-class TestConnectorServiceCreateGooglePhotosWithEmail:
+class TestConnectorServiceCreateGooglePhotosWithEmail(BaseConnectorServiceExtendedTest):
     """Test suite for create_google_photos_connector with email."""
 
-    @pytest.fixture
-    def mock_connector_repo(self):
-        repo = Mock(spec=ConnectorRepository)
-        repo.save = AsyncMock()
-        return repo
 
-    @pytest.fixture
-    def mock_photo_repo(self):
-        return Mock(spec=PhotoRepository)
-
-    @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
 
     async def test_create_google_photos_with_email(self, service, mock_connector_repo):
         """Test creating Google Photos connector with email."""

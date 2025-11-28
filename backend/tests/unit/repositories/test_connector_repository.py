@@ -349,17 +349,17 @@ class TestConnectorRepositoryDelete:
 async def connector_repo(db_session):
     """Provide ConnectorRepository instance with test database session."""
     from app.adapters.outbound.persistence.postgres.repositories.connector_repository import (
-        PostgresConnectorRepository,
+        ConnectorRepositoryPostgres,
     )
 
-    return PostgresConnectorRepository(db_session)
+    return ConnectorRepositoryPostgres(db_session)
 
 
 @pytest.fixture
 async def photo_repo(db_session):
     """Provide PhotoRepository instance with test database session."""
     from app.adapters.outbound.persistence.postgres.repositories.photo_repository import (
-        PostgresPhotoRepository,
+        PhotoRepositoryPostgres,
     )
 
-    return PostgresPhotoRepository(db_session)
+    return PhotoRepositoryPostgres(db_session)

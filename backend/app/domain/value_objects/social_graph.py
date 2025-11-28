@@ -52,6 +52,7 @@ class SocialGraph:
 
         Returns:
             SocialGraph: Filtered subgraph showing only the person's network.
+                        Always includes the target person, even if isolated.
         """
         # Find all edges involving this person
         relevant_edges = [
@@ -60,7 +61,8 @@ class SocialGraph:
         ]
 
         # Find all people connected via these edges
-        connected_person_ids: set[UUID] = set()
+        # Always include the target person, even if they have no connections
+        connected_person_ids: set[UUID] = {person_id}
         for edge in relevant_edges:
             connected_person_ids.add(edge.person_a_id)
             connected_person_ids.add(edge.person_b_id)

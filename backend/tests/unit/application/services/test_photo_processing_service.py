@@ -311,6 +311,7 @@ class TestDetectFaces(TestPhotoProcessingService):
         mock_ml_services: Mock,
         mock_face_repo: Mock,
         mock_vector_store: Mock,
+        mock_file_storage: Mock,
         sample_photo: Photo,
     ) -> None:
         """When face detection succeeds, it should return detection results."""
@@ -320,24 +321,26 @@ class TestDetectFaces(TestPhotoProcessingService):
 
         # Mock detected faces
         detected_face = Mock()
-        detected_face.bbox = [10, 20, 100, 120]
+        detected_face.bbox = BoundingBox(x=10, y=20, width=100, height=120)
         detected_face.quality_score = 0.95
         detected_face.detection_confidence = 0.98
         detected_face.embedding = Embedding(np.random.rand(512).astype(np.float32))
         mock_ml_services.detect_faces.return_value = [detected_face]
 
-        # Mock saved faces
-        saved_face = Face.create(
-            photo_id=sample_photo.id.value,
-            bbox=BoundingBox(x=10, y=20, width=90, height=100),
-            quality_score=0.95,
-            detection_confidence=0.98,
-        )
-        saved_face.set_crop_path("/path/to/crop.jpg")
-        mock_face_repo.save_faces_batch.return_value = [saved_face]
+        # Mock file storage for face crops
+        mock_file_storage.save_face_crop.return_value = "/path/to/crop.jpg"
+
+        # Mock face repo to return the same faces it receives
+        # This ensures face IDs match between detection and save
+        def mock_save_faces_batch(faces):
+            # Return the same faces with crop paths set
+            for face in faces:
+                face.set_crop_path("/path/to/crop.jpg")
+            return faces
+        mock_face_repo.save_faces_batch.side_effect = mock_save_faces_batch
 
         # Mock vector store to succeed (use AsyncMock for async method)
-        mock_vector_store.store_face_embedding = AsyncMock(return_value=None)
+        mock_vector_store.store_face_embedding.return_value = None
 
         # Act
         result = await service.detect_faces(sample_photo.id.value)
@@ -349,6 +352,8 @@ class TestDetectFaces(TestPhotoProcessingService):
         assert result.faces_saved == 1
         assert result.faces_in_vector_store == 1
         assert len(result.face_ids) == 1
+        # Verify vector store was called
+        mock_vector_store.store_face_embedding.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_detect_faces_photo_not_found(

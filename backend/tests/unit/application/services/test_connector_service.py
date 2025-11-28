@@ -6,29 +6,48 @@ from uuid import uuid4
 
 import pytest
 
-from app.application.ports.outbound import ConnectorRepository, PhotoRepository
+from app.application.ports.outbound import ConnectorRepository, PhotoRepository, FileStorage, VectorStore
 from app.application.services.connector_service import ConnectorService
 from app.domain.entities.connector import Connector, ConnectorStatus, ConnectorType
 from app.domain.value_objects import ConnectorId
 
 
-class TestConnectorServiceCreateLocal:
-    """Test suite for creating local connectors."""
+class BaseConnectorServiceTest:
+    """Base test class with common fixtures for ConnectorService tests."""
 
     @pytest.fixture
     def mock_connector_repo(self):
         repo = Mock(spec=ConnectorRepository)
         repo.save = AsyncMock()
         repo.find_by_path = AsyncMock()
+        repo.find_by_id = AsyncMock()
+        repo.find_by_type = AsyncMock()
+        repo.find_all = AsyncMock()
+        repo.delete = AsyncMock()
         return repo
 
     @pytest.fixture
     def mock_photo_repo(self):
-        return Mock(spec=PhotoRepository)
+        repo = Mock(spec=PhotoRepository)
+        repo.find_by_connector = AsyncMock()
+        repo.delete_by_connector = AsyncMock()
+        return repo
 
     @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
+    def mock_file_storage(self):
+        return Mock(spec=FileStorage)
+
+    @pytest.fixture
+    def mock_vector_store(self):
+        return Mock(spec=VectorStore)
+
+    @pytest.fixture
+    def service(self, mock_connector_repo, mock_photo_repo, mock_file_storage, mock_vector_store):
+        return ConnectorService(mock_connector_repo, mock_photo_repo, mock_file_storage, mock_vector_store)
+
+
+class TestConnectorServiceCreateLocal(BaseConnectorServiceTest):
+    """Test suite for creating local connectors."""
 
     @patch("app.application.services.connector_service.get_settings")
     @patch("app.application.services.connector_service.Path")
@@ -245,7 +264,7 @@ class TestConnectorServiceCreateLocal:
         mock_path_obj.resolve.assert_called_once()
 
 
-class TestConnectorServiceUpdate:
+class TestConnectorServiceUpdate(BaseConnectorServiceTest):
     """Test suite for updating connectors."""
 
     @pytest.fixture
@@ -259,9 +278,6 @@ class TestConnectorServiceUpdate:
     def mock_photo_repo(self):
         return Mock(spec=PhotoRepository)
 
-    @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
 
     async def test_update_connector_name(self, service, mock_connector_repo):
         """Test updating connector name."""
@@ -360,7 +376,7 @@ class TestConnectorServiceUpdate:
             await service.update_connector(connector_id, name="New Name")
 
 
-class TestConnectorServiceDelete:
+class TestConnectorServiceDelete(BaseConnectorServiceTest):
     """Test suite for deleting connectors."""
 
     @pytest.fixture
@@ -376,9 +392,6 @@ class TestConnectorServiceDelete:
         repo.delete_bulk_by_connector = AsyncMock()
         return repo
 
-    @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
 
     async def test_delete_connector_orphans_photos_default(
         self, service, mock_connector_repo, mock_photo_repo
@@ -482,7 +495,7 @@ class TestConnectorServiceDelete:
         mock_photo_repo.delete_bulk_by_connector.assert_called_once_with(connector_id)
 
 
-class TestConnectorServiceValidation:
+class TestConnectorServiceValidation(BaseConnectorServiceTest):
     """Test suite for path validation security."""
 
     @pytest.fixture
@@ -493,9 +506,6 @@ class TestConnectorServiceValidation:
     def mock_photo_repo(self):
         return Mock(spec=PhotoRepository)
 
-    @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
 
     @patch("app.application.services.connector_service.get_settings")
     async def test_validate_path_allowed_base_paths(self, mock_get_settings, service):
@@ -561,7 +571,7 @@ class TestConnectorServiceValidation:
             await service.create_local_connector(test_path)
 
 
-class TestConnectorServiceGetters:
+class TestConnectorServiceGetters(BaseConnectorServiceTest):
     """Test suite for getter methods."""
 
     @pytest.fixture
@@ -575,9 +585,6 @@ class TestConnectorServiceGetters:
     def mock_photo_repo(self):
         return Mock(spec=PhotoRepository)
 
-    @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
 
     async def test_get_connector(self, service, mock_connector_repo):
         """Test getting a single connector by ID."""
@@ -634,7 +641,7 @@ class TestConnectorServiceGetters:
         mock_connector_repo.find_all.assert_called_once()
 
 
-class TestConnectorServiceGooglePhotos:
+class TestConnectorServiceGooglePhotos(BaseConnectorServiceTest):
     """Test suite for Google Photos connector creation."""
 
     @pytest.fixture
@@ -647,9 +654,6 @@ class TestConnectorServiceGooglePhotos:
     def mock_photo_repo(self):
         return Mock(spec=PhotoRepository)
 
-    @pytest.fixture
-    def service(self, mock_connector_repo, mock_photo_repo):
-        return ConnectorService(mock_connector_repo, mock_photo_repo)
 
     async def test_create_google_photos_connector(self, service, mock_connector_repo):
         """Test creation of Google Photos connector."""
