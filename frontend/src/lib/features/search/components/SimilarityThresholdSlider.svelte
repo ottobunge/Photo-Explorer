@@ -19,7 +19,7 @@
 
 	const { value = 0.18, onchange, debounceMs = 300 }: Props = $props();
 
-	let debounceTimer: number | undefined = $state(undefined);
+	let debounceTimer: number | undefined = $state<number | undefined>(undefined);
 	let localValue = $state(value);
 	let showExplanation = $state(false);
 

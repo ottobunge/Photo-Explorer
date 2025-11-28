@@ -114,7 +114,7 @@ class SocialGraph:
             if edge.involves(person_id)
         ]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """
         Serialize SocialGraph to a dictionary.
 
@@ -130,7 +130,7 @@ class SocialGraph:
             "has_connections": self.has_connections,
         }
 
-    def _serialize_node(self, node: FaceCluster) -> dict:
+    def _serialize_node(self, node: FaceCluster) -> dict[str, object]:
         """
         Serialize a face cluster node to dictionary.
 

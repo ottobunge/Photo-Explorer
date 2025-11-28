@@ -1,6 +1,6 @@
 """Unit tests for Connector entity."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.domain.entities.connector import (
     Connector,
@@ -26,7 +26,7 @@ class TestSyncStats:
 
     def test_is_complete_when_completed_at_set(self):
         """When completed_at is set, is_complete should be True."""
-        stats = SyncStats(completed_at=datetime.utcnow())
+        stats = SyncStats(completed_at=datetime.now(timezone.utc))
 
         assert stats.is_complete is True
 
@@ -53,7 +53,7 @@ class TestSyncStats:
 
     def test_duration_seconds_with_only_started_at(self):
         """When only started_at set, duration_seconds should be None."""
-        stats = SyncStats(started_at=datetime.utcnow())
+        stats = SyncStats(started_at=datetime.now(timezone.utc))
 
         assert stats.duration_seconds is None
 
@@ -194,8 +194,8 @@ class TestConnectorSyncRecording:
             indexed=95,
             skipped=5,
             failed=0,
-            started_at=datetime.utcnow(),
-            completed_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
         )
 
         connector.record_sync(stats)
@@ -213,8 +213,8 @@ class TestConnectorSyncRecording:
             indexed=90,
             skipped=5,
             failed=5,
-            started_at=datetime.utcnow(),
-            completed_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
         )
 
         connector.record_sync(stats)
@@ -225,7 +225,7 @@ class TestConnectorSyncRecording:
     def test_record_sync_updates_timestamp(self):
         """When recording sync, last_sync and updated_at should be set."""
         connector = Connector.create_google_photos()
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
         stats = SyncStats()
 
         connector.record_sync(stats)

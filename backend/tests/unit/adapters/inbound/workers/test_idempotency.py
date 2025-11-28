@@ -1,6 +1,6 @@
 """Unit tests for worker task idempotency helpers."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
@@ -44,7 +44,7 @@ class TestCheckTaskCompleted:
         completed_task = Mock(spec=TaskExecutionModel)
         completed_task.task_id = task_id
         completed_task.status = TaskExecutionStatus.COMPLETED.value
-        completed_task.completed_at = datetime.utcnow()
+        completed_task.completed_at = datetime.now(timezone.utc)
         completed_task.task_name = "test_task"
 
         mock_result = Mock()

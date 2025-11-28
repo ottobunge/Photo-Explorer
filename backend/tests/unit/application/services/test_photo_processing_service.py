@@ -1,7 +1,7 @@
 """Unit tests for PhotoProcessingService."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
@@ -101,7 +101,7 @@ class TestPhotoProcessingService:
             storage_path="/path/to/photo.jpg",
             connector_type="local",
             connector_id=uuid4(),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             processing_status="pending",
         )
 
@@ -257,7 +257,7 @@ class TestProcessPhoto(TestPhotoProcessingService):
             storage_path=None,
             source_path="/local/path/photo.jpg",
             connector_type="local",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_photo_repo.find_by_id.return_value = photo_without_storage
         mock_photo_repo.save.return_value = photo_without_storage

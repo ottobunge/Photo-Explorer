@@ -7,11 +7,11 @@
 	export let clusters: FaceClusterType[];
 
 	const dispatch = createEventDispatcher<{
-		close: void;
+		close: never;
 		merged: { targetCluster: FaceClusterType };
 	}>();
 
-	let selectedTargetId = clusters.length > 0 ? clusters[0]!.id : '';
+	let selectedTargetId = clusters.length > 0 && clusters[0] !== undefined ? clusters[0].id : '';
 	let loading = false;
 	let error = '';
 

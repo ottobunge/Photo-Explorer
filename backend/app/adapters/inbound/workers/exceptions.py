@@ -6,7 +6,7 @@ from typing import Optional
 class WorkerException(Exception):
     """Base exception for worker errors."""
 
-    def __init__(self, message: str, context: Optional[dict] = None) -> None:
+    def __init__(self, message: str, context: Optional[dict[str, object]] = None) -> None:
         self.message = message
         self.context = context or {}
         super().__init__(message)

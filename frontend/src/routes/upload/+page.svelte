@@ -50,7 +50,7 @@
 				await new Promise((resolve) => setTimeout(resolve, 1000));
 
 				// Redirect to photos page
-				goto('/search');
+				void goto('/search');
 			} else {
 				throw new Error('Upload failed');
 			}

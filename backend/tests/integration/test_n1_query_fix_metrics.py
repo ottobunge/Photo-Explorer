@@ -4,7 +4,7 @@ This test demonstrates the performance improvement from fixing the N+1 query
 in album associations during photo save operations.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -70,7 +70,7 @@ async def test_n1_query_fix_performance_metrics(db_session, query_counter):
         album = AlbumModel(
             id=uuid4(),
             name=f"Test Album {i}",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         albums.append(album)
         album_ids.append(album.id)
@@ -87,7 +87,7 @@ async def test_n1_query_fix_performance_metrics(db_session, query_counter):
         enabled=True,
         status=ConnectorStatus.CONNECTED,
         config={"path": "/test"},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(connector)
     await db_session.flush()

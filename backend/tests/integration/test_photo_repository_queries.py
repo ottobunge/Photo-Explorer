@@ -4,7 +4,7 @@ This module specifically tests that N+1 query problems are resolved
 through proper eager loading of relationships.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -61,7 +61,7 @@ async def sample_data(db_session):
         enabled=True,
         status=ConnectorStatus.CONNECTED,
         config={},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(connector)
     await db_session.flush()
@@ -72,7 +72,7 @@ async def sample_data(db_session):
         album = AlbumModel(
             id=uuid4(),
             name=f"Test Album {i}",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         albums.append(album)
         db_session.add(album)
@@ -85,7 +85,7 @@ async def sample_data(db_session):
         photo = PhotoModel(
             id=uuid4(),
             filename=f"photo_{i}.jpg",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             connector_type="google_photos",
             connector_id=connector.id,
             external_id=f"external_{i}",
@@ -105,7 +105,7 @@ async def sample_data(db_session):
                 bbox_y=0.1,
                 bbox_width=0.2,
                 bbox_height=0.2,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             photo.faces.append(face)
 
@@ -208,7 +208,7 @@ async def test_find_pending_processing_no_n_plus_1(db_session, sample_data, quer
         photo = PhotoModel(
             id=uuid4(),
             filename=f"pending_{i}.jpg",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             connector_type="local",
             mime_type="image/jpeg",
             processing_status="pending",
@@ -327,7 +327,7 @@ async def test_save_photo_with_albums_efficient_query(db_session, query_counter)
         album = AlbumModel(
             id=uuid4(),
             name=f"Test Album {i}",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         albums.append(album)
         album_ids.append(album.id)
@@ -344,7 +344,7 @@ async def test_save_photo_with_albums_efficient_query(db_session, query_counter)
         enabled=True,
         status=ConnectorStatus.CONNECTED,
         config={"path": "/test"},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(connector)
     await db_session.flush()
@@ -407,7 +407,7 @@ async def test_save_photo_with_10_albums_query_count_constant(db_session, query_
         album = AlbumModel(
             id=uuid4(),
             name=f"Test Album {i}",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         albums.append(album)
         album_ids.append(album.id)
@@ -424,7 +424,7 @@ async def test_save_photo_with_10_albums_query_count_constant(db_session, query_
         enabled=True,
         status=ConnectorStatus.CONNECTED,
         config={"path": "/test"},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(connector)
     await db_session.flush()
@@ -636,7 +636,7 @@ async def test_bulk_delete_large_batch(db_session):
         enabled=True,
         status=ConnectorStatus.CONNECTED,
         config={"path": "/test"},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(connector)
     await db_session.flush()

@@ -4,12 +4,17 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Optional
 
+# Config values can be of various types (strings, numbers, booleans, nested dicts/lists)
+# We use Any here because configs are inherently flexible and extensible across different
+# connector types and use cases. This is a port definition, not domain logic.
+ConfigDict = dict[str, Any]  # type: ignore[explicit-any]
+
 
 class ConfigStorage(ABC):
     """Interface for configuration file storage."""
 
     @abstractmethod
-    async def load_config(self, name: str) -> Optional[dict[str, Any]]:
+    async def load_config(self, name: str) -> Optional[ConfigDict]:
         """
         Load a configuration file.
 
@@ -21,7 +26,7 @@ class ConfigStorage(ABC):
         """
 
     @abstractmethod
-    async def save_config(self, name: str, config: dict[str, Any]) -> None:
+    async def save_config(self, name: str, config: ConfigDict) -> None:
         """
         Save a configuration file.
 

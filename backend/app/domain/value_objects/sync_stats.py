@@ -52,7 +52,7 @@ class SyncStats:
         successful_items = self.indexed + self.skipped
         return successful_items / self.total_items
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """
         Serialize SyncStats to a dictionary.
 

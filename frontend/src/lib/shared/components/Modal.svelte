@@ -11,7 +11,7 @@
 
 	const { title = '', children, footer }: Props = $props();
 
-	const dispatch = createEventDispatcher<{ close: void }>();
+	const dispatch = createEventDispatcher<{ close: never }>();
 
 	function handleBackdropClick(e: MouseEvent): void {
 		if (e.target === e.currentTarget) {
@@ -36,7 +36,11 @@
 	<div
 		class="absolute inset-0 bg-black/50"
 		onclick={handleBackdropClick}
-		onkeydown={(e) => e.key === 'Enter' && handleBackdropClick(e as unknown as MouseEvent)}
+		onkeydown={(e: KeyboardEvent) => {
+			if (e.key === 'Enter') {
+				handleBackdropClick(e as unknown as MouseEvent);
+			}
+		}}
 		role="button"
 		tabindex="-1"
 	></div>

@@ -70,7 +70,7 @@ class ConnectorUseCases(ABC):
     async def update_connector(
         self,
         connector_id: UUID,
-        config: Optional[dict] = None,
+        config: Optional[dict[str, object]] = None,
         enabled: Optional[bool] = None,
     ) -> Optional[Connector]:
         """
@@ -169,7 +169,7 @@ class GooglePhotosConnectorUseCases(ABC):
         """
 
     @abstractmethod
-    async def get_connection_status(self) -> dict:
+    async def get_connection_status(self) -> dict[str, object]:
         """
         Get the current Google Photos connection status.
 

@@ -7,6 +7,10 @@ from uuid import UUID
 
 from app.domain.value_objects import Embedding
 
+# Payload can contain various metadata fields (photo_id, cluster_id, face_id, etc)
+# We use Any for flexibility across different search result contexts.
+PayloadDict = dict[str, Any]  # type: ignore[explicit-any]
+
 
 @dataclass
 class VectorSearchResult:
@@ -14,7 +18,7 @@ class VectorSearchResult:
 
     id: UUID
     score: float
-    payload: dict
+    payload: PayloadDict
 
 
 class VectorStore(ABC):
@@ -27,7 +31,7 @@ class VectorStore(ABC):
         self,
         photo_id: UUID,
         embedding: Embedding,
-        payload: Optional[dict] = None,
+        payload: Optional[PayloadDict] = None,
     ) -> None:
         """
         Store a photo's CLIP embedding.
@@ -43,7 +47,7 @@ class VectorStore(ABC):
         self,
         query_embedding: Embedding,
         limit: int = 20,
-        filters: Optional[dict] = None,
+        filters: Optional[PayloadDict] = None,
     ) -> list[VectorSearchResult]:
         """
         Search for similar photos by embedding.
@@ -88,7 +92,7 @@ class VectorStore(ABC):
         self,
         face_id: UUID,
         embedding: Embedding,
-        payload: Optional[dict] = None,
+        payload: Optional[PayloadDict] = None,
     ) -> None:
         """
         Store a face's embedding.
@@ -104,7 +108,7 @@ class VectorStore(ABC):
         self,
         query_embedding: Embedding,
         limit: int = 20,
-        filters: Optional[dict] = None,
+        filters: Optional[PayloadDict] = None,
     ) -> list[VectorSearchResult]:
         """
         Search for similar faces by embedding.
@@ -151,7 +155,7 @@ class VectorStore(ABC):
 
     @abstractmethod
     async def update_face_payload(
-        self, face_id: UUID, payload: dict[str, Any]
+        self, face_id: UUID, payload: PayloadDict
     ) -> None:
         """Update face embedding metadata in vector store.
 

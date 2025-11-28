@@ -1,7 +1,7 @@
 """Connector aggregate root entity."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 from uuid import uuid4
@@ -43,7 +43,7 @@ class Connector:
     created_at: datetime
 
     # Configuration (type-specific)
-    config: dict = field(default_factory=dict)
+    config: dict[str, object] = field(default_factory=dict)
 
     # Sync state
     last_sync: Optional[datetime] = None
@@ -55,7 +55,7 @@ class Connector:
     @classmethod
     def create_google_photos(cls, name: str = "Google Photos") -> "Connector":
         """Factory method for Google Photos connector."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return cls(
             id=ConnectorId(uuid4()),
             type=ConnectorType.GOOGLE_PHOTOS,
@@ -80,7 +80,7 @@ class Connector:
         auto_album: bool = False,
     ) -> "Connector":
         """Factory method for local folder connector."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return cls(
             id=ConnectorId(uuid4()),
             type=ConnectorType.LOCAL,
@@ -104,7 +104,7 @@ class Connector:
         This is a special built-in connector that handles uploaded photos.
         There should only be one of these per installation.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return cls(
             id=ConnectorId(uuid4()),
             type=ConnectorType.UPLOAD,
@@ -143,7 +143,7 @@ class Connector:
 
     def record_sync(self, stats: SyncStats) -> None:
         """Record completion of a sync operation."""
-        self.last_sync = datetime.utcnow()
+        self.last_sync = datetime.now(timezone.utc)
         self.last_sync_stats = stats
         if stats.failed == 0:
             self.status = ConnectorStatus.CONNECTED
@@ -153,7 +153,7 @@ class Connector:
             self.error_message = f"{stats.failed} items failed to sync"
         self._touch()
 
-    def update_config(self, config: dict) -> None:
+    def update_config(self, config: dict[str, object]) -> None:
         """Update connector configuration."""
         self.config.update(config)
         self._touch()
@@ -177,9 +177,10 @@ class Connector:
     def path(self) -> Optional[str]:
         """Get the path for local/upload connectors."""
         if self.type in (ConnectorType.LOCAL, ConnectorType.UPLOAD):
-            return self.config.get("path")
+            path = self.config.get("path")
+            return str(path) if path is not None else None
         return None
 
     def _touch(self) -> None:
         """Update the updated_at timestamp."""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)

@@ -1,7 +1,7 @@
 """Task execution tracking entity for idempotency."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -37,14 +37,14 @@ class TaskExecution:
     result: Optional[str] = None  # JSON result if needed
 
     # Context for the task (e.g., photo_id, connector_id)
-    context: Optional[dict] = None
+    context: Optional[dict[str, object]] = None
 
     @classmethod
     def create(
         cls,
         task_id: str,
         task_name: str,
-        context: Optional[dict] = None,
+        context: Optional[dict[str, object]] = None,
     ) -> "TaskExecution":
         """Create a new task execution record.
 
@@ -60,7 +60,7 @@ class TaskExecution:
             task_id=task_id,
             task_name=task_name,
             status=TaskExecutionStatus.PENDING,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             context=context,
         )
 
@@ -68,7 +68,7 @@ class TaskExecution:
         """Mark the task as running."""
         self.status = TaskExecutionStatus.RUNNING
         if self.started_at is None:
-            self.started_at = datetime.utcnow()
+            self.started_at = datetime.now(timezone.utc)
 
     def mark_completed(self, result: Optional[str] = None) -> None:
         """Mark the task as completed successfully.
@@ -77,7 +77,7 @@ class TaskExecution:
             result: Optional JSON result string
         """
         self.status = TaskExecutionStatus.COMPLETED
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now(timezone.utc)
         self.result = result
 
     def mark_failed(self, error_message: str) -> None:
@@ -87,7 +87,7 @@ class TaskExecution:
             error_message: Error message describing the failure
         """
         self.status = TaskExecutionStatus.FAILED
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now(timezone.utc)
         self.error_message = error_message
 
     def mark_retrying(self) -> None:

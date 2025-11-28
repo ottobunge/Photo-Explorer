@@ -80,6 +80,7 @@
 			<h2 id="cluster-picker-modal-title" class="text-xl font-bold text-gray-900 mb-2">{title}</h2>
 
 			<!-- Search input -->
+			<!-- svelte-ignore a11y_autofocus -->
 			<input
 				type="text"
 				bind:value={searchQuery}

@@ -139,7 +139,7 @@ describe('SimilarityThresholdSlider', () => {
 			expect(screen.getByText(/only show results with similarity ≥ 18%/i)).toBeTruthy();
 
 			// Update value to 0
-			rerender({ value: 0, onchange });
+			await rerender({ value: 0, onchange });
 
 			// Wait for update
 			await waitFor(() => {
@@ -193,7 +193,7 @@ describe('SimilarityThresholdSlider', () => {
 			expect(slider.value).toBe('0.18');
 
 			// Update prop
-			rerender({ value: 0.5, onchange });
+			await rerender({ value: 0.5, onchange });
 
 			// Wait for update
 			await waitFor(() => {

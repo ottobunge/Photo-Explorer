@@ -1,7 +1,7 @@
 """FaceCluster aggregate root entity."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -35,7 +35,7 @@ class FaceCluster:
     @classmethod
     def create(cls, initial_face_id: Optional[UUID] = None) -> "FaceCluster":
         """Factory method to create a new cluster."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         face_ids = [initial_face_id] if initial_face_id else []
         return cls(
             id=FaceClusterId(uuid4()),
@@ -116,4 +116,4 @@ class FaceCluster:
 
     def _touch(self) -> None:
         """Update the updated_at timestamp."""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)

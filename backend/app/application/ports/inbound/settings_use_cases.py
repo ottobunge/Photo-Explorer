@@ -30,7 +30,7 @@ class ConnectorSettings:
 
     connector_type: str
     enabled: bool
-    config: dict
+    config: dict[str, object]
 
 
 class SettingsUseCases(ABC):
@@ -76,7 +76,7 @@ class SettingsUseCases(ABC):
     async def save_connector_settings(
         self,
         connector_type: str,
-        config: dict,
+        config: dict[str, object],
     ) -> ConnectorSettings:
         """
         Save settings for a specific connector.
@@ -90,7 +90,7 @@ class SettingsUseCases(ABC):
         """
 
     @abstractmethod
-    async def get_storage_stats(self) -> dict:
+    async def get_storage_stats(self) -> dict[str, object]:
         """
         Get storage usage statistics.
 

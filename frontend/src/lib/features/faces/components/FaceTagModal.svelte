@@ -5,7 +5,7 @@
 
 	export let cluster: FaceClusterType;
 
-	const dispatch = createEventDispatcher<{ close: void; tagged: void }>();
+	const dispatch = createEventDispatcher<{ close: never; tagged: never }>();
 
 	let name = cluster.name ?? '';
 	let loading = false;
@@ -61,6 +61,7 @@
 		<form on:submit|preventDefault={handleSubmit}>
 			<div class="mb-4">
 				<label for="name" class="mb-1 block text-sm font-medium text-gray-700">Name</label>
+				<!-- svelte-ignore a11y_autofocus -->
 				<input
 					id="name"
 					type="text"

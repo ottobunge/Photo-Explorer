@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(while read f)",
-      "Bash(do awk 'NR==177 && /\\|\\|/ {print FILENAME\"\"\"\":\"\"\"\"NR\"\"\"\":\"\"\"\"$0}' \"$f\")"
+      "Bash(do awk 'NR==177 && /\\|\\|/ {print FILENAME\"\"\"\":\"\"\"\"NR\"\"\"\":\"\"\"\"$0}' \"$f\")",
+      "Bash(npx eslint:*)",
+      "Bash(python -m mypy:*)"
     ],
     "deny": [],
     "ask": []

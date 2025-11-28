@@ -8,9 +8,9 @@
 
 	let {
 		query = $bindable(''),
-		loading = false,
-		placeholder = 'Search photos... (e.g., "sunset at the beach")',
-		onSearch
+		loading = false, // eslint-disable-line prefer-const
+		placeholder = 'Search photos... (e.g., "sunset at the beach")', // eslint-disable-line prefer-const
+		onSearch // eslint-disable-line prefer-const
 	}: Props = $props();
 
 	function handleSubmit(): void {
@@ -23,6 +23,10 @@
 		if (e.key === 'Enter') {
 			handleSubmit();
 		}
+	}
+
+	function handleClick(): void {
+		handleSubmit();
 	}
 </script>
 
@@ -42,7 +46,7 @@
 	<button
 		type="button"
 		class="btn-primary"
-		onclick={handleSubmit}
+		onclick={handleClick}
 		disabled={loading || !query.trim()}
 		data-testid="search-button"
 	>

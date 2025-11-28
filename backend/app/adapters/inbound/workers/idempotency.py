@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import select
@@ -78,15 +78,15 @@ async def mark_task_running(
             task_id=task_id,
             task_name=task_name,
             status=TaskExecutionStatus.RUNNING.value,
-            created_at=datetime.utcnow(),
-            started_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            started_at=datetime.now(timezone.utc),
             context=context,
         )
         session.add(execution)
     else:
         # Update existing record
         execution.status = TaskExecutionStatus.RUNNING.value
-        execution.started_at = datetime.utcnow()
+        execution.started_at = datetime.now(timezone.utc)
         if context:
             execution.context = context
 
@@ -117,7 +117,7 @@ async def mark_task_completed(
         return
 
     execution.status = TaskExecutionStatus.COMPLETED.value
-    execution.completed_at = datetime.utcnow()
+    execution.completed_at = datetime.now(timezone.utc)
     if result is not None:
         try:
             execution.result = json.dumps(result)
@@ -151,7 +151,7 @@ async def mark_task_failed(
         return
 
     execution.status = TaskExecutionStatus.FAILED.value
-    execution.completed_at = datetime.utcnow()
+    execution.completed_at = datetime.now(timezone.utc)
     execution.error_message = error_message[:1000]  # Limit error message length
 
     await session.flush()

@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { foldersStore } from '../stores/folders';
 
-	const dispatch = createEventDispatcher<{ close: void; added: void }>();
+	const dispatch = createEventDispatcher<{ close: never; added: never }>();
 
 	let path = '';
 	let name = '';
@@ -59,6 +59,7 @@
 		<form on:submit|preventDefault={handleSubmit}>
 			<div class="mb-4">
 				<label for="path" class="mb-1 block text-sm font-medium text-gray-700">Folder Path</label>
+				<!-- svelte-ignore a11y_autofocus -->
 				<input
 					id="path"
 					type="text"

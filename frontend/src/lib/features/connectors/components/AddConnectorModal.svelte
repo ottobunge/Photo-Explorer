@@ -4,7 +4,7 @@
 	import { settingsStore } from '$lib/features/settings';
 	import type { LocalFolderConfig } from '$lib/features/settings/types';
 
-	const dispatch = createEventDispatcher<{ close: void }>();
+	const dispatch = createEventDispatcher<{ close: never }>();
 
 	let connecting = false;
 	let error: string | null = null;

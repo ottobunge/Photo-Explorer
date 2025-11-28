@@ -6,6 +6,7 @@ Following TDD approach.
 
 
 import pytest
+from datetime import datetime, timezone
 
 from app.domain.entities.connector import Connector, ConnectorType
 from app.domain.entities.photo import Photo
@@ -160,7 +161,7 @@ class TestPhotoRepositoryFindByConnector:
         connector = Connector.create_upload(upload_path="/uploads")
         saved_connector = await connector_repo.save(connector)
 
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
         # Create photos with different timestamps
         for i in range(3):
@@ -171,7 +172,7 @@ class TestPhotoRepositoryFindByConnector:
                 connector_id=saved_connector.id.value,
             )
             # Manually set created_at to ensure order
-            photo.created_at = datetime.utcnow() - timedelta(days=i)
+            photo.created_at = datetime.now(timezone.utc) - timedelta(days=i)
             await photo_repo.save(photo)
 
         # When

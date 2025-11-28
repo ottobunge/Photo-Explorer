@@ -1,6 +1,6 @@
 """Test data factories for creating domain entities in tests."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -36,7 +36,7 @@ class PhotoFactory:
     ) -> Photo:
         """Create a Photo entity with sensible defaults."""
         photo_id = id or uuid4()
-        now = created_at or datetime.utcnow()
+        now = created_at or datetime.now(timezone.utc)
 
         return Photo(
             id=PhotoId(photo_id),
@@ -87,7 +87,7 @@ class AlbumFactory:
     ) -> Album:
         """Create an Album entity with sensible defaults."""
         album_id = id or uuid4()
-        now = created_at or datetime.utcnow()
+        now = created_at or datetime.now(timezone.utc)
 
         return Album(
             id=AlbumId(album_id),
@@ -120,7 +120,7 @@ class FaceFactory:
     ) -> Face:
         """Create a Face entity with sensible defaults."""
         face_id = id or uuid4()
-        now = created_at or datetime.utcnow()
+        now = created_at or datetime.now(timezone.utc)
 
         # Default bounding box
         if bounding_box is None:
@@ -212,7 +212,7 @@ class FaceClusterFactory:
         from app.domain.value_objects import FaceClusterId
 
         cluster_id = id or uuid4()
-        now = created_at or datetime.utcnow()
+        now = created_at or datetime.now(timezone.utc)
 
         return FaceCluster(
             id=FaceClusterId(cluster_id),

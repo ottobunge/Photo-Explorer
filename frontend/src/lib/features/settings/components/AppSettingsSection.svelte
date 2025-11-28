@@ -92,7 +92,7 @@
 		</div>
 	{/if}
 
-	<form onsubmit={(e) => { e.preventDefault(); handleSave(); }}>
+	<form onsubmit={(e) => { e.preventDefault(); void handleSave(); }}>
 		<div class="settings-grid">
 			<div class="form-group">
 				<label for="thumbnail-quality">Thumbnail Quality</label>

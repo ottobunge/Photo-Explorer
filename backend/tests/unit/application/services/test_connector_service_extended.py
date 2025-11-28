@@ -1,5 +1,5 @@
 """Extended tests for ConnectorService - new methods for routes refactoring."""
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
@@ -60,7 +60,7 @@ class TestConnectorServiceListConnectorsWithFilters(BaseConnectorServiceExtended
                 config={"path": "/path1"},
                 status=ConnectorStatus.CONNECTED,
                 enabled=True,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             ),
             Connector(
                 id=ConnectorId(uuid4()),
@@ -69,7 +69,7 @@ class TestConnectorServiceListConnectorsWithFilters(BaseConnectorServiceExtended
                 config={"path": "/path2"},
                 status=ConnectorStatus.SYNCING,
                 enabled=True,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             ),
             Connector(
                 id=ConnectorId(uuid4()),
@@ -78,7 +78,7 @@ class TestConnectorServiceListConnectorsWithFilters(BaseConnectorServiceExtended
                 config={},
                 status=ConnectorStatus.CONNECTED,
                 enabled=True,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             ),
             Connector(
                 id=ConnectorId(uuid4()),
@@ -87,7 +87,7 @@ class TestConnectorServiceListConnectorsWithFilters(BaseConnectorServiceExtended
                 config={},
                 status=ConnectorStatus.DISCONNECTED,
                 enabled=False,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             ),
         ]
 
@@ -199,7 +199,7 @@ class TestConnectorServiceGetConnectorPhotos(BaseConnectorServiceExtendedTest):
             config={},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         mock_connector_repo.find_all.return_value = [gp_connector]
@@ -226,7 +226,7 @@ class TestConnectorServiceGetConnectorPhotos(BaseConnectorServiceExtendedTest):
                 config={},
                 status=ConnectorStatus.CONNECTED,
                 enabled=True,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             for i in range(3)
         ]
@@ -238,7 +238,7 @@ class TestConnectorServiceGetConnectorPhotos(BaseConnectorServiceExtendedTest):
             config={"path": "/test"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         mock_connector_repo.find_all.return_value = gp_connectors + [local_connector]
@@ -280,7 +280,7 @@ class TestConnectorServiceGetConnectorPhotos(BaseConnectorServiceExtendedTest):
             config={},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         # Mock the domain method to track its usage
@@ -316,7 +316,7 @@ class TestConnectorServiceCreateGooglePhotosWithEmail(BaseConnectorServiceExtend
             config={"email": test_email},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.save.return_value = expected_connector
 
@@ -341,7 +341,7 @@ class TestConnectorServiceCreateGooglePhotosWithEmail(BaseConnectorServiceExtend
             config={},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.save.return_value = expected_connector
 

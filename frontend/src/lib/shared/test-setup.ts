@@ -11,6 +11,7 @@ if (typeof window !== 'undefined') {
 	// In test environment (jsdom), customElements might not be defined
 	if (typeof (window as any).customElements === 'undefined') {
 		(window as any).customElements = {
+			// eslint-disable-next-line @typescript-eslint/no-empty-function
 			define: (): void => {},
 			get: (): undefined => undefined,
 			whenDefined: (): Promise<void> => Promise.resolve()

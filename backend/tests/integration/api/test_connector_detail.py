@@ -12,7 +12,7 @@ Tests the following endpoints:
 Following TDD approach - tests written before implementation.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -31,7 +31,7 @@ class TestGetConnectorDetail:
         # Given: saved connector
         connector = Connector.create_upload(upload_path="/uploads")
         connector.status = ConnectorStatus.CONNECTED
-        connector.last_sync = datetime.utcnow()
+        connector.last_sync = datetime.now(timezone.utc)
         saved = await connector_repo.save(connector)
 
         # When
@@ -573,14 +573,14 @@ class TestGetSyncStatus:
         from app.domain.value_objects.sync_stats import SyncStats
 
         connector = Connector.create_local(path="/photos", name="Test")
-        connector.last_sync = datetime.utcnow()
+        connector.last_sync = datetime.now(timezone.utc)
         connector.last_sync_stats = SyncStats(
             total_items=100,
             indexed=95,
             skipped=3,
             failed=2,
-            started_at=datetime.utcnow(),
-            completed_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
         )
         saved = await connector_repo.save(connector)
 

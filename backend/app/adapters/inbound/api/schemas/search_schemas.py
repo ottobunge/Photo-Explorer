@@ -2,13 +2,21 @@
 
 import re
 from datetime import date, timedelta
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class SearchFilters(BaseModel):
+class ErrorDetails(TypedDict, total=False):
+    """Error response details."""
+
+    code: str
+    message: str
+    details: dict[str, Any]  # type: ignore[explicit-any]
+
+
+class SearchFilters(BaseModel):  # type: ignore[explicit-any]
     """Filters for search queries."""
 
     album_ids: Optional[list[UUID]] = Field(None, max_length=100, description="Filter by album IDs")
@@ -58,7 +66,9 @@ class SearchFilters(BaseModel):
 
     @field_validator("end_date")
     @classmethod
-    def validate_date_range(cls, v: Optional[date], info) -> Optional[date]:
+    def validate_date_range(
+        cls, v: Optional[date], info: Any  # type: ignore[explicit-any]
+    ) -> Optional[date]:
         """Validate date range is logical."""
         if v is not None:
             # Check if end_date is in the future
@@ -71,7 +81,7 @@ class SearchFilters(BaseModel):
         return v
 
 
-class SearchRequest(BaseModel):
+class SearchRequest(BaseModel):  # type: ignore[explicit-any]
     """Request for semantic search."""
 
     query: str = Field(
@@ -133,10 +143,10 @@ class SearchRequest(BaseModel):
         return v
 
 
-class SearchResultItem(BaseModel):
+class SearchResultItem(BaseModel):  # type: ignore[explicit-any]
     """Single search result."""
 
-    photo: dict[str, Any] = Field(..., description="Photo metadata")
+    photo: dict[str, Any] = Field(..., description="Photo metadata")  # type: ignore[explicit-any]
     score: float = Field(
         ..., description="Similarity score (0-1, higher is better)", ge=0, le=1, example=0.85
     )
@@ -160,7 +170,7 @@ class SearchResultItem(BaseModel):
         }
 
 
-class SearchResultData(BaseModel):
+class SearchResultData(BaseModel):  # type: ignore[explicit-any]
     """Search results data."""
 
     results: list[SearchResultItem] = Field(..., description="List of matching photos")
@@ -191,7 +201,7 @@ class SearchResultData(BaseModel):
         }
 
 
-class SearchMeta(BaseModel):
+class SearchMeta(BaseModel):  # type: ignore[explicit-any]
     """Search metadata."""
 
     total: int = Field(..., description="Total number of results", ge=0, example=5)
@@ -208,13 +218,13 @@ class SearchMeta(BaseModel):
         }
 
 
-class SearchResponse(BaseModel):
+class SearchResponse(BaseModel):  # type: ignore[explicit-any]
     """Response for search."""
 
     success: bool = Field(..., description="Whether the search succeeded", example=True)
     data: SearchResultData
     meta: SearchMeta
-    error: Optional[dict[str, Any]] = Field(None, description="Error details if success is false")
+    error: Optional[ErrorDetails] = Field(None, description="Error details if success is false")
 
     class Config:
         json_schema_extra = {

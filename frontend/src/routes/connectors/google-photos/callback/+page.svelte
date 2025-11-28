@@ -29,7 +29,7 @@
 
 			// Redirect to connectors page after a brief delay
 			setTimeout(() => {
-				goto('/connectors');
+				void goto('/connectors');
 			}, 2000);
 		} catch (err) {
 			status = 'error';

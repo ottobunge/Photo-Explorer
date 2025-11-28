@@ -60,6 +60,7 @@
 		<form onsubmit={(e) => { e.preventDefault(); void handleSubmit(); }}>
 			<div class="mb-4">
 				<label for="name" class="mb-1 block text-sm font-medium text-gray-700">Name</label>
+				<!-- svelte-ignore a11y_autofocus -->
 				<input
 					id="name"
 					type="text"

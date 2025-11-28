@@ -1,5 +1,5 @@
 """Unit tests for ConnectorService following TDD approach."""
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
@@ -80,7 +80,7 @@ class TestConnectorServiceCreateLocal(BaseConnectorServiceTest):
             config={"path": test_path},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.save.return_value = expected_connector
         mock_connector_repo.find_by_path.return_value = None
@@ -149,7 +149,7 @@ class TestConnectorServiceCreateLocal(BaseConnectorServiceTest):
             config={"path": test_path},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.find_by_path.return_value = existing_connector
 
@@ -189,7 +189,7 @@ class TestConnectorServiceCreateLocal(BaseConnectorServiceTest):
             config={"path": test_path},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.save.return_value = expected_connector
 
@@ -252,7 +252,7 @@ class TestConnectorServiceCreateLocal(BaseConnectorServiceTest):
             config={"path": real_path},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.save.return_value = expected_connector
 
@@ -290,7 +290,7 @@ class TestConnectorServiceUpdate(BaseConnectorServiceTest):
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
         mock_connector_repo.save.return_value = existing_connector
@@ -314,7 +314,7 @@ class TestConnectorServiceUpdate(BaseConnectorServiceTest):
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
         mock_connector_repo.save.return_value = existing_connector
@@ -350,7 +350,7 @@ class TestConnectorServiceUpdate(BaseConnectorServiceTest):
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
         mock_connector_repo.save.return_value = existing_connector
@@ -406,7 +406,7 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
 
@@ -432,7 +432,7 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
 
@@ -470,7 +470,7 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
 
@@ -508,7 +508,7 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
 
@@ -622,7 +622,7 @@ class TestConnectorServiceGetters(BaseConnectorServiceTest):
             config={"path": "/home/user/photos"},
             status=ConnectorStatus.CONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.find_by_id.return_value = expected_connector
 
@@ -644,7 +644,7 @@ class TestConnectorServiceGetters(BaseConnectorServiceTest):
                 config={"path": "/path1"},
                 status=ConnectorStatus.CONNECTED,
                 enabled=True,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             ),
             Connector(
                 id=ConnectorId(uuid4()),
@@ -653,7 +653,7 @@ class TestConnectorServiceGetters(BaseConnectorServiceTest):
                 config={},
                 status=ConnectorStatus.CONNECTED,
                 enabled=True,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             ),
         ]
         mock_connector_repo.find_all.return_value = expected_connectors
@@ -691,7 +691,7 @@ class TestConnectorServiceGooglePhotos(BaseConnectorServiceTest):
             config={},
             status=ConnectorStatus.DISCONNECTED,
             enabled=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         mock_connector_repo.save.return_value = expected_connector
 

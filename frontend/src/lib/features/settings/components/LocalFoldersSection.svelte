@@ -118,14 +118,14 @@
 
 <!-- Add Folder Modal -->
 {#if showAddModal}
-	<div class="modal-overlay" onclick={closeAddModal} onkeydown={(e) => e.key === 'Escape' && closeAddModal()} role="button" tabindex="0">
+	<div class="modal-overlay" onclick={closeAddModal} onkeydown={(e) => { if (e.key === 'Escape') { closeAddModal(); } }} role="button" tabindex="0">
 		<div class="modal" onclick={(e) => { e.stopPropagation(); }} onkeydown={(e) => { e.stopPropagation(); }} role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
 			<div class="modal-header">
 				<h3 id="modal-title">Add Local Folder</h3>
 				<button class="close-btn" onclick={closeAddModal} aria-label="Close modal">×</button>
 			</div>
 
-			<form onsubmit={(e) => { e.preventDefault(); handleAddFolder(); }}>
+			<form onsubmit={(e) => { e.preventDefault(); void handleAddFolder(); }}>
 				<div class="form-group">
 					<label for="folder-path">Folder Path</label>
 					<input

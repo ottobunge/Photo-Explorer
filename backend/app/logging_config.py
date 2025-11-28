@@ -4,9 +4,53 @@ import logging
 import logging.config
 import sys
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypedDict
 
 import orjson
+
+
+class LocationInfo(TypedDict):
+    """Location information in log record."""
+
+    file: str
+    line: int
+    function: str | None
+
+
+class ProcessInfo(TypedDict):
+    """Process information in log record."""
+
+    id: int | None
+    name: str | None
+
+
+class ThreadInfo(TypedDict):
+    """Thread information in log record."""
+
+    id: int | None
+    name: str | None
+
+
+class ExceptionInfo(TypedDict, total=False):
+    """Exception information in log record."""
+
+    type: str | None
+    message: str | None
+    traceback: str
+
+
+class LogData(TypedDict, total=False):
+    """Structured log data format."""
+
+    timestamp: str
+    level: str
+    logger: str
+    message: str
+    location: LocationInfo
+    process: ProcessInfo
+    thread: ThreadInfo
+    exception: ExceptionInfo
+    context: dict[str, Any]  # type: ignore[explicit-any]
 
 
 class JSONFormatter(logging.Formatter):
@@ -20,7 +64,7 @@ class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
         # Base log structure
-        log_data: dict[str, Any] = {
+        log_data: LogData = {
             "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
@@ -237,7 +281,7 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def log_with_context(
+def log_with_context(  # type: ignore[explicit-any]
     logger: logging.Logger,
     level: str,
     message: str,

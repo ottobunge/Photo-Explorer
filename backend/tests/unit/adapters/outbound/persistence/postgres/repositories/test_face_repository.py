@@ -1,6 +1,6 @@
 """Unit tests for FaceRepositoryPostgres batch methods."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, Mock
 from uuid import UUID, uuid4
@@ -100,7 +100,7 @@ class TestFindFacesByIds(TestFaceRepositoryBatchMethods):
         face_model.crop_path = None
         face_model.quality_score = 0.95
         face_model.detection_confidence = 0.98
-        face_model.created_at = datetime.utcnow()
+        face_model.created_at = datetime.now(timezone.utc)
 
         mock_result = Mock()
         mock_result.scalars = Mock(return_value=Mock(all=Mock(return_value=[face_model])))
@@ -137,7 +137,7 @@ class TestFindFacesByIds(TestFaceRepositoryBatchMethods):
             model.crop_path = None
             model.quality_score = face.quality_score
             model.detection_confidence = face.detection_confidence
-            model.created_at = datetime.utcnow()
+            model.created_at = datetime.now(timezone.utc)
             face_models.append(model)
 
         mock_result = Mock()
@@ -219,7 +219,7 @@ class TestSaveFacesBatch(TestFaceRepositoryBatchMethods):
             model.crop_path = None
             model.quality_score = face.quality_score
             model.detection_confidence = face.detection_confidence
-            model.created_at = datetime.utcnow()
+            model.created_at = datetime.now(timezone.utc)
             existing_models.append(model)
 
         mock_result = Mock()
@@ -262,7 +262,7 @@ class TestSaveFacesBatch(TestFaceRepositoryBatchMethods):
             model.crop_path = None
             model.quality_score = face.quality_score
             model.detection_confidence = face.detection_confidence
-            model.created_at = datetime.utcnow()
+            model.created_at = datetime.now(timezone.utc)
             existing_models.append(model)
 
         mock_result = Mock()

@@ -69,9 +69,9 @@ class ExifData:
             return f"{self.camera_make} {self.camera_model}"
         return self.camera_model or self.camera_make
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """Convert to dictionary for serialization."""
-        result: dict = {}
+        result: dict[str, object] = {}
         if self.camera_make:
             result["camera_make"] = self.camera_make
         if self.camera_model:

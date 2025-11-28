@@ -3,7 +3,7 @@
 import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -139,7 +139,7 @@ class GooglePhotosPickerClient:
         response.raise_for_status()
         data = response.json()
 
-        expires_at = datetime.utcnow() + timedelta(seconds=data["expires_in"])
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
 
         self._access_token = data["access_token"]
         self._refresh_token = data.get("refresh_token", self._refresh_token)
@@ -172,7 +172,7 @@ class GooglePhotosPickerClient:
         response.raise_for_status()
         data = response.json()
 
-        expires_at = datetime.utcnow() + timedelta(seconds=data["expires_in"])
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
 
         self._access_token = data["access_token"]
         self._token_expires_at = expires_at
@@ -190,7 +190,7 @@ class GooglePhotosPickerClient:
         if not self._access_token:
             raise ValueError("Not authenticated")
 
-        if self._token_expires_at and datetime.utcnow() >= self._token_expires_at:
+        if self._token_expires_at and datetime.now(timezone.utc) >= self._token_expires_at:
             await self.refresh_tokens()
 
         return self._access_token
@@ -491,7 +491,7 @@ class GooglePhotosClient(PhotoSource):
         response.raise_for_status()
         data = response.json()
 
-        expires_at = datetime.utcnow() + timedelta(seconds=data["expires_in"])
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
 
         self._access_token = data["access_token"]
         self._refresh_token = data.get("refresh_token", self._refresh_token)
@@ -524,7 +524,7 @@ class GooglePhotosClient(PhotoSource):
         response.raise_for_status()
         data = response.json()
 
-        expires_at = datetime.utcnow() + timedelta(seconds=data["expires_in"])
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
 
         self._access_token = data["access_token"]
         self._token_expires_at = expires_at
@@ -542,7 +542,7 @@ class GooglePhotosClient(PhotoSource):
         if not self._access_token:
             raise ValueError("Not authenticated")
 
-        if self._token_expires_at and datetime.utcnow() >= self._token_expires_at:
+        if self._token_expires_at and datetime.now(timezone.utc) >= self._token_expires_at:
             await self.refresh_tokens()
 
         return self._access_token

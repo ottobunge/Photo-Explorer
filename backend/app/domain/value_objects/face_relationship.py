@@ -60,7 +60,7 @@ class FaceRelationship:
         else:
             raise ValueError(f"Person {person_id} is not part of this relationship")
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """
         Serialize FaceRelationship to a dictionary.
 

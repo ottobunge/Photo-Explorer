@@ -1,11 +1,19 @@
 """Settings API schemas."""
 
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class AppSettingsData(BaseModel):
+class ErrorDetails(TypedDict, total=False):
+    """Error response details."""
+
+    code: str
+    message: str
+    details: dict[str, Any]  # type: ignore[explicit-any]
+
+
+class AppSettingsData(BaseModel):  # type: ignore[explicit-any]
     """Application settings data."""
 
     # Directory paths (read-only)
@@ -26,15 +34,15 @@ class AppSettingsData(BaseModel):
     default_sync_interval_hours: int = 6
 
 
-class AppSettingsResponse(BaseModel):
+class AppSettingsResponse(BaseModel):  # type: ignore[explicit-any]
     """Response for application settings."""
 
     success: bool
     data: AppSettingsData
-    error: Optional[dict[str, Any]] = None
+    error: Optional[ErrorDetails] = None
 
 
-class AppSettingsUpdate(BaseModel):
+class AppSettingsUpdate(BaseModel):  # type: ignore[explicit-any]
     """Request to update application settings."""
 
     # Indexing settings
@@ -89,7 +97,7 @@ class AppSettingsUpdate(BaseModel):
         return None
 
 
-class StorageStatsData(BaseModel):
+class StorageStatsData(BaseModel):  # type: ignore[explicit-any]
     """Storage statistics data."""
 
     total_photos: int
@@ -100,9 +108,9 @@ class StorageStatsData(BaseModel):
     cache_size_bytes: int
 
 
-class StorageStatsResponse(BaseModel):
+class StorageStatsResponse(BaseModel):  # type: ignore[explicit-any]
     """Response for storage statistics."""
 
     success: bool
     data: StorageStatsData
-    error: Optional[dict[str, Any]] = None
+    error: Optional[ErrorDetails] = None

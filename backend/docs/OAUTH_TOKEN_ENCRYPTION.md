@@ -99,7 +99,7 @@ Tokens are stored as encrypted JSON containing:
 ```python
 from app.adapters.outbound.storage import SecureTokenStorage
 from app.application.ports.outbound.token_storage import OAuthTokens
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 # Initialize storage
 storage = SecureTokenStorage(
@@ -112,7 +112,7 @@ tokens = OAuthTokens(
     access_token="ya29.a0...",
     refresh_token="1//0g...",
     token_type="Bearer",
-    expires_at=datetime.utcnow() + timedelta(hours=1),
+    expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
     scopes=["https://www.googleapis.com/auth/photoslibrary.readonly"]
 )
 await storage.save_tokens("google_photos", tokens)

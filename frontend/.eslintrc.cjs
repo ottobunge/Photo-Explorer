@@ -145,6 +145,8 @@ module.exports = {
 		'svelte.config.test.js',
 		'playwright.config.ts',
 		'vite.config.ts',
-		'svelte.config.js'
+		'svelte.config.js',
+		// Vitest shims aren't included in tsconfig
+		'vitest.shims.d.ts'
 	]
 };
