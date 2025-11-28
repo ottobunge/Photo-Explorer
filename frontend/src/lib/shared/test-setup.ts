@@ -8,11 +8,12 @@ import { vi } from 'vitest';
 // This ensures proper DOM environment for Svelte component rendering
 if (typeof window !== 'undefined') {
 	// Set up custom element registry if not already present
-	if (window.customElements === undefined || window.customElements === null) {
+	// In test environment (jsdom), customElements might not be defined
+	if (typeof (window as any).customElements === 'undefined') {
 		(window as any).customElements = {
-			define: () => {},
-			get: () => undefined,
-			whenDefined: () => Promise.resolve()
+			define: (): void => {},
+			get: (): undefined => undefined,
+			whenDefined: (): Promise<void> => Promise.resolve()
 		};
 	}
 }

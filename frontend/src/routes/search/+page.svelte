@@ -205,7 +205,7 @@
 
 	async function fetchSearchResults(): Promise<void> {
 		// Cancel previous request if it exists
-		if (abortController !== null && abortController !== undefined) {
+		if (abortController !== null) {
 			abortController.abort();
 		}
 

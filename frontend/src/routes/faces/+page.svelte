@@ -62,7 +62,8 @@
 				comparison = a.face_count - b.face_count;
 			} else if (sortBy === 'photo_count') {
 				comparison = a.photo_count - b.photo_count;
-			} else if (sortBy === 'name') {
+			} else {
+				// sortBy === 'name'
 				const nameA = a.name ?? '';
 				const nameB = b.name ?? '';
 				comparison = nameA.localeCompare(nameB);

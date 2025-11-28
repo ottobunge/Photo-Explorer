@@ -29,7 +29,7 @@ class FaceGraphStore {
 
 			const result = await client.get<SocialGraph>('/faces/graph', params);
 
-			if (result.success && result.data !== null && result.data !== undefined) {
+			if (result.success) {
 				this.graph = result.data;
 				this.filteredPersonId = personId ?? null;
 			}

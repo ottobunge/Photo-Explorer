@@ -20,6 +20,8 @@
 		console.log('FaceGraph effect - containerElement:', containerElement, 'cy:', cy);
 		if (containerElement && !cy) {
 			console.log('Initializing cytoscape...');
+			// Capture container reference for event handlers
+			const container = containerElement;
 			cy = cytoscape({
 				container: containerElement,
 				style: [
@@ -125,25 +127,21 @@
 			cy.on('mouseover', 'node', (event) => {
 				const node = event.target;
 				const nameData: unknown = node.data('name');
-				const name = (nameData !== null && nameData !== undefined && nameData !== '') ? String(nameData) : 'Unknown';
+				const name = (nameData !== null && nameData !== '') ? String(nameData) : 'Unknown';
 				const faceCountData: unknown = node.data('faceCount');
-				const faceCount = (faceCountData !== null && faceCountData !== undefined) ? Number(faceCountData) : 0;
+				const faceCount = (faceCountData !== null) ? Number(faceCountData) : 0;
 				node.data('label', `${name}\n${faceCount} faces`);
 			});
 
 			cy.on('mouseover', 'edge', (event) => {
 				const edge = event.target;
 				const sharedCountData: unknown = edge.data('sharedPhotoCount');
-				const sharedCount = (sharedCountData !== null && sharedCountData !== undefined) ? Number(sharedCountData) : 0;
-				if (containerElement !== null && containerElement !== undefined) {
-					containerElement.title = `${sharedCount} photos together`;
-				}
+				const sharedCount = (sharedCountData !== null) ? Number(sharedCountData) : 0;
+				container.title = `${sharedCount} photos together`;
 			});
 
 			cy.on('mouseout', 'edge', () => {
-				if (containerElement !== null && containerElement !== undefined) {
-					containerElement.title = '';
-				}
+				container.title = '';
 			});
 		}
 	});
@@ -192,7 +190,7 @@
 				target: edge.person_b_id,
 				sharedPhotoCount: edge.shared_photo_count || 0,
 				thickness: Math.max(1, Math.min(8, (edge.shared_photo_count || 0) / 2)), // Thickness based on shared photos
-				samplePhotoIds: (edge.sample_photo_ids !== null && edge.sample_photo_ids !== undefined) ? edge.sample_photo_ids : []
+				samplePhotoIds: edge.sample_photo_ids
 			}
 		}));
 

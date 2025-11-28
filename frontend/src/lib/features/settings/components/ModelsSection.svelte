@@ -195,18 +195,18 @@
 						<span class="model-icon">🖼️</span>
 						<div class="model-info">
 							<h4>Image Embeddings (CLIP)</h4>
-							<p>{settingsStore.activeModels.clip_model ?? 'Not configured'}</p>
+							<p>{settingsStore.activeModels.clip_model || 'Not configured'}</p>
 						</div>
 						<div class="model-status">
 							{#if settingsStore.activeModels.clip_status === 'downloaded'}
 								<span class="status-badge ready">Ready</span>
 							{:else if settingsStore.activeModels.clip_status === 'auto_download'}
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
-							{:else if settingsStore.activeModels !== null && settingsStore.activeModels !== undefined && getModelStatus(settingsStore.activeModels.clip_model) === 'downloading'}
+							{:else if getModelStatus(settingsStore.activeModels.clip_model) === 'downloading'}
 								{@const progress = getProgress(settingsStore.activeModels.clip_model)}
 								{@render circularProgress(progress?.progress ?? 0, 36)}
-							{:else if settingsStore.activeModels !== null && settingsStore.activeModels !== undefined}
-								<button class="download-btn small" on:click={() => (settingsStore.activeModels !== null && settingsStore.activeModels !== undefined) && downloadModel(settingsStore.activeModels.clip_model)}>
+							{:else}
+								<button class="download-btn small" on:click={() => { downloadModel(settingsStore.activeModels.clip_model); }}>
 									Download
 								</button>
 							{/if}
@@ -219,14 +219,14 @@
 						<span class="model-icon">👤</span>
 						<div class="model-info">
 							<h4>Face Detection</h4>
-							<p>{settingsStore.activeModels.face_model ?? 'Not configured'}</p>
+							<p>{settingsStore.activeModels.face_model || 'Not configured'}</p>
 						</div>
 						<div class="model-status">
 							{#if settingsStore.activeModels.face_status === 'downloaded'}
 								<span class="status-badge ready">Ready</span>
 							{:else if settingsStore.activeModels.face_status === 'auto_download'}
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
-							{:else if settingsStore.activeModels !== null && settingsStore.activeModels !== undefined && getModelStatus(settingsStore.activeModels.face_model) === 'downloading'}
+							{:else if getModelStatus(settingsStore.activeModels.face_model) === 'downloading'}
 								{@const progress = getProgress(settingsStore.activeModels.face_model)}
 								{@render circularProgress(progress?.progress ?? 0, 36)}
 							{:else}
@@ -417,7 +417,7 @@
 										{#if progress?.current_file}
 											<span class="current-file">{progress.current_file.split('/').pop()}</span>
 										{/if}
-										{#if (progress?.downloaded_bytes !== null && progress?.downloaded_bytes !== undefined) && (progress.total_bytes !== null && progress.total_bytes !== undefined)}
+										{#if progress !== undefined}
 											<span class="progress-bytes">
 												{formatBytes(progress.downloaded_bytes)} / {formatBytes(progress.total_bytes)}
 											</span>

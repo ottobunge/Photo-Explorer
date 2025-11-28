@@ -296,7 +296,7 @@ export const client = {
 	 */
 	async postForm<T>(path: string, schemaOrFormData: z.ZodType<T> | FormData, formData?: FormData): Promise<ApiResponse<T>> {
 		// Determine if first arg is schema or form data
-		const isSchema = schemaOrFormData !== undefined && schemaOrFormData !== null && 'parse' in schemaOrFormData;
+		const isSchema = 'parse' in schemaOrFormData;
 		const schema = isSchema ? schemaOrFormData : undefined;
 		const data = isSchema ? formData : schemaOrFormData;
 
