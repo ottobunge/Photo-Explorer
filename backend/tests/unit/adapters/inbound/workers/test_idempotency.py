@@ -86,12 +86,11 @@ class TestCheckTaskCompleted:
         from app.adapters.outbound.persistence.postgres.models import TaskExecutionModel
 
         task_id = "test-task-123"
-        running_task = Mock(spec=TaskExecutionModel)
-        running_task.status = TaskExecutionStatus.RUNNING.value
-
+        # The query filters for COMPLETED status, so a RUNNING task won't be found
+        # Therefore scalar_one_or_none() should return None
         mock_result = Mock()
-        mock_result.scalar_one_or_none = Mock(return_value=running_task)
-        mock_session.execute.return_value = mock_result
+        mock_result.scalar_one_or_none = Mock(return_value=None)
+        mock_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
         result = await check_task_completed(mock_session, task_id)

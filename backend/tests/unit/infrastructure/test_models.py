@@ -24,9 +24,9 @@ class TestCLIPConfig:
         """Test default CLIP configuration."""
         config = CLIPConfig()
 
-        assert config.model_name == "ViT-B-32"
+        assert config.model_name == "ViT-L-14"
         assert config.pretrained == "openai"
-        assert config.embedding_dim == 512
+        assert config.embedding_dim == 768
         assert config.device == "cuda"
 
     def test_model_id(self):
@@ -124,24 +124,10 @@ class TestModelDownloader:
 
         assert "clip" in status
         assert "face" in status
-        assert status["clip"]["configured"] == "ViT-B-32"
+        assert status["clip"]["configured"] == "ViT-L-14"
         assert status["clip"]["ready"] is False
         assert status["face"]["configured"] == "buffalo_l"
         assert status["face"]["ready"] is False
-
-    def test_download_file_creates_directory(self, tmp_path, httpx_mock):
-        """Test that download creates parent directories."""
-        config = ModelConfig(models_dir=tmp_path / "models")
-        downloader = ModelDownloader(config)
-
-        dest = tmp_path / "downloads" / "subdir" / "file.txt"
-        url = "https://example.com/file.txt"
-
-        # This would require httpx_mock fixture from pytest-httpx
-        # For now, just test the directory creation logic
-        dest.parent.mkdir(parents=True, exist_ok=True)
-
-        assert dest.parent.exists()
 
 
 class TestModelInfo:

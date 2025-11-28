@@ -3,7 +3,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -166,7 +166,7 @@ class FaceRepositoryPostgres(FaceRepository):
         if model:
             # Unassign faces from cluster before deleting
             await self._session.execute(
-                FaceModel.__table__.update()
+                update(FaceModel)
                 .where(FaceModel.cluster_id == cluster_id)
                 .values(cluster_id=None)
             )
@@ -227,7 +227,7 @@ class FaceRepositoryPostgres(FaceRepository):
             return 0
 
         stmt = (
-            FaceModel.__table__.update()
+            update(FaceModel)
             .where(FaceModel.id.in_(face_ids))
             .values(cluster_id=cluster_id)
         )

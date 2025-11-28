@@ -3,6 +3,7 @@
 from io import BytesIO
 from unittest.mock import MagicMock, Mock, patch
 
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -153,8 +154,9 @@ class TestMLServicesLazyLoading:
 class TestMLServicesTextEncoding:
     """Tests for text encoding functionality."""
 
+    @pytest.mark.asyncio
     @patch("app.adapters.outbound.ml.ml_services.CLIPModelLoader")
-    def test_encode_text_returns_embedding(self, mock_clip_loader_class):
+    async def test_encode_text_returns_embedding(self, mock_clip_loader_class):
         """When encoding text, it should return an Embedding."""
         with patch("app.adapters.outbound.ml.ml_services.get_settings") as mock_settings:
             mock_settings.return_value = Mock(
@@ -166,19 +168,20 @@ class TestMLServicesTextEncoding:
 
             ml_services = MLServicesAdapter()
 
-            # Mock the CLIP loader to return a fake embedding
+            # Mock the CLIP loader to return a fake embedding (numpy array)
             mock_loader = MagicMock()
-            mock_loader.encode_text.return_value = [0.1, 0.2, 0.3, 0.4]
+            mock_loader.encode_text.return_value = np.array([0.1, 0.2, 0.3, 0.4])
             mock_clip_loader_class.return_value = mock_loader
 
-            embedding = ml_services.encode_text("a beautiful sunset over the ocean")
+            embedding = await ml_services.encode_text("a beautiful sunset over the ocean")
 
             assert isinstance(embedding, Embedding)
-            assert embedding.values == [0.1, 0.2, 0.3, 0.4]
+            assert list(embedding.values) == [0.1, 0.2, 0.3, 0.4]
             mock_loader.encode_text.assert_called_once_with("a beautiful sunset over the ocean")
 
+    @pytest.mark.asyncio
     @patch("app.adapters.outbound.ml.ml_services.CLIPModelLoader")
-    def test_encode_text_handles_empty_string(self, mock_clip_loader_class):
+    async def test_encode_text_handles_empty_string(self, mock_clip_loader_class):
         """When encoding empty text, it should handle gracefully."""
         with patch("app.adapters.outbound.ml.ml_services.get_settings") as mock_settings:
             mock_settings.return_value = Mock(
@@ -191,10 +194,10 @@ class TestMLServicesTextEncoding:
             ml_services = MLServicesAdapter()
 
             mock_loader = MagicMock()
-            mock_loader.encode_text.return_value = [0.0] * 512
+            mock_loader.encode_text.return_value = np.array([0.0] * 512)
             mock_clip_loader_class.return_value = mock_loader
 
-            embedding = ml_services.encode_text("")
+            embedding = await ml_services.encode_text("")
 
             assert isinstance(embedding, Embedding)
             mock_loader.encode_text.assert_called_once_with("")
@@ -203,8 +206,9 @@ class TestMLServicesTextEncoding:
 class TestMLServicesImageEncoding:
     """Tests for image encoding functionality."""
 
+    @pytest.mark.asyncio
     @patch("app.adapters.outbound.ml.ml_services.CLIPModelLoader")
-    def test_encode_image_from_bytes_returns_embedding(
+    async def test_encode_image_from_bytes_returns_embedding(
         self, mock_clip_loader_class, sample_image_bytes
     ):
         """When encoding image from bytes, it should return an Embedding."""
@@ -219,48 +223,27 @@ class TestMLServicesImageEncoding:
             ml_services = MLServicesAdapter()
 
             mock_loader = MagicMock()
-            mock_loader.encode_image.return_value = [0.5, 0.6, 0.7, 0.8]
+            mock_loader.encode_image.return_value = np.array([0.5, 0.6, 0.7, 0.8])
             mock_clip_loader_class.return_value = mock_loader
 
-            embedding = ml_services.encode_image_from_bytes(sample_image_bytes)
+            embedding = await ml_services.encode_image(sample_image_bytes)
 
             assert isinstance(embedding, Embedding)
-            assert embedding.values == [0.5, 0.6, 0.7, 0.8]
+            assert list(embedding.values) == [0.5, 0.6, 0.7, 0.8]
             # Verify encode_image was called with a PIL Image
             mock_loader.encode_image.assert_called_once()
             call_args = mock_loader.encode_image.call_args[0]
             assert isinstance(call_args[0], Image.Image)
 
-    @patch("app.adapters.outbound.ml.ml_services.CLIPModelLoader")
-    def test_encode_image_from_pil_returns_embedding(self, mock_clip_loader_class, sample_image):
-        """When encoding PIL image, it should return an Embedding."""
-        with patch("app.adapters.outbound.ml.ml_services.get_settings") as mock_settings:
-            mock_settings.return_value = Mock(
-                clip_model_name="ViT-B-32",
-                clip_pretrained="openai",
-                thumbnail_size=(512, 512),
-                face_crop_size=(224, 224),
-            )
-
-            ml_services = MLServicesAdapter()
-
-            mock_loader = MagicMock()
-            mock_loader.encode_image.return_value = [0.5, 0.6, 0.7, 0.8]
-            mock_clip_loader_class.return_value = mock_loader
-
-            embedding = ml_services.encode_image(sample_image)
-
-            assert isinstance(embedding, Embedding)
-            assert embedding.values == [0.5, 0.6, 0.7, 0.8]
-            mock_loader.encode_image.assert_called_once_with(sample_image)
 
 
 class TestMLServicesFaceDetection:
     """Tests for face detection functionality."""
 
+    @pytest.mark.asyncio
     @patch("app.adapters.outbound.ml.ml_services.FaceModelLoader")
-    def test_detect_faces_returns_list_of_detected_faces(
-        self, mock_face_loader_class, sample_image
+    async def test_detect_faces_returns_list_of_detected_faces(
+        self, mock_face_loader_class, sample_image_bytes
     ):
         """When detecting faces, it should return list of DetectedFace."""
         with patch("app.adapters.outbound.ml.ml_services.get_settings") as mock_settings:
@@ -274,17 +257,17 @@ class TestMLServicesFaceDetection:
             ml_services = MLServicesAdapter()
 
             # Mock face detection to return faces with bboxes
+            # The face loader returns objects with .bbox (tuple), .embedding (numpy array), and .confidence attributes
+            mock_face = Mock()
+            mock_face.bbox = (10, 20, 60, 80)  # x1, y1, x2, y2
+            mock_face.embedding = np.array([0.1] * 512)
+            mock_face.confidence = 0.95
+
             mock_loader = MagicMock()
-            mock_loader.detect_faces.return_value = [
-                {
-                    "bbox": [10, 20, 50, 60],  # x, y, width, height
-                    "score": 0.95,
-                    "embedding": [0.1] * 512,
-                }
-            ]
+            mock_loader.detect_faces.return_value = [mock_face]
             mock_face_loader_class.return_value = mock_loader
 
-            faces = ml_services.detect_faces(sample_image)
+            faces = await ml_services.detect_faces(sample_image_bytes)
 
             assert len(faces) == 1
             assert isinstance(faces[0], DetectedFace)
@@ -293,12 +276,14 @@ class TestMLServicesFaceDetection:
             assert faces[0].bbox.y == 20
             assert faces[0].bbox.width == 50
             assert faces[0].bbox.height == 60
-            assert faces[0].confidence == 0.95
+            assert faces[0].detection_confidence == 0.95
+            assert faces[0].quality_score == 0.95
             assert isinstance(faces[0].embedding, Embedding)
 
+    @pytest.mark.asyncio
     @patch("app.adapters.outbound.ml.ml_services.FaceModelLoader")
-    def test_detect_faces_with_no_faces_returns_empty_list(
-        self, mock_face_loader_class, sample_image
+    async def test_detect_faces_with_no_faces_returns_empty_list(
+        self, mock_face_loader_class, sample_image_bytes
     ):
         """When no faces detected, it should return empty list."""
         with patch("app.adapters.outbound.ml.ml_services.get_settings") as mock_settings:
@@ -315,7 +300,7 @@ class TestMLServicesFaceDetection:
             mock_loader.detect_faces.return_value = []
             mock_face_loader_class.return_value = mock_loader
 
-            faces = ml_services.detect_faces(sample_image)
+            faces = await ml_services.detect_faces(sample_image_bytes)
 
             assert faces == []
 
@@ -354,8 +339,9 @@ class TestMLServicesSingletonPattern:
 class TestMLServicesErrorHandling:
     """Tests for error handling in ML services."""
 
+    @pytest.mark.asyncio
     @patch("app.adapters.outbound.ml.ml_services.CLIPModelLoader")
-    def test_encode_text_propagates_model_errors(self, mock_clip_loader_class):
+    async def test_encode_text_propagates_model_errors(self, mock_clip_loader_class):
         """When model raises error, it should be propagated."""
         with patch("app.adapters.outbound.ml.ml_services.get_settings") as mock_settings:
             mock_settings.return_value = Mock(
@@ -372,7 +358,7 @@ class TestMLServicesErrorHandling:
             mock_clip_loader_class.return_value = mock_loader
 
             with pytest.raises(RuntimeError) as exc:
-                ml_services.encode_text("test")
+                await ml_services.encode_text("test")
 
             assert "Model inference failed" in str(exc.value)
 
