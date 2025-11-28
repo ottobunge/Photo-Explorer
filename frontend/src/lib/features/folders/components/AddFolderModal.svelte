@@ -1,15 +1,19 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import { foldersStore } from '../stores/folders';
 
-	const dispatch = createEventDispatcher<{ close: never; added: never }>();
+	interface Props {
+		onClose: () => void;
+		onAdded: () => void;
+	}
 
-	let path = '';
-	let name = '';
-	let recursive = true;
-	let autoAlbum = false;
-	let loading = false;
-	let error = '';
+	const { onClose, onAdded }: Props = $props();
+
+	let path = $state('');
+	let name = $state('');
+	let recursive = $state(true);
+	let autoAlbum = $state(false);
+	let loading = $state(false);
+	let error = $state('');
 
 	async function handleSubmit(): Promise<void> {
 		if (!path.trim()) {
@@ -29,7 +33,7 @@
 				options.name = name;
 			}
 			await foldersStore.add(path, options);
-			dispatch('added');
+			onAdded();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to add folder';
 		} finally {
@@ -39,24 +43,34 @@
 
 	function handleBackdropClick(e: MouseEvent): void {
 		if (e.target === e.currentTarget) {
-			dispatch('close');
+			onClose();
+		}
+	}
+
+	function handleKeydown(e: KeyboardEvent): void {
+		if (e.key === 'Escape') {
+			onClose();
 		}
 	}
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-	on:click={handleBackdropClick}
-	on:keydown={(e) => e.key === 'Escape' && dispatch('close')}
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="add-folder-modal-title"
+	onclick={handleBackdropClick}
+	onkeydown={(e: KeyboardEvent) => {
+		if (e.key === 'Enter') {
+			handleBackdropClick(e as unknown as MouseEvent);
+		}
+	}}
+	role="button"
 	tabindex="-1"
 >
 	<div class="card w-full max-w-md p-6">
 		<h2 id="add-folder-modal-title" class="mb-4 text-xl font-bold text-gray-900">Add Watched Folder</h2>
 
-		<form on:submit|preventDefault={handleSubmit}>
+		<form onsubmit={(e) => { e.preventDefault(); void handleSubmit(); }}>
 			<div class="mb-4">
 				<label for="path" class="mb-1 block text-sm font-medium text-gray-700">Folder Path</label>
 				<!-- svelte-ignore a11y_autofocus -->
@@ -102,7 +116,7 @@
 			{/if}
 
 			<div class="flex justify-end gap-3">
-				<button type="button" class="btn-secondary" on:click={() => dispatch('close')} disabled={loading}>
+				<button type="button" class="btn-secondary" onclick={onClose} disabled={loading}>
 					Cancel
 				</button>
 				<button type="submit" class="btn-primary" disabled={loading}>

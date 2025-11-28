@@ -233,7 +233,7 @@
 		showMergeModal = true;
 	}
 
-	async function handleMerged(): Promise<void> {
+	async function handleMerged(_targetCluster: FaceClusterType): Promise<void> {
 		showMergeModal = false;
 		operationInProgress = true;
 		try {
@@ -466,8 +466,8 @@
 		{#if showMergeModal}
 			<ClusterMergeModal
 				clusters={selectedClusters}
-				on:close={() => (showMergeModal = false)}
-				on:merged={handleMerged}
+				onClose={() => (showMergeModal = false)}
+				onMerged={handleMerged}
 			/>
 		{/if}
 	{/if}

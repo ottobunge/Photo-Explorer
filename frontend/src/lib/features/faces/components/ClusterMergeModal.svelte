@@ -1,25 +1,25 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import { API_HOST } from '$lib/api/client';
 	import { faceSelectionStore } from '../stores/face-selection.svelte';
 	import type { FaceClusterType } from '../types';
 
-	export let clusters: FaceClusterType[];
+	interface Props {
+		clusters: FaceClusterType[];
+		onClose: () => void;
+		onMerged: (targetCluster: FaceClusterType) => void;
+	}
 
-	const dispatch = createEventDispatcher<{
-		close: never;
-		merged: { targetCluster: FaceClusterType };
-	}>();
+	const { clusters, onClose, onMerged }: Props = $props();
 
-	let selectedTargetId = clusters.length > 0 && clusters[0] !== undefined ? clusters[0].id : '';
-	let loading = false;
-	let error = '';
+	let selectedTargetId = $state(clusters.length > 0 && clusters[0] !== undefined ? clusters[0].id : '');
+	let loading = $state(false);
+	let error = $state('');
 
-	// Calculate totals
-	$: totalFaces = clusters.reduce((sum, c) => sum + c.faceCount, 0);
-	$: totalPhotos = clusters.reduce((sum, c) => sum + c.photoCount, 0);
-	$: targetCluster = clusters.find((c) => c.id === selectedTargetId);
-	$: sourceCount = clusters.length - 1;
+	// Calculate totals using $derived
+	const totalFaces = $derived(clusters.reduce((sum, c) => sum + c.faceCount, 0));
+	const totalPhotos = $derived(clusters.reduce((sum, c) => sum + c.photoCount, 0));
+	const targetCluster = $derived(clusters.find((c) => c.id === selectedTargetId));
+	const sourceCount = $derived(clusters.length - 1);
 
 	async function handleMerge(): Promise<void> {
 		if (!selectedTargetId) {
@@ -32,7 +32,7 @@
 
 		try {
 			const result = await faceSelectionStore.mergeSelectedClusters(selectedTargetId);
-			dispatch('merged', { targetCluster: result });
+			onMerged(result);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to merge clusters';
 			loading = false;
@@ -41,7 +41,13 @@
 
 	function handleBackdropClick(e: MouseEvent): void {
 		if (e.target === e.currentTarget) {
-			dispatch('close');
+			onClose();
+		}
+	}
+
+	function handleKeydown(e: KeyboardEvent): void {
+		if (e.key === 'Escape') {
+			onClose();
 		}
 	}
 
@@ -51,13 +57,17 @@
 	}
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-	on:click={handleBackdropClick}
-	on:keydown={(e) => e.key === 'Escape' && dispatch('close')}
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="cluster-merge-modal-title"
+	onclick={handleBackdropClick}
+	onkeydown={(e: KeyboardEvent) => {
+		if (e.key === 'Enter') {
+			handleBackdropClick(e as unknown as MouseEvent);
+		}
+	}}
+	role="button"
 	tabindex="-1"
 >
 	<div class="card relative w-full max-w-2xl max-h-[80vh] flex flex-col p-6">
@@ -74,7 +84,7 @@
 		<button
 			type="button"
 			class="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-			on:click={() => dispatch('close')}
+			onclick={onClose}
 			aria-label="Close modal"
 		>
 			×
@@ -187,12 +197,12 @@
 			<button
 				type="button"
 				class="btn-secondary"
-				on:click={() => dispatch('close')}
+				onclick={onClose}
 				disabled={loading}
 			>
 				Cancel
 			</button>
-			<button type="button" class="btn-primary" on:click={handleMerge} disabled={loading}>
+			<button type="button" class="btn-primary" onclick={handleMerge} disabled={loading}>
 				{loading ? 'Merging...' : 'Merge Clusters'}
 			</button>
 		</div>

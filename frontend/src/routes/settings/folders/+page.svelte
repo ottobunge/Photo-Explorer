@@ -23,6 +23,6 @@
 	<FolderList {folders} />
 
 	{#if showAddModal}
-		<AddFolderModal on:close={() => (showAddModal = false)} on:added={() => (showAddModal = false)} />
+		<AddFolderModal onClose={() => (showAddModal = false)} onAdded={() => (showAddModal = false)} />
 	{/if}
 </div>

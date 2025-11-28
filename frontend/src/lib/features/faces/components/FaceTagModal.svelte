@@ -1,15 +1,18 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import { facesStore } from '../stores/faces.svelte';
 	import type { FaceClusterType } from '../types';
 
-	export let cluster: FaceClusterType;
+	interface Props {
+		cluster: FaceClusterType;
+		onClose: () => void;
+		onTagged: () => void;
+	}
 
-	const dispatch = createEventDispatcher<{ close: never; tagged: never }>();
+	const { cluster, onClose, onTagged }: Props = $props();
 
-	let name = cluster.name ?? '';
-	let loading = false;
-	let error = '';
+	let name = $state(cluster.name ?? '');
+	let loading = $state(false);
+	let error = $state('');
 
 	async function handleSubmit(): Promise<void> {
 		if (!name.trim()) {
@@ -22,7 +25,7 @@
 
 		try {
 			await facesStore.nameCluster(cluster.id, name);
-			dispatch('tagged');
+			onTagged();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to tag face';
 		} finally {
@@ -32,18 +35,28 @@
 
 	function handleBackdropClick(e: MouseEvent): void {
 		if (e.target === e.currentTarget) {
-			dispatch('close');
+			onClose();
+		}
+	}
+
+	function handleKeydown(e: KeyboardEvent): void {
+		if (e.key === 'Escape') {
+			onClose();
 		}
 	}
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-	on:click={handleBackdropClick}
-	on:keydown={(e) => e.key === 'Escape' && dispatch('close')}
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="face-tag-modal-title"
+	onclick={handleBackdropClick}
+	onkeydown={(e: KeyboardEvent) => {
+		if (e.key === 'Enter') {
+			handleBackdropClick(e as unknown as MouseEvent);
+		}
+	}}
+	role="button"
 	tabindex="-1"
 >
 	<div class="card w-full max-w-sm p-6">
@@ -58,7 +71,7 @@
 			<h2 id="face-tag-modal-title" class="text-xl font-bold text-gray-900">Tag This Person</h2>
 		</div>
 
-		<form on:submit|preventDefault={handleSubmit}>
+		<form onsubmit={(e) => { e.preventDefault(); void handleSubmit(); }}>
 			<div class="mb-4">
 				<label for="name" class="mb-1 block text-sm font-medium text-gray-700">Name</label>
 				<!-- svelte-ignore a11y_autofocus -->
@@ -78,7 +91,7 @@
 			{/if}
 
 			<div class="flex justify-end gap-3">
-				<button type="button" class="btn-secondary" on:click={() => dispatch('close')} disabled={loading}>
+				<button type="button" class="btn-secondary" onclick={onClose} disabled={loading}>
 					Cancel
 				</button>
 				<button type="submit" class="btn-primary" disabled={loading}>
