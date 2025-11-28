@@ -18,7 +18,7 @@
 		action?: Snippet;
 	}
 
-	let {
+	const {
 		icon = '📭',
 		title = 'No items found',
 		description = '',

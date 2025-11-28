@@ -26,9 +26,9 @@
 
 	type TabType = 'list' | 'graph';
 
-	// Derive activeTab from URL parameter - must be reactive to $page changes
-	let activeTab: TabType = $derived(
-		($page.url.searchParams.get('view') === 'graph' ? 'graph' : 'list') as TabType
+	// Derive activeTab from URL - single source of truth (fixes race condition)
+	const activeTab = $derived<TabType>(
+		$page.url.searchParams.get('view') === 'graph' ? 'graph' : 'list'
 	);
 
 	let clusters = $state<FaceCluster[]>([]);
@@ -76,18 +76,23 @@
 	const selectedClusters = $derived.by<FaceClusterType[]>(() => {
 		return sortedClusters
 			.filter((c) => selectedClusterIds.has(c.id))
-			.map((c) => ({
-				id: c.id,
-				name: c.name ?? undefined,
-				faceCount: c.face_count,
-				photoCount: c.photo_count,
-				representativeFace: c.representative_face
-					? {
-							id: c.representative_face.id,
-							cropUrl: c.representative_face.crop_url
-						}
-					: undefined
-			}));
+			.map((c) => {
+				const cluster: FaceClusterType = {
+					id: c.id,
+					faceCount: c.face_count,
+					photoCount: c.photo_count
+				};
+				if (c.name !== null) {
+					cluster.name = c.name;
+				}
+				if (c.representative_face) {
+					cluster.representativeFace = {
+						id: c.representative_face.id,
+						cropUrl: c.representative_face.crop_url
+					};
+				}
+				return cluster;
+			});
 	});
 
 	// Load graph data when switching to graph tab
@@ -214,21 +219,6 @@
 		void goto(`/faces/${clusterId}`);
 	}
 
-	async function handleTabChange(tab: TabType): Promise<void> {
-		// Update URL with tab parameter
-		const params = new URLSearchParams($page.url.searchParams);
-		if (tab === 'graph') {
-			params.set('view', 'graph');
-		} else {
-			params.delete('view');
-		}
-
-		const newUrl = params.toString() ? `/faces?${params.toString()}` : '/faces';
-		await goto(newUrl, { keepFocus: true });
-
-		// activeTab is derived from URL params and will update automatically
-	}
-
 	function toggleEditMode(): void {
 		faceSelectionStore.toggleEditMode();
 	}
@@ -238,7 +228,7 @@
 	}
 
 	function handleMergeClick(): void {
-		if (!canMerge) return;
+		if (!canMerge) {return;}
 		showMergeModal = true;
 	}
 
@@ -267,7 +257,7 @@
 	</header>
 
 	<!-- Tab Navigation -->
-	<FaceTabs {activeTab} onTabChange={handleTabChange} />
+	<FaceTabs {activeTab} />
 
 	<!-- List View -->
 	{#if activeTab === 'list'}
@@ -358,7 +348,7 @@
 		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
 			{#each sortedClusters as cluster (cluster.id)}
 				<button
-					onclick={() => editMode ? toggleClusterSelection(cluster.id) : navigateToCluster(cluster.id)}
+					onclick={() => { editMode ? toggleClusterSelection(cluster.id) : navigateToCluster(cluster.id); }}
 					disabled={operationInProgress}
 					class="group relative block rounded-lg border bg-white p-3 transition-all text-left w-full"
 					class:border-gray-200={!selectedClusterIds.has(cluster.id)}
@@ -421,7 +411,7 @@
 				<button
 					class="px-3 py-1 rounded border border-gray-300 text-sm disabled:opacity-50"
 					disabled={currentPage === 1}
-					onclick={() => goToPage(currentPage - 1)}
+					onclick={() => { goToPage(currentPage - 1); }}
 				>
 					Previous
 				</button>
@@ -433,7 +423,7 @@
 				<button
 					class="px-3 py-1 rounded border border-gray-300 text-sm disabled:opacity-50"
 					disabled={currentPage === totalPages}
-					onclick={() => goToPage(currentPage + 1)}
+					onclick={() => { goToPage(currentPage + 1); }}
 				>
 					Next
 				</button>

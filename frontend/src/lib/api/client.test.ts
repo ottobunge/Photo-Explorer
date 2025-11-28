@@ -90,7 +90,7 @@ describe('API Client', () => {
 				json: async () => ({ success: true, data: {} })
 			});
 
-			await client.get('/test', { page: '1', limit: '10' });
+			await client.get('/test', { params: { page: '1', limit: '10' } });
 
 			expect(global.fetch).toHaveBeenCalledWith(
 				expect.stringContaining('/test?page=1&limit=10'),

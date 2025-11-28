@@ -1,5 +1,9 @@
 <script lang="ts">
-	export let size: 'sm' | 'md' | 'lg' = 'md';
+	interface Props {
+		size?: 'sm' | 'md' | 'lg';
+	}
+
+	const { size = 'md' }: Props = $props();
 
 	const sizes = {
 		sm: 'h-4 w-4',

@@ -166,7 +166,7 @@
 				<button
 					class="px-3 py-1 rounded border border-gray-300 text-sm disabled:opacity-50"
 					disabled={currentPage === 1}
-					onclick={() => goToPage(currentPage - 1)}
+					onclick={() => { goToPage(currentPage - 1); }}
 				>
 					Previous
 				</button>
@@ -178,7 +178,7 @@
 				<button
 					class="px-3 py-1 rounded border border-gray-300 text-sm disabled:opacity-50"
 					disabled={currentPage === totalPages}
-					onclick={() => goToPage(currentPage + 1)}
+					onclick={() => { goToPage(currentPage + 1); }}
 				>
 					Next
 				</button>

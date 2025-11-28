@@ -34,7 +34,7 @@ class ApiError extends Error {
 }
 
 /**
- * Creates a fetch request with timeout support
+ * Creates a fetch request with timeout support and optional external abort signal
  */
 async function fetchWithTimeout(
 	url: string,
@@ -42,7 +42,14 @@ async function fetchWithTimeout(
 	timeout = API_DEFAULT_TIMEOUT
 ): Promise<Response> {
 	const controller = new AbortController();
-	const timeoutId = setTimeout(() => controller.abort(), timeout);
+	const timeoutId = setTimeout(() => { controller.abort(); }, timeout);
+
+	// If external signal provided, listen to it and abort our controller
+	const externalSignal = options?.signal;
+	const abortHandler = () => { controller.abort(); };
+	if (externalSignal) {
+		externalSignal.addEventListener('abort', abortHandler);
+	}
 
 	try {
 		const response = await fetch(url, {
@@ -52,6 +59,11 @@ async function fetchWithTimeout(
 		return response;
 	} catch (error) {
 		if (error instanceof Error && error.name === 'AbortError') {
+			// Check if it was external abort or timeout
+			if (externalSignal?.aborted) {
+				// Re-throw to be handled by caller
+				throw error;
+			}
 			throw new ApiError(
 				'Request timeout - the server took too long to respond',
 				'TIMEOUT_ERROR'
@@ -60,6 +72,9 @@ async function fetchWithTimeout(
 		throw error;
 	} finally {
 		clearTimeout(timeoutId);
+		if (externalSignal) {
+			externalSignal.removeEventListener('abort', abortHandler);
+		}
 	}
 }
 
@@ -108,16 +123,22 @@ async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
 }
 
 export const client = {
-	async get<T>(path: string, params?: Record<string, string>): Promise<ApiResponse<T>> {
+	async get<T>(
+		path: string,
+		options?: { params?: Record<string, string>; signal?: AbortSignal }
+	): Promise<ApiResponse<T>> {
 		try {
 			const url = new URL(`${API_BASE}${path}`);
-			if (params) {
-				Object.entries(params).forEach(([key, value]) => {
+			if (options?.params) {
+				Object.entries(options.params).forEach(([key, value]) => {
 					url.searchParams.set(key, value);
 				});
 			}
 
-			const response = await fetchWithTimeout(url.toString());
+			const response = await fetchWithTimeout(
+				url.toString(),
+				options?.signal ? { signal: options.signal } : {}
+			);
 			return handleResponse<T>(response);
 		} catch (error) {
 			if (error instanceof ApiError) {

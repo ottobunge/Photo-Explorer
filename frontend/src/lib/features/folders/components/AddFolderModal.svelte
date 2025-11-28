@@ -21,11 +21,14 @@
 		error = '';
 
 		try {
-			await foldersStore.add(path, {
-				name: name || undefined,
+			const options: { name?: string; recursive?: boolean; autoAlbum?: boolean } = {
 				recursive,
 				autoAlbum
-			});
+			};
+			if (name) {
+				options.name = name;
+			}
+			await foldersStore.add(path, options);
 			dispatch('added');
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to add folder';
@@ -47,9 +50,11 @@
 	on:keydown={(e) => e.key === 'Escape' && dispatch('close')}
 	role="dialog"
 	aria-modal="true"
+	aria-labelledby="add-folder-modal-title"
+	tabindex="-1"
 >
 	<div class="card w-full max-w-md p-6">
-		<h2 class="mb-4 text-xl font-bold text-gray-900">Add Watched Folder</h2>
+		<h2 id="add-folder-modal-title" class="mb-4 text-xl font-bold text-gray-900">Add Watched Folder</h2>
 
 		<form on:submit|preventDefault={handleSubmit}>
 			<div class="mb-4">
@@ -61,6 +66,7 @@
 					class="input"
 					placeholder="/home/user/Pictures"
 					disabled={loading}
+					autofocus
 				/>
 				<p class="mt-1 text-xs text-gray-500">Absolute path to the folder on your system</p>
 			</div>

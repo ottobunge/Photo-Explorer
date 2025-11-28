@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { FolderList, AddFolderModal } from '$features/folders';
 
-	let folders: any[] = [];
+	const folders: any[] = [];
 	let showAddModal = false;
 </script>
 

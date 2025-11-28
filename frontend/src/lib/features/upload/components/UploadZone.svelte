@@ -11,7 +11,7 @@
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
-		if (!disabled) dragOver = true;
+		if (!disabled) {dragOver = true;}
 	}
 
 	function handleDragLeave() {
@@ -21,7 +21,7 @@
 	function handleDrop(e: DragEvent) {
 		e.preventDefault();
 		dragOver = false;
-		if (disabled) return;
+		if (disabled) {return;}
 
 		const files = Array.from(e.dataTransfer?.files || []).filter((f) =>
 			f.type.startsWith('image/')
@@ -41,7 +41,7 @@
 	}
 
 	function handleClick() {
-		if (!disabled) fileInput.click();
+		if (!disabled) {fileInput.click();}
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {

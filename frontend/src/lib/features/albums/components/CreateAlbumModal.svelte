@@ -51,10 +51,11 @@
 	onkeydown={handleKeydown}
 	role="dialog"
 	aria-modal="true"
+	aria-labelledby="create-album-modal-title"
 	tabindex="-1"
 >
 	<div class="card w-full max-w-md p-6">
-		<h2 class="mb-4 text-xl font-bold text-gray-900">Create Album</h2>
+		<h2 id="create-album-modal-title" class="mb-4 text-xl font-bold text-gray-900">Create Album</h2>
 
 		<form onsubmit={(e) => { e.preventDefault(); void handleSubmit(); }}>
 			<div class="mb-4">
@@ -66,6 +67,7 @@
 					class="input"
 					placeholder="Summer Vacation 2024"
 					disabled={loading}
+					autofocus
 				/>
 			</div>
 

@@ -44,9 +44,9 @@ export function createMockConnector(overrides: Partial<MockConnector> = {}): Moc
 	return {
 		id,
 		type,
-		name: overrides.name || typeDefaults[type].name || 'Connector',
+		name: overrides.name || typeDefaults[type]?.name || 'Connector',
 		enabled: overrides.enabled !== undefined ? overrides.enabled : true,
-		config: overrides.config || typeDefaults[type].config || {},
+		config: overrides.config || typeDefaults[type]?.config || {},
 		created_at: overrides.created_at || new Date().toISOString(),
 		updated_at: overrides.updated_at || new Date().toISOString()
 	};

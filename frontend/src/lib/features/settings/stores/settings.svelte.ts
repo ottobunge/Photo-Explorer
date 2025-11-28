@@ -32,10 +32,10 @@ function mapApiSettingsToAppSettings(api: AppSettingsApiResponse): AppSettings {
 // Helper to convert camelCase settings to snake_case for API
 function mapAppSettingsToApi(settings: Partial<AppSettings>): Record<string, unknown> {
 	const result: Record<string, unknown> = {};
-	if (settings.thumbnailQuality !== undefined) result['thumbnail_quality'] = settings.thumbnailQuality;
-	if (settings.clipModel !== undefined) result['clip_model'] = settings.clipModel;
-	if (settings.faceDetectionEnabled !== undefined) result['face_detection_enabled'] = settings.faceDetectionEnabled;
-	if (settings.autoIndexNewPhotos !== undefined) result['auto_index_new_photos'] = settings.autoIndexNewPhotos;
+	if (settings.thumbnailQuality !== undefined) {result['thumbnail_quality'] = settings.thumbnailQuality;}
+	if (settings.clipModel !== undefined) {result['clip_model'] = settings.clipModel;}
+	if (settings.faceDetectionEnabled !== undefined) {result['face_detection_enabled'] = settings.faceDetectionEnabled;}
+	if (settings.autoIndexNewPhotos !== undefined) {result['auto_index_new_photos'] = settings.autoIndexNewPhotos;}
 	return result;
 }
 
@@ -116,7 +116,9 @@ class SettingsStore {
 		try {
 			const redirectUri = `${window.location.origin}/connectors/google-photos/callback`;
 			const response = await client.get<{ auth_url: string }>('/connectors/google-photos/auth-url', {
-				redirect_uri: redirectUri
+				params: {
+					redirect_uri: redirectUri
+				}
 			});
 			return response.data.auth_url;
 		} catch (err) {
@@ -400,9 +402,9 @@ class SettingsStore {
 
 		try {
 			const params: Record<string, string> = { query };
-			if (task) params['task'] = task;
+			if (task) {params['task'] = task;}
 
-			const response = await client.get<{ models: HFModel[] }>('/models/search', params);
+			const response = await client.get<{ models: HFModel[] }>('/models/search', { params });
 			return response.data.models;
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : 'Failed to search models';

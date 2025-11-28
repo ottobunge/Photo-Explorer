@@ -1,10 +1,17 @@
 <script lang="ts">
 	import { clsx } from 'clsx';
+	import type { Snippet } from 'svelte';
 
-	export let variant: 'primary' | 'secondary' | 'ghost' = 'primary';
-	export let size: 'sm' | 'md' | 'lg' = 'md';
-	export let disabled = false;
-	export let type: 'button' | 'submit' | 'reset' = 'button';
+	interface Props {
+		variant?: 'primary' | 'secondary' | 'ghost';
+		size?: 'sm' | 'md' | 'lg';
+		disabled?: boolean;
+		type?: 'button' | 'submit' | 'reset';
+		onclick?: (event: MouseEvent) => void;
+		children?: Snippet;
+	}
+
+	const { variant = 'primary', size = 'md', disabled = false, type = 'button', onclick, children }: Props = $props();
 
 	const baseClasses =
 		'inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 rounded-lg';
@@ -26,7 +33,7 @@
 	{type}
 	{disabled}
 	class={clsx(baseClasses, variants[variant], sizes[size])}
-	on:click
+	{onclick}
 >
-	<slot />
+	{@render children?.()}
 </button>

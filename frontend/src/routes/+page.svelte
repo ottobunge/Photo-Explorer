@@ -23,11 +23,11 @@
 	}
 
 	interface ConnectorsResponse {
-		connectors: Array<{ id: string; type: string; name: string }>;
+		connectors: { id: string; type: string; name: string }[];
 	}
 
 	interface AlbumsResponse {
-		albums: Array<{ id: string; name: string }>;
+		albums: { id: string; name: string }[];
 	}
 
 	interface FaceCluster {
@@ -40,7 +40,7 @@
 		clusters: FaceCluster[];
 	}
 
-	let stats: Stats = { photos: 0, albums: 0, people: 0, connectors: 0 };
+	const stats: Stats = { photos: 0, albums: 0, people: 0, connectors: 0 };
 	let recentPhotos: Photo[] = [];
 	let loading = true;
 

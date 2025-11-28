@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { SearchBar } from '$features/search';
@@ -50,71 +49,63 @@
 		albums: Album[];
 	}
 
-	let query = $state('');
+	// UI-only state (loading, data, filter options)
 	let photos = $state<Photo[]>([]);
 	let loading = $state(false);
-	let currentPage = $state(1);
-	let perPage = $state(24);
 	let total = $state(0);
-	let isSearchMode = $state(false);
-
-	// Scope filters
 	let connectors = $state<Connector[]>([]);
 	let albums = $state<Album[]>([]);
-	let selectedConnectorId = $state<string | null>(null);
-	let selectedAlbumId = $state<string | null>(null);
+	let abortController: AbortController | null = null;
 
-	// Similarity threshold filter
-	let similarityThreshold = $state<number | null>(null);
+	// Local search input state (syncs to URL on submit)
+	let searchInput = $state('');
 
-	const totalPages = $derived(Math.ceil(total / perPage));
+	// URL as single source of truth - derive all bookmarkable state from URL
+	const query = $derived($page.url.searchParams.get('q') ?? '');
 
-	// Initialize from URL params
-	onMount(() => {
-		const urlQuery = $page.url.searchParams.get('q');
+	// Sync search input with URL query when it changes (e.g., browser back/forward)
+	$effect(() => {
+		searchInput = query;
+	});
+	const currentPage = $derived.by(() => {
 		const urlPage = $page.url.searchParams.get('page');
-		const urlPerPage = $page.url.searchParams.get('per_page');
-		const urlConnector = $page.url.searchParams.get('connector_id');
-		const urlAlbum = $page.url.searchParams.get('album_id');
-		const urlSimilarity = $page.url.searchParams.get('similarity_threshold');
-
-		if (urlQuery !== null) {
-			query = urlQuery;
-			isSearchMode = true;
-		}
 		if (urlPage !== null) {
 			const parsed = parseInt(urlPage, 10);
 			if (!isNaN(parsed) && parsed >= 1) {
-				currentPage = parsed;
+				return parsed;
 			}
 		}
+		return 1;
+	});
+	const perPage = $derived.by(() => {
+		const urlPerPage = $page.url.searchParams.get('per_page');
 		if (urlPerPage !== null) {
 			const parsed = parseInt(urlPerPage, 10);
 			if (!isNaN(parsed) && parsed >= 1 && parsed <= 100) {
-				perPage = parsed;
+				return parsed;
 			}
 		}
-		if (urlConnector !== null) {
-			selectedConnectorId = urlConnector;
-		}
-		if (urlAlbum !== null) {
-			selectedAlbumId = urlAlbum;
-		}
+		return 24;
+	});
+	const selectedConnectorId = $derived($page.url.searchParams.get('connector_id'));
+	const selectedAlbumId = $derived($page.url.searchParams.get('album_id'));
+	const similarityThreshold = $derived.by(() => {
+		const urlSimilarity = $page.url.searchParams.get('similarity_threshold');
 		if (urlSimilarity !== null) {
 			const parsed = parseFloat(urlSimilarity);
 			if (!isNaN(parsed) && parsed >= 0.0 && parsed <= 1.0) {
-				similarityThreshold = parsed;
+				return parsed;
 			}
 		}
+		return 0.18; // Default
+	});
+	const isSearchMode = $derived(query.trim().length > 0);
 
-		// Load filter options
+	const totalPages = $derived(Math.ceil(total / perPage));
+
+	// Load filter options on mount
+	$effect(() => {
 		void loadFilterOptions();
-
-		if (isSearchMode && query.trim()) {
-			void handleSearch();
-		} else {
-			void loadPhotos();
-		}
 	});
 
 	async function loadFilterOptions(): Promise<void> {
@@ -134,35 +125,64 @@
 		}
 	}
 
-	function updateUrl(): void {
-		const params = new URLSearchParams();
+	// React to URL changes and fetch data
+	$effect(() => {
+		// Track dependencies to trigger re-fetch when URL params change
+		// These variables establish reactive dependencies without direct use
+		void query;
+		void currentPage;
+		void selectedConnectorId;
+		void selectedAlbumId;
+		void similarityThreshold;
 
-		if (query.trim()) {
-			params.set('q', query);
+		if (isSearchMode && query.trim()) {
+			void fetchSearchResults();
+		} else {
+			void fetchPhotos();
 		}
-		if (currentPage > 1) {
-			params.set('page', currentPage.toString());
-		}
-		if (perPage !== 24) {
-			params.set('per_page', perPage.toString());
-		}
-		if (selectedConnectorId) {
-			params.set('connector_id', selectedConnectorId);
-		}
-		if (selectedAlbumId) {
-			params.set('album_id', selectedAlbumId);
-		}
-		if (similarityThreshold !== null) {
-			params.set('similarity_threshold', similarityThreshold.toString());
-		}
+	});
 
-		const newUrl = params.toString() ? `?${params.toString()}` : '/search';
+	function updateUrl(params: {
+		query?: string;
+		page?: number;
+		perPage?: number;
+		connectorId?: string | null;
+		albumId?: string | null;
+		similarityThreshold?: number;
+	}): void {
+		const urlParams = new URLSearchParams();
+
+		const finalQuery = params.query !== undefined ? params.query : query;
+		const finalPage = params.page !== undefined ? params.page : currentPage;
+		const finalPerPage = params.perPage !== undefined ? params.perPage : perPage;
+		const finalConnectorId = params.connectorId !== undefined ? params.connectorId : selectedConnectorId;
+		const finalAlbumId = params.albumId !== undefined ? params.albumId : selectedAlbumId;
+		const finalThreshold = params.similarityThreshold !== undefined ? params.similarityThreshold : similarityThreshold;
+
+		if (finalQuery.trim()) {
+			urlParams.set('q', finalQuery);
+		}
+		if (finalPage > 1) {
+			urlParams.set('page', finalPage.toString());
+		}
+		if (finalPerPage !== 24) {
+			urlParams.set('per_page', finalPerPage.toString());
+		}
+		if (finalConnectorId) {
+			urlParams.set('connector_id', finalConnectorId);
+		}
+		if (finalAlbumId) {
+			urlParams.set('album_id', finalAlbumId);
+		}
+		// Always include similarity threshold in URL (for shareability)
+		urlParams.set('similarity_threshold', finalThreshold.toString());
+
+		const newUrl = urlParams.toString() ? `?${urlParams.toString()}` : '/search';
 		void goto(newUrl, { replaceState: true, keepFocus: true });
 	}
 
-	async function loadPhotos(): Promise<void> {
+	async function fetchPhotos(): Promise<void> {
 		loading = true;
-		isSearchMode = false;
 		try {
 			let url = `/photos?page=${currentPage.toString()}&per_page=${perPage.toString()}`;
 			if (selectedConnectorId) {
@@ -181,17 +201,19 @@
 		} finally {
 			loading = false;
 		}
-		updateUrl();
 	}
 
-	async function handleSearch(): Promise<void> {
-		if (!query.trim()) {
-			currentPage = 1;
-			await loadPhotos();
-			return;
+	async function fetchSearchResults(): Promise<void> {
+		// Cancel previous request if it exists
+		if (abortController) {
+			abortController.abort();
 		}
+
+		// Create new abort controller for this request
+		abortController = new AbortController();
+		const signal = abortController.signal;
+
 		loading = true;
-		isSearchMode = true;
 		try {
 			const offset = (currentPage - 1) * perPage;
 			let url = `/search?q=${encodeURIComponent(query)}&limit=${perPage.toString()}&offset=${offset.toString()}`;
@@ -201,10 +223,17 @@
 			if (selectedAlbumId) {
 				url += `&album_id=${encodeURIComponent(selectedAlbumId)}`;
 			}
-			if (similarityThreshold !== null) {
+			// Only include similarity_threshold if > 0.0 (to avoid filtering when showing all results)
+			if (similarityThreshold > 0.0) {
 				url += `&similarity_threshold=${similarityThreshold.toString()}`;
 			}
-			const res = await client.get<SearchResponse>(url);
+			const res = await client.get<SearchResponse>(url, { signal });
+
+			// Check if request was aborted
+			if (signal.aborted) {
+				return;
+			}
+
 			if (res.success && res.data) {
 				photos = res.data.results.map((r: SearchResultItem) => ({
 					id: r.photo.id,
@@ -220,27 +249,24 @@
 				total = res.meta?.total ?? photos.length;
 			}
 		} catch (err: unknown) {
+			// Ignore abort errors
+			if (err instanceof Error && err.name === 'AbortError') {
+				return;
+			}
 			console.error('Search failed:', err);
 		} finally {
 			loading = false;
 		}
-		updateUrl();
 	}
 
 	function goToPage(newPage: number): void {
 		if (newPage >= 1 && newPage <= totalPages) {
-			currentPage = newPage;
-			if (isSearchMode) {
-				void handleSearch();
-			} else {
-				void loadPhotos();
-			}
+			updateUrl({ page: newPage });
 		}
 	}
 
-	function onSearchSubmit(): void {
-		currentPage = 1;
-		void handleSearch();
+	function onSearchSubmit(newQuery: string): void {
+		updateUrl({ query: newQuery, page: 1 });
 	}
 
 	function getPaginationPages(): number[] {
@@ -280,22 +306,23 @@
 	</header>
 
 	<div class="mb-6">
-		<SearchBar bind:query onSearch={onSearchSubmit} {loading} />
+		<!-- Local input state for SearchBar, syncs to URL on submit -->
+		<SearchBar
+			bind:query={searchInput}
+			onSearch={() => onSearchSubmit(searchInput)}
+			{loading}
+		/>
 	</div>
 
-	<!-- Similarity Threshold Slider -->
-	{#if isSearchMode && query.trim()}
-		<div class="mb-6">
-			<SimilarityThresholdSlider
-				value={similarityThreshold}
-				onchange={(value) => {
-					similarityThreshold = value;
-					currentPage = 1;
-					void handleSearch();
-				}}
-			/>
-		</div>
-	{/if}
+	<!-- Similarity Threshold Slider - Always visible -->
+	<div class="mb-6">
+		<SimilarityThresholdSlider
+			value={similarityThreshold}
+			onchange={(value) => {
+				updateUrl({ similarityThreshold: value, page: 1 });
+			}}
+		/>
+	</div>
 
 	<!-- Scope Filters -->
 	<div class="mb-6 flex flex-wrap gap-4">
@@ -304,17 +331,14 @@
 			<select
 				id="connector-filter"
 				class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-				bind:value={selectedConnectorId}
-				onchange={() => {
-					currentPage = 1;
-					if (isSearchMode && query.trim()) {
-						void handleSearch();
-					} else {
-						void loadPhotos();
-					}
+				value={selectedConnectorId ?? ''}
+				onchange={(e) => {
+					const target = e.currentTarget as HTMLSelectElement;
+					const value = target.value || null;
+					updateUrl({ connectorId: value, page: 1 });
 				}}
 			>
-				<option value={null}>All Sources</option>
+				<option value="">All Sources</option>
 				{#each connectors as connector (connector.id)}
 					<option value={connector.id}>{connector.name}</option>
 				{/each}
@@ -326,17 +350,14 @@
 			<select
 				id="album-filter"
 				class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-				bind:value={selectedAlbumId}
-				onchange={() => {
-					currentPage = 1;
-					if (isSearchMode && query.trim()) {
-						void handleSearch();
-					} else {
-						void loadPhotos();
-					}
+				value={selectedAlbumId ?? ''}
+				onchange={(e) => {
+					const target = e.currentTarget as HTMLSelectElement;
+					const value = target.value || null;
+					updateUrl({ albumId: value, page: 1 });
 				}}
 			>
-				<option value={null}>All Albums</option>
+				<option value="">All Albums</option>
 				{#each albums as album (album.id)}
 					<option value={album.id}>{album.name}</option>
 				{/each}
@@ -347,14 +368,7 @@
 			<button
 				class="text-sm text-blue-600 hover:underline"
 				onclick={() => {
-					selectedConnectorId = null;
-					selectedAlbumId = null;
-					currentPage = 1;
-					if (isSearchMode && query.trim()) {
-						void handleSearch();
-					} else {
-						void loadPhotos();
-					}
+					updateUrl({ connectorId: null, albumId: null, page: 1 });
 				}}
 			>
 				Clear filters
@@ -421,7 +435,7 @@
 				<button
 					class="px-3 py-1 rounded border border-gray-300 text-sm disabled:opacity-50"
 					disabled={currentPage === 1}
-					onclick={() => goToPage(currentPage - 1)}
+					onclick={() => { goToPage(currentPage - 1); }}
 				>
 					Previous
 				</button>
@@ -431,7 +445,7 @@
 						class="px-3 py-1 rounded text-sm {currentPage === pageNum
 							? 'bg-blue-500 text-white'
 							: 'border border-gray-300'}"
-						onclick={() => goToPage(pageNum)}
+						onclick={() => { goToPage(pageNum); }}
 					>
 						{pageNum}
 					</button>
@@ -440,7 +454,7 @@
 				<button
 					class="px-3 py-1 rounded border border-gray-300 text-sm disabled:opacity-50"
 					disabled={currentPage === totalPages}
-					onclick={() => goToPage(currentPage + 1)}
+					onclick={() => { goToPage(currentPage + 1); }}
 				>
 					Next
 				</button>

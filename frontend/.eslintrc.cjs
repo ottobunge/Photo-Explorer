@@ -1,12 +1,6 @@
 module.exports = {
 	root: true,
-	extends: [
-		'eslint:recommended',
-		'plugin:@typescript-eslint/strict-type-checked',
-		'plugin:@typescript-eslint/stylistic-type-checked',
-		'plugin:svelte/recommended',
-		'prettier'
-	],
+	extends: ['eslint:recommended', 'plugin:@typescript-eslint/strict-type-checked', 'plugin:@typescript-eslint/stylistic-type-checked', 'plugin:svelte/recommended', 'prettier', 'plugin:storybook/recommended'],
 	parser: '@typescript-eslint/parser',
 	plugins: ['@typescript-eslint'],
 	parserOptions: {
@@ -26,6 +20,34 @@ module.exports = {
 			parser: 'svelte-eslint-parser',
 			parserOptions: {
 				parser: '@typescript-eslint/parser'
+			}
+		},
+		{
+			// Test files can use 'any' for mocks but should still warn
+			files: ['tests/**/*.ts', '**/*.test.ts', '**/*.spec.ts'],
+			rules: {
+				'@typescript-eslint/no-explicit-any': 'warn',
+				'@typescript-eslint/no-unsafe-argument': 'warn',
+				'@typescript-eslint/no-unsafe-assignment': 'warn',
+				'@typescript-eslint/no-unsafe-call': 'warn',
+				'@typescript-eslint/no-unsafe-member-access': 'warn',
+				'@typescript-eslint/no-unsafe-return': 'warn',
+				'@typescript-eslint/require-await': 'warn'
+			}
+		},
+		{
+			// Test fixtures and E2E tests can be more relaxed
+			files: ['tests/fixtures/**/*.ts', 'tests/e2e/**/*.ts', '**/test-setup.ts'],
+			rules: {
+				'@typescript-eslint/no-explicit-any': 'off',
+				'@typescript-eslint/no-unsafe-argument': 'off',
+				'@typescript-eslint/no-unsafe-assignment': 'off',
+				'@typescript-eslint/no-unsafe-call': 'off',
+				'@typescript-eslint/no-unsafe-member-access': 'off',
+				'@typescript-eslint/no-unsafe-return': 'off',
+				'@typescript-eslint/no-non-null-assertion': 'warn',
+				'@typescript-eslint/prefer-nullish-coalescing': 'warn',
+				'@typescript-eslint/no-unused-vars': 'warn'
 			}
 		}
 	],
@@ -111,5 +133,18 @@ module.exports = {
 		eqeqeq: ['error', 'always'],
 		curly: ['error', 'all']
 	},
-	ignorePatterns: ['*.cjs', 'svelte.config.js', 'vite.config.ts', 'playwright.config.ts']
+	ignorePatterns: [
+		'node_modules',
+		'build',
+		'.svelte-kit',
+		'dist',
+		// Config files that aren't part of the main TypeScript project
+		'*.config.js',
+		'*.config.cjs',
+		'postcss.config.js',
+		'svelte.config.test.js',
+		'playwright.config.ts',
+		'vite.config.ts',
+		'svelte.config.js'
+	]
 };

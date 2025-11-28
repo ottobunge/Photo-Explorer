@@ -24,10 +24,6 @@
 		updated_at: string | null;
 	}
 
-	interface PhotoResponse {
-		photo: Photo;
-	}
-
 	let photo = $state<Photo | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -42,9 +38,9 @@
 		loading = true;
 		error = null;
 		try {
-			const res = await client.get<PhotoResponse>(`/photos/${photoId}`);
+			const res = await client.get<Photo>(`/photos/${photoId}`);
 			if (res.success && res.data) {
-				photo = res.data.photo;
+				photo = res.data;
 			} else {
 				error = 'Failed to load photo';
 			}
@@ -57,15 +53,15 @@
 	}
 
 	function formatFileSize(bytes: number | null): string {
-		if (!bytes) return 'Unknown';
+		if (!bytes) {return 'Unknown';}
 		const kb = bytes / 1024;
-		if (kb < 1024) return `${kb.toFixed(1)} KB`;
+		if (kb < 1024) {return `${kb.toFixed(1)} KB`;}
 		const mb = kb / 1024;
 		return `${mb.toFixed(1)} MB`;
 	}
 
 	function formatDate(dateStr: string | null): string {
-		if (!dateStr) return 'Unknown';
+		if (!dateStr) {return 'Unknown';}
 		const date = new Date(dateStr);
 		return date.toLocaleString();
 	}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Connector, PickerSession } from '../types';
-	import { settingsStore } from '../stores/settings';
+	import { isLocalFolderConfig } from '../types';
+	import { settingsStore } from '../stores/settings.svelte';
 	import { createEventDispatcher, onDestroy } from 'svelte';
 	import { StatusBadge, type StatusType } from '$lib/shared/components';
 	import {
@@ -15,24 +16,24 @@
 		connector: Connector;
 	}
 
-	let { connector }: Props = $props();
+	const { connector }: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		remove: { id: string };
 		sync: { id: string };
 	}>();
 
-	let syncing = false;
-	let reprocessing = false;
-	let reprocessMessage: string | null = null;
+	let syncing = $state(false);
+	let reprocessing = $state(false);
+	let reprocessMessage = $state<string | null>(null);
 	let reprocessMessageTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Picker state
 	let pickerSession: PickerSession | null = null;
 	let pickerWindow: Window | null = null;
 	let pickerPolling = false;
-	let pickerStatus: 'idle' | 'selecting' | 'importing' | 'done' | 'error' = 'idle';
-	let pickerMessage: string | null = null;
+	let pickerStatus = $state<'idle' | 'selecting' | 'importing' | 'done' | 'error'>('idle');
+	let pickerMessage = $state<string | null>(null);
 	let pickerResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Cleanup on destroy
@@ -56,8 +57,8 @@
 	});
 
 	// Map connector status to StatusBadge status type
-	let status = $derived(connector.status as StatusType);
-	let statusLabel = $derived(connector.status === 'syncing' ? 'Syncing...' : connector.status.charAt(0).toUpperCase() + connector.status.slice(1));
+	const status = $derived(connector.status as StatusType);
+	const statusLabel = $derived(connector.status === 'syncing' ? 'Syncing...' : connector.status.charAt(0).toUpperCase() + connector.status.slice(1));
 
 	function getConnectorIcon(type: string): string {
 		switch (type) {
@@ -110,13 +111,13 @@
 	}
 
 	function formatDate(dateStr: string | null): string {
-		if (!dateStr) return 'Never';
+		if (!dateStr) {return 'Never';}
 		return new Date(dateStr).toLocaleString();
 	}
 
 	// Google Photos Picker functions
 	async function handleImportPhotos() {
-		if (connector.type !== 'google_photos') return;
+		if (connector.type !== 'google_photos') {return;}
 
 		pickerStatus = 'selecting';
 		pickerMessage = 'Opening photo picker...';
@@ -150,7 +151,7 @@
 	}
 
 	function startPolling() {
-		if (!pickerSession || pickerPolling) return;
+		if (!pickerSession || pickerPolling) {return;}
 
 		pickerPolling = true;
 		const pollInterval = (pickerSession.pollIntervalSeconds || PICKER_POLL_INTERVAL_FALLBACK) * 1000;
@@ -207,7 +208,7 @@
 	}
 
 	async function importSelectedPhotos() {
-		if (!pickerSession) return;
+		if (!pickerSession) {return;}
 
 		pickerStatus = 'importing';
 		pickerMessage = 'Importing selected photos...';
@@ -242,7 +243,7 @@
 	}
 
 	async function cleanupSession() {
-		if (!pickerSession) return;
+		if (!pickerSession) {return;}
 
 		try {
 			await settingsStore.deletePickerSession(connector.id, pickerSession.sessionId);
@@ -277,7 +278,7 @@
 		<StatusBadge {status} label={statusLabel} />
 	</div>
 
-	{#if connector.type === 'local' && connector.config.path}
+	{#if connector.type === 'local' && isLocalFolderConfig(connector.config)}
 		<div class="connector-details">
 			<p class="detail-item">
 				<span class="detail-label">Path:</span>
@@ -311,7 +312,7 @@
 				<span class="picker-message">{pickerMessage}</span>
 			</div>
 			{#if pickerStatus === 'selecting'}
-				<button class="picker-cancel-btn" on:click={cancelPicker}>Cancel</button>
+				<button class="picker-cancel-btn" onclick={cancelPicker}>Cancel</button>
 			{/if}
 		</div>
 	{/if}
@@ -332,14 +333,14 @@
 
 	<div class="connector-actions">
 		<label class="toggle-switch">
-			<input type="checkbox" checked={connector.enabled} on:change={handleToggle} />
+			<input type="checkbox" checked={connector.enabled} onchange={handleToggle} />
 			<span class="toggle-slider"></span>
 		</label>
 
 		{#if connector.type === 'google_photos'}
 			<button
 				class="action-btn import-btn"
-				on:click={handleImportPhotos}
+				onclick={handleImportPhotos}
 				disabled={!connector.enabled || pickerStatus !== 'idle'}
 			>
 				{#if pickerStatus === 'selecting'}
@@ -354,7 +355,7 @@
 			</button>
 			<button
 				class="action-btn reprocess-btn"
-				on:click={handleReprocess}
+				onclick={handleReprocess}
 				disabled={!connector.enabled || reprocessing}
 				title="Regenerate embeddings for semantic search"
 			>
@@ -368,7 +369,7 @@
 		{:else}
 			<button
 				class="action-btn sync-btn"
-				on:click={handleSync}
+				onclick={handleSync}
 				disabled={syncing || connector.status === 'syncing' || !connector.enabled}
 			>
 				{#if syncing || connector.status === 'syncing'}
@@ -380,7 +381,7 @@
 			</button>
 		{/if}
 
-		<button class="action-btn remove-btn" on:click={handleRemove}>
+		<button class="action-btn remove-btn" onclick={handleRemove}>
 			🗑️ Remove
 		</button>
 	</div>

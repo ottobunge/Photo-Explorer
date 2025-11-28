@@ -43,6 +43,29 @@ pkgs.mkShell {
 
     # For ML models (optional, can use Docker instead)
     # cudaPackages.cudatoolkit
+
+    # Playwright browsers
+    playwright-driver.browsers
+
+    # Playwright system dependencies
+    glib
+    nss
+    nspr
+    dbus
+    atk
+    at-spi2-atk
+    expat
+    xorg.libX11
+    xorg.libXcomposite
+    xorg.libXdamage
+    xorg.libXext
+    xorg.libXfixes
+    xorg.libXrandr
+    mesa # provides libgbm
+    xorg.libxcb
+    libxkbcommon
+    systemd # provides libudev
+    alsa-lib
   ];
 
   shellHook = ''
@@ -65,6 +88,34 @@ pkgs.mkShell {
 
     # Fix for NumPy/ML libraries in NixOS - add standard library paths
     export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+    # Set Playwright browsers path (use Nix-provided browsers, don't run playwright install)
+    export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
+
+    # Skip Playwright's host requirements validation (NixOS handles dependencies differently)
+    export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
+
+    # Set library path for Playwright browser dependencies
+    export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
+      pkgs.glib
+      pkgs.nss
+      pkgs.nspr
+      pkgs.dbus
+      pkgs.atk
+      pkgs.at-spi2-atk
+      pkgs.expat
+      pkgs.xorg.libX11
+      pkgs.xorg.libXcomposite
+      pkgs.xorg.libXdamage
+      pkgs.xorg.libXext
+      pkgs.xorg.libXfixes
+      pkgs.xorg.libXrandr
+      pkgs.mesa
+      pkgs.xorg.libxcb
+      pkgs.libxkbcommon
+      pkgs.systemd
+      pkgs.alsa-lib
+    ]}:$LD_LIBRARY_PATH"
 
     # Set up Python virtual environment path
     export VIRTUAL_ENV="$PWD/backend/.venv"

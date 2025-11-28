@@ -1,11 +1,8 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import type { WatchedFolder } from '../types';
 	import { foldersStore } from '../stores/folders';
 
 	export let folder: WatchedFolder;
-
-	const dispatch = createEventDispatcher();
 
 	let scanning = false;
 

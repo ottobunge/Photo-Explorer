@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { API_HOST } from '$lib/api/client';
 	import { facesStore } from '../stores/faces.svelte';
 	import type { FaceClusterType } from '../types';
@@ -7,14 +7,11 @@
 	interface Props {
 		title?: string;
 		excludeClusterIds?: string[];
+		onclose?: () => void;
+		onselect?: (cluster: FaceClusterType) => void;
 	}
 
-	let { title = 'Select a Person', excludeClusterIds = [] }: Props = $props();
-
-	const dispatch = createEventDispatcher<{
-		close: void;
-		select: { cluster: FaceClusterType };
-	}>();
+	const { title = 'Select a Person', excludeClusterIds = [], onclose, onselect }: Props = $props();
 
 	let searchQuery = $state('');
 	let loading = $state(true);
@@ -28,16 +25,16 @@
 		return storeClusters
 			.filter((cluster: FaceClusterType) => !excludeClusterIds.includes(cluster.id))
 			.filter((cluster: FaceClusterType) => {
-				if (!searchQuery.trim()) return true;
+				if (!searchQuery.trim()) {return true;}
 				const query = searchQuery.toLowerCase();
 				const name = cluster.name?.toLowerCase() || 'unknown';
 				return name.includes(query);
 			})
 			.sort((a: FaceClusterType, b: FaceClusterType) => {
 				// Sort by name (named first, then by name alphabetically, then unnamed by photo count)
-				if (a.name && !b.name) return -1;
-				if (!a.name && b.name) return 1;
-				if (a.name && b.name) return a.name.localeCompare(b.name);
+				if (a.name && !b.name) {return -1;}
+				if (!a.name && b.name) {return 1;}
+				if (a.name && b.name) {return a.name.localeCompare(b.name);}
 				return b.photoCount - a.photoCount;
 			});
 	});
@@ -54,31 +51,33 @@
 
 	function handleBackdropClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) {
-			dispatch('close');
+			onclose?.();
 		}
 	}
 
 	function handleSelect(cluster: FaceClusterType) {
-		dispatch('select', { cluster });
+		onselect?.(cluster);
 	}
 
 	function getCropUrl(cluster: FaceClusterType): string {
-		if (!cluster.representativeFace) return '';
+		if (!cluster.representativeFace) {return '';}
 		return `${API_HOST}${cluster.representativeFace.cropUrl}`;
 	}
 </script>
 
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-	on:click={handleBackdropClick}
-	on:keydown={(e) => e.key === 'Escape' && dispatch('close')}
+	onclick={handleBackdropClick}
+	onkeydown={(e) => e.key === 'Escape' && onclose?.()}
 	role="dialog"
 	aria-modal="true"
+	aria-labelledby="cluster-picker-modal-title"
+	tabindex="-1"
 >
 	<div class="card relative w-full max-w-2xl max-h-[80vh] flex flex-col p-6">
 		<!-- Header -->
 		<div class="mb-4">
-			<h2 class="text-xl font-bold text-gray-900 mb-2">{title}</h2>
+			<h2 id="cluster-picker-modal-title" class="text-xl font-bold text-gray-900 mb-2">{title}</h2>
 
 			<!-- Search input -->
 			<input
@@ -87,6 +86,7 @@
 				placeholder="Search by name..."
 				class="input w-full"
 				disabled={loading}
+				autofocus
 			/>
 		</div>
 
@@ -94,7 +94,7 @@
 		<button
 			type="button"
 			class="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-			on:click={() => dispatch('close')}
+			onclick={() => onclose?.()}
 			aria-label="Close modal"
 		>
 			×
@@ -122,7 +122,7 @@
 						<button
 							type="button"
 							class="w-full flex items-center gap-4 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-colors text-left"
-							on:click={() => handleSelect(cluster)}
+							onclick={() => { handleSelect(cluster); }}
 						>
 							<!-- Representative face -->
 							<div class="flex-shrink-0">
@@ -176,7 +176,7 @@
 
 		<!-- Footer -->
 		<div class="mt-4 pt-4 border-t border-gray-200 flex justify-end">
-			<button type="button" class="btn-secondary" on:click={() => dispatch('close')}>
+			<button type="button" class="btn-secondary" onclick={() => onclose?.()}>
 				Cancel
 			</button>
 		</div>

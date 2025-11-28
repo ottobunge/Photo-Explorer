@@ -96,7 +96,7 @@
 	}
 
 	function formatDate(dateStr: string | null): string {
-		if (!dateStr) return 'Never';
+		if (!dateStr) {return 'Never';}
 		return new Date(dateStr).toLocaleString();
 	}
 </script>
@@ -143,7 +143,7 @@
 		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 			{#each connectors as connector (connector.id)}
 				<button
-					onclick={() => navigateToConnector(connector.id)}
+					onclick={() => { navigateToConnector(connector.id); }}
 					class="group block rounded-lg border border-gray-200 bg-white p-6 text-left transition-shadow hover:shadow-md"
 				>
 					<div class="flex items-start gap-4">

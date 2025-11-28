@@ -4,7 +4,7 @@
 export * from './types';
 
 // Stores
-export { settingsStore } from './stores/settings';
+export { settingsStore } from './stores/settings.svelte';
 
 // Components
 export { default as ConnectorCard } from './components/ConnectorCard.svelte';

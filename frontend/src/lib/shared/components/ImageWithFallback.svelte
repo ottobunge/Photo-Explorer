@@ -18,7 +18,7 @@
 		onError?: (error: Event) => void;
 	}
 
-	let {
+	const {
 		src,
 		alt,
 		fallback = '🖼️',
@@ -71,8 +71,8 @@
 		class="{className}"
 		class:loading={isLoading}
 		loading={lazy ? 'lazy' : 'eager'}
-		on:error={handleError}
-		on:load={handleLoad}
+		onerror={handleError}
+		onload={handleLoad}
 	/>
 {/if}
 

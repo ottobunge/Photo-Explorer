@@ -145,3 +145,9 @@ redis-data/
 
 # Pre-commit
 .pre-commit-config.yaml.local
+
+# Test results
+frontend/test-results/
+frontend/playwright-report/
+*storybook.log
+storybook-static

@@ -43,6 +43,8 @@
 	on:keydown={(e) => e.key === 'Escape' && dispatch('close')}
 	role="dialog"
 	aria-modal="true"
+	aria-labelledby="face-tag-modal-title"
+	tabindex="-1"
 >
 	<div class="card w-full max-w-sm p-6">
 		<div class="mb-4 flex items-center gap-4">
@@ -53,7 +55,7 @@
 					class="h-16 w-16 rounded-full object-cover"
 				/>
 			{/if}
-			<h2 class="text-xl font-bold text-gray-900">Tag This Person</h2>
+			<h2 id="face-tag-modal-title" class="text-xl font-bold text-gray-900">Tag This Person</h2>
 		</div>
 
 		<form on:submit|preventDefault={handleSubmit}>
@@ -66,6 +68,7 @@
 					class="input"
 					placeholder="John Doe"
 					disabled={loading}
+					autofocus
 				/>
 			</div>
 

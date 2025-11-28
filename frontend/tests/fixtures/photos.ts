@@ -93,7 +93,7 @@ export function createMockSearchResults(
 	return Array.from({ length: count }, (_, index) => {
 		const overrides = overridesFn ? overridesFn(index) : {};
 		return createMockSearchResult(
-			{ score: overrides.score },
+			overrides.score !== undefined ? { score: overrides.score } : {},
 			overrides.photo || {}
 		);
 	});

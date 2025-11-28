@@ -4,14 +4,12 @@
 	import { goto } from '$app/navigation';
 
 	interface UploadResult {
-		uploaded: Array<{ id: string; filename: string }>;
-		failed: Array<{ filename: string; error: string }>;
+		uploaded: { id: string; filename: string }[];
+		failed: { filename: string; error: string }[];
 	}
 
 	let files: File[] = [];
 	let uploading = false;
-	let uploadProgress = 0;
-	let uploadedCount = 0;
 	let failedCount = 0;
 	let error: string | null = null;
 
@@ -25,11 +23,9 @@
 	}
 
 	async function handleUpload() {
-		if (files.length === 0) return;
+		if (files.length === 0) {return;}
 
 		uploading = true;
-		uploadProgress = 0;
-		uploadedCount = 0;
 		failedCount = 0;
 		error = null;
 
@@ -44,15 +40,13 @@
 			const result = await client.postForm<UploadResult>('/photos/upload', formData);
 
 			if (result.success && result.data) {
-				uploadedCount = result.data.uploaded?.length || 0;
-				failedCount = result.data.failed?.length || 0;
+				failedCount = result.data.failed.length || 0;
 
 				if (failedCount > 0) {
 					console.warn('Some uploads failed:', result.data.failed);
 				}
 
 				// Show success and redirect after a moment
-				uploadProgress = 100;
 				await new Promise((resolve) => setTimeout(resolve, 1000));
 
 				// Redirect to photos page
@@ -124,7 +118,7 @@
 							<button
 								type="button"
 								class="text-gray-400 hover:text-red-500"
-								on:click={() => removeFile(index)}
+								on:click={() => { removeFile(index); }}
 							>
 								×
 							</button>

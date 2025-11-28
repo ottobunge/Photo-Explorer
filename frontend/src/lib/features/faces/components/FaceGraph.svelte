@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 	import type { GraphNode, GraphEdge } from '../types';
 
-	let containerElement: HTMLDivElement;
+	let containerElement = $state<HTMLDivElement | null>(null);
 	let cy: Core | null = null;
 
 	// Derived state from store using Svelte 5 runes
@@ -130,11 +130,15 @@
 			cy.on('mouseover', 'edge', (event) => {
 				const edge = event.target;
 				const sharedCount = edge.data('sharedPhotoCount') || 0;
-				containerElement.title = `${sharedCount} photos together`;
+				if (containerElement) {
+					containerElement.title = `${sharedCount} photos together`;
+				}
 			});
 
 			cy.on('mouseout', 'edge', () => {
-				containerElement.title = '';
+				if (containerElement) {
+					containerElement.title = '';
+				}
 			});
 		}
 
@@ -154,7 +158,7 @@
 	});
 
 	function updateGraph(nodes: GraphNode[], edges: GraphEdge[], currentFilteredPersonId: string | null): void {
-		if (!cy) return;
+		if (!cy) {return;}
 
 		// Convert nodes to Cytoscape format
 		const cytoscapeNodes: ElementDefinition[] = nodes.map((node) => ({
@@ -246,12 +250,12 @@
 			<p class="error-message">{error}</p>
 			<button onclick={() => faceGraphStore.loadGraph()} class="retry-button"> Retry </button>
 		</div>
-	{:else if graph && graph.isEmpty}
+	{:else if graph?.is_empty}
 		<div class="empty-state">
 			<p>No people found in your photo collection yet.</p>
 			<p class="hint">Upload photos with faces to see the social graph.</p>
 		</div>
-	{:else if graph && !graph.hasConnections}
+	{:else if graph && !graph.has_connections}
 		<div class="no-connections-state">
 			<p>No relationships found.</p>
 			<p class="hint">People appear in photos alone, with no co-appearances yet.</p>
@@ -277,10 +281,10 @@
 
 			{#if graph}
 				<div class="graph-stats">
-					<span>{graph.nodeCount} {graph.nodeCount === 1 ? 'person' : 'people'}</span>
+					<span>{graph.node_count} {graph.node_count === 1 ? 'person' : 'people'}</span>
 					<span>•</span>
 					<span>
-						{graph.edgeCount} {graph.edgeCount === 1 ? 'relationship' : 'relationships'}
+						{graph.edge_count} {graph.edge_count === 1 ? 'relationship' : 'relationships'}
 					</span>
 				</div>
 			{/if}

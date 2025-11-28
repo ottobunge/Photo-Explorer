@@ -1,21 +1,21 @@
 <script lang="ts">
-	import { settingsStore } from '../stores/settings';
+	import { settingsStore } from '../stores/settings.svelte';
 
 	// Derived value for local connectors
-	let localConnectors = $derived(settingsStore.connectors.filter((c) => c.type === 'local'));
+	const localConnectors = $derived(settingsStore.connectors.filter((c) => c.type === 'local'));
 	import ConnectorCard from './ConnectorCard.svelte';
 	import type { LocalFolderConfig } from '../types';
 
-	let showAddModal = false;
-	let error: string | null = null;
+	let showAddModal = $state(false);
+	let error = $state<string | null>(null);
 
 	// Form state
-	let folderPath = '';
-	let folderName = '';
-	let recursive = true;
-	let watch = true;
-	let autoAlbum = false;
-	let adding = false;
+	let folderPath = $state('');
+	let folderName = $state('');
+	let recursive = $state(true);
+	let watch = $state(true);
+	let autoAlbum = $state(false);
+	let adding = $state(false);
 
 	function openAddModal() {
 		folderPath = '';
@@ -41,12 +41,17 @@
 
 		try {
 			const config: LocalFolderConfig = {
+				type: 'local',
 				path: folderPath.trim(),
-				name: folderName.trim() || undefined,
 				recursive,
 				watch,
 				autoAlbum
 			};
+
+			const trimmedName = folderName.trim();
+			if (trimmedName) {
+				config.name = trimmedName;
+			}
 
 			await settingsStore.addLocalFolder(config);
 			closeAddModal();
@@ -58,7 +63,7 @@
 	}
 
 	async function handleRemove(event: CustomEvent<{ id: string }>) {
-		if (!confirm('Remove this folder from indexing? The photos will remain on disk.')) {
+		if (!confirm('Remove this folder from Photo Explorer?\n\nWARNING: All indexed photos and their data (embeddings, face detections, etc.) will be permanently deleted from Photo Explorer. Your original files on disk will not be affected.')) {
 			return;
 		}
 
@@ -77,7 +82,7 @@
 				<span class="section-icon">📁</span>
 				Local Folders
 			</h2>
-			<button class="add-btn" on:click={openAddModal}>
+			<button class="add-btn" onclick={openAddModal}>
 				+ Add Folder
 			</button>
 		</div>
@@ -90,7 +95,7 @@
 		<div class="error-banner">
 			<span class="error-icon">⚠️</span>
 			<span>{error}</span>
-			<button class="dismiss-btn" on:click={() => (error = null)}>×</button>
+			<button class="dismiss-btn" onclick={() => (error = null)}>×</button>
 		</div>
 	{/if}
 
@@ -104,7 +109,7 @@
 		<div class="empty-state">
 			<div class="empty-icon">📂</div>
 			<p class="empty-text">No folders configured for indexing</p>
-			<button class="add-folder-btn" on:click={openAddModal}>
+			<button class="add-folder-btn" onclick={openAddModal}>
 				+ Add Your First Folder
 			</button>
 		</div>
@@ -113,14 +118,14 @@
 
 <!-- Add Folder Modal -->
 {#if showAddModal}
-	<div class="modal-overlay" on:click={closeAddModal} on:keydown={(e) => e.key === 'Escape' && closeAddModal()} role="button" tabindex="0">
-		<div class="modal" on:click|stopPropagation role="dialog" aria-modal="true" aria-labelledby="modal-title">
+	<div class="modal-overlay" onclick={closeAddModal} onkeydown={(e) => e.key === 'Escape' && closeAddModal()} role="button" tabindex="0">
+		<div class="modal" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
 			<div class="modal-header">
 				<h3 id="modal-title">Add Local Folder</h3>
-				<button class="close-btn" on:click={closeAddModal} aria-label="Close modal">×</button>
+				<button class="close-btn" onclick={closeAddModal} aria-label="Close modal">×</button>
 			</div>
 
-			<form on:submit|preventDefault={handleAddFolder}>
+			<form onsubmit={(e) => { e.preventDefault(); handleAddFolder(); }}>
 				<div class="form-group">
 					<label for="folder-path">Folder Path</label>
 					<input
@@ -167,7 +172,7 @@
 				</div>
 
 				<div class="modal-actions">
-					<button type="button" class="cancel-btn" on:click={closeAddModal}>
+					<button type="button" class="cancel-btn" onclick={closeAddModal}>
 						Cancel
 					</button>
 					<button type="submit" class="submit-btn" disabled={adding}>

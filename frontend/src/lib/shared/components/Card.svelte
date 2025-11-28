@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	/**
 	 * Reusable card container component
 	 * Provides consistent styling for card-based layouts
@@ -12,9 +14,11 @@
 		padded?: boolean;
 		/** Whether the card should have hover effects */
 		hoverable?: boolean;
+		/** Content to render inside the card */
+		children?: Snippet;
 	}
 
-	let {
+	const {
 		class: className = '',
 		bordered = true,
 		padded = true,

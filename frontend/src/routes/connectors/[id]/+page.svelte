@@ -35,7 +35,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let currentPage = $state(1);
-	let perPage = $state(30);
+	const perPage = $state(30);
 	let total = $state(0);
 	let selectedPhotos = $state<Set<string>>(new Set());
 	let selectMode = $state(false);
@@ -175,7 +175,7 @@
 	}
 
 	async function handleSync(): Promise<void> {
-		if (!connectorId) return;
+		if (!connectorId) {return;}
 
 		syncing = true;
 		try {
@@ -190,7 +190,7 @@
 	}
 
 	async function handleReprocess(): Promise<void> {
-		if (!connectorId) return;
+		if (!connectorId) {return;}
 
 		reprocessing = true;
 		reprocessMessage = 'Starting reprocess...';
@@ -213,13 +213,13 @@
 	}
 
 	async function handleDelete(): Promise<void> {
-		if (!connectorId || !connector) return;
+		if (!connectorId || !connector) {return;}
 
 		const confirmDelete = confirm(
 			`Are you sure you want to delete "${connector.name}"?\n\nThis will remove the connector and all indexed photos from this source. Original files will not be deleted.`
 		);
 
-		if (!confirmDelete) return;
+		if (!confirmDelete) {return;}
 
 		deleting = true;
 		try {
@@ -234,7 +234,7 @@
 	}
 
 	async function handlePickerComplete(): Promise<void> {
-		if (!pickerSession || !connectorId) return;
+		if (!pickerSession || !connectorId) {return;}
 
 		// Stop polling since we're handling it now
 		pickerPolling = false;
@@ -302,7 +302,7 @@
 	}
 
 	async function handleImportPhotos(): Promise<void> {
-		if (connector?.type !== 'google_photos' || !connectorId) return;
+		if (connector?.type !== 'google_photos' || !connectorId) {return;}
 
 		pickerStatus = 'selecting';
 		pickerMessage = 'Opening photo picker... Select photos and click "ADD" to import them.';
@@ -387,7 +387,7 @@
 	}
 
 	async function pollPickerStatus(): Promise<void> {
-		if (!pickerSession || !pickerPolling || !connectorId) return;
+		if (!pickerSession || !pickerPolling || !connectorId) {return;}
 
 		try {
 			const status = await settingsStore.getPickerSessionStatus(
@@ -594,7 +594,7 @@
 					<div class="group relative">
 						{#if selectMode}
 							<button
-								onclick={() => togglePhotoSelection(photo.id)}
+								onclick={() => { togglePhotoSelection(photo.id); }}
 								class="absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded border-2 bg-white"
 								class:border-blue-500={selectedPhotos.has(photo.id)}
 								class:bg-blue-500={selectedPhotos.has(photo.id)}
@@ -613,7 +613,7 @@
 						{/if}
 
 						<button
-							onclick={() => (selectMode ? togglePhotoSelection(photo.id) : viewPhoto(photo.id))}
+							onclick={() => { selectMode ? togglePhotoSelection(photo.id) : viewPhoto(photo.id); }}
 							class="aspect-square w-full overflow-hidden rounded-lg bg-gray-100"
 						>
 							{#if photo.thumbnail_url}
@@ -643,7 +643,7 @@
 					<button
 						class="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-50"
 						disabled={currentPage === 1}
-						onclick={() => goToPage(currentPage - 1)}
+						onclick={() => { goToPage(currentPage - 1); }}
 					>
 						Previous
 					</button>
@@ -653,7 +653,7 @@
 					<button
 						class="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-50"
 						disabled={currentPage === totalPages}
-						onclick={() => goToPage(currentPage + 1)}
+						onclick={() => { goToPage(currentPage + 1); }}
 					>
 						Next
 					</button>

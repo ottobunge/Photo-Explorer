@@ -22,8 +22,8 @@ class FacesStore {
 
 		try {
 			const params: Record<string, string> = {};
-			if (options?.namedOnly) params['named_only'] = 'true';
-			if (options?.unnamedOnly) params['unnamed_only'] = 'true';
+			if (options?.namedOnly) {params['named_only'] = 'true';}
+			if (options?.unnamedOnly) {params['unnamed_only'] = 'true';}
 
 			const result = await client.get<{ clusters: FaceClusterType[] }>(
 				'/faces/clusters',
@@ -54,7 +54,7 @@ class FacesStore {
 			if (result.success && result.data) {
 				// Update the cluster in the list
 				this.clusters = this.clusters.map((c) =>
-					c.id === clusterId ? result.data! : c
+					c.id === clusterId ? result.data : c
 				);
 			}
 		} catch (err) {

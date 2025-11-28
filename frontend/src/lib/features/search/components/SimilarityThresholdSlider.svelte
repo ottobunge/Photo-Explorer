@@ -1,96 +1,122 @@
 <script lang="ts">
 	/**
-	 * SimilarityThresholdSlider - A toggleable slider component for filtering search results
+	 * SimilarityThresholdSlider - A range slider for filtering search results
 	 * by minimum similarity score.
 	 *
 	 * Features:
-	 * - Toggle to enable/disable similarity filtering
 	 * - Range slider (0-100%)
-	 * - Visual percentage display
-	 * - Maintains value when toggling on/off
+	 * - Always visible
+	 * - Default: 0.18 (18% - filters out very dissimilar results)
+	 * - Debounced input to avoid backend spam
 	 * - Accessible with proper ARIA attributes
 	 */
 
 	interface Props {
-		value: number | null;
-		onchange: (value: number | null) => void;
+		value: number;
+		onchange: (value: number) => void;
+		debounceMs?: number;
 	}
 
-	let { value = null, onchange }: Props = $props();
+	const { value = 0.18, onchange, debounceMs = 300 }: Props = $props();
 
-	// Internal state
-	let enabled = $state(value !== null);
-	let sliderValue = $state(value ?? 0.5);
+	let debounceTimer: number | undefined = $state(undefined);
+	let localValue = $state(value);
+	let showExplanation = $state(false);
 
-	// Sync enabled state when value prop changes
+	// Update local value when prop changes
 	$effect(() => {
-		if (value !== null) {
-			enabled = true;
-			sliderValue = value;
-		}
+		localValue = value;
 	});
 
-	function handleToggle(): void {
-		enabled = !enabled;
-		onchange(enabled ? sliderValue : null);
+	function toggleExplanation(): void {
+		showExplanation = !showExplanation;
 	}
 
-	function handleSliderChange(e: Event): void {
+	// Explanation text for accessibility and info display
+	const explanationText =
+		'Similarity threshold filters search results based on how closely they match your query. Higher values (closer to 100%) return fewer but more relevant results. Lower values return more results but may include less relevant matches. The default (18%) filters out very dissimilar results while keeping most relevant ones.';
+
+	function handleSliderInput(e: Event): void {
 		const target = e.target as HTMLInputElement;
-		sliderValue = parseFloat(target.value);
-		if (enabled) {
-			onchange(sliderValue);
+		const newValue = parseFloat(target.value);
+		localValue = newValue;
+
+		// Clear existing timer
+		if (debounceTimer !== undefined) {
+			clearTimeout(debounceTimer);
 		}
+
+		// Set new timer
+		debounceTimer = setTimeout(() => {
+			onchange(newValue);
+		}, debounceMs) as unknown as number;
 	}
 
 	// Computed percentage for display
-	const percentage = $derived(Math.round(sliderValue * 100));
+	const percentage = $derived(Math.round(localValue * 100));
 </script>
 
 <div class="similarity-threshold" data-testid="similarity-threshold">
 	<div class="header">
-		<label for="similarity-toggle" class="toggle-label">
-			<input
-				type="checkbox"
-				id="similarity-toggle"
-				data-testid="similarity-toggle"
-				bind:checked={enabled}
-				onchange={handleToggle}
-				class="toggle-checkbox"
-			/>
-			<span class="label-text">Similarity Threshold</span>
-		</label>
-		{#if enabled}
-			<span class="value" data-testid="similarity-value">{percentage}%</span>
-		{/if}
+		<div class="label-container">
+			<label for="similarity-slider" class="label">
+				Similarity Threshold
+			</label>
+			<button
+				type="button"
+				class="info-icon"
+				onclick={toggleExplanation}
+				aria-label="Toggle similarity threshold explanation"
+				title="Click for more information"
+				data-testid="info-icon"
+			>
+				ⓘ
+			</button>
+		</div>
+		<span class="value" data-testid="similarity-value">{percentage}%</span>
 	</div>
 
-	{#if enabled}
-		<div class="slider-container" data-testid="similarity-slider-container">
-			<input
-				type="range"
-				min="0"
-				max="1"
-				step="0.01"
-				value={sliderValue}
-				oninput={handleSliderChange}
-				data-testid="similarity-slider"
-				class="slider"
-				aria-label="Similarity threshold percentage"
-				aria-valuemin="0"
-				aria-valuemax="100"
-				aria-valuenow={percentage}
-				aria-valuetext="{percentage}%"
-			/>
-			<div class="labels">
-				<span class="label-min">0%</span>
-				<span class="label-mid">50%</span>
-				<span class="label-max">100%</span>
-			</div>
+	<div class="slider-container" data-testid="similarity-slider-container">
+		<input
+			type="range"
+			id="similarity-slider"
+			min="0"
+			max="1"
+			step="0.01"
+			value={localValue}
+			oninput={handleSliderInput}
+			data-testid="similarity-slider"
+			class="slider"
+			aria-label="Similarity threshold percentage"
+			aria-describedby="similarity-description similarity-explanation"
+			aria-valuemin="0"
+			aria-valuemax="100"
+			aria-valuenow={percentage}
+			aria-valuetext="{percentage}%"
+		/>
+		<div class="labels">
+			<span class="label-min">0%</span>
+			<span class="label-mid">50%</span>
+			<span class="label-max">100%</span>
 		</div>
-		<p class="description">
+	</div>
+	<p class="description" id="similarity-description">
+		{#if percentage === 0}
+			Showing all results (no filtering)
+		{:else}
 			Only show results with similarity ≥ {percentage}%
-		</p>
+		{/if}
+	</p>
+
+	{#if showExplanation}
+		<div class="explanation" id="similarity-explanation" data-testid="explanation-text">
+			<strong>How it works:</strong> {explanationText}
+		</div>
+	{:else}
+		<!-- Hidden element for screen readers -->
+		<div id="similarity-explanation" class="sr-only">
+			{explanationText}
+		</div>
 	{/if}
 </div>
 
@@ -107,31 +133,46 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 0.5rem;
+		margin-bottom: 0.75rem;
 	}
 
-	.toggle-label {
+	.label-container {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		cursor: pointer;
+	}
+
+	.label {
 		font-size: 0.875rem;
 		font-weight: 500;
 		color: #374151;
-		user-select: none;
 	}
 
-	.toggle-checkbox {
-		width: 1rem;
-		height: 1rem;
+	.info-icon {
+		background: none;
+		border: none;
+		padding: 0;
+		margin: 0;
 		cursor: pointer;
-		accent-color: #3b82f6;
+		font-size: 1rem;
+		color: #3b82f6;
+		transition: color 0.2s, transform 0.2s;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.25rem;
+		height: 1.25rem;
 	}
 
-	.label-text {
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: #374151;
+	.info-icon:hover {
+		color: #2563eb;
+		transform: scale(1.1);
+	}
+
+	.info-icon:focus {
+		outline: 2px solid #3b82f6;
+		outline-offset: 2px;
+		border-radius: 50%;
 	}
 
 	.value {
@@ -144,7 +185,6 @@
 	}
 
 	.slider-container {
-		margin-top: 0.75rem;
 		padding: 0 0.25rem;
 	}
 
@@ -222,6 +262,34 @@
 		font-size: 0.75rem;
 		color: #6b7280;
 		font-style: italic;
+	}
+
+	.explanation {
+		margin-top: 0.5rem;
+		font-size: 0.75rem;
+		line-height: 1.4;
+		color: #4b5563;
+		padding: 0.5rem;
+		background-color: #f3f4f6;
+		border-left: 2px solid #3b82f6;
+		border-radius: 0.25rem;
+	}
+
+	.explanation strong {
+		color: #1f2937;
+	}
+
+	/* Screen reader only (for accessibility) */
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border-width: 0;
 	}
 
 	/* Responsive adjustments */

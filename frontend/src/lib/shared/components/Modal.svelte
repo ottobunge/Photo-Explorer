@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
+	import type { Snippet } from 'svelte';
 
-	export let title = '';
+	interface Props {
+		title?: string;
+		children?: Snippet;
+	}
+
+	const { title = '', children }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -19,7 +25,7 @@
 	}
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center"
@@ -28,7 +34,8 @@
 	<!-- Backdrop -->
 	<div
 		class="absolute inset-0 bg-black/50"
-		on:click={handleBackdropClick}
+		onclick={handleBackdropClick}
+		onkeydown={(e) => e.key === 'Enter' && handleBackdropClick(e as unknown as MouseEvent)}
 		role="button"
 		tabindex="-1"
 	></div>
@@ -40,17 +47,18 @@
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="modal-title"
+		tabindex="-1"
 	>
 		{#if title}
 			<h2 id="modal-title" class="mb-4 text-xl font-bold text-gray-900">{title}</h2>
 		{/if}
 
-		<slot />
+		{@render children?.()}
 
 		<button
 			type="button"
 			class="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-			on:click={() => dispatch('close')}
+			onclick={() => dispatch('close')}
 			aria-label="Close modal"
 		>
 			×

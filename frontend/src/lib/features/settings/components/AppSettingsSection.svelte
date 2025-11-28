@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { settingsStore } from '../stores/settings';
+	import { settingsStore } from '../stores/settings.svelte';
 	import { onMount } from 'svelte';
 	import { STATUS_MESSAGE_TIMEOUT, DEFAULT_THUMBNAIL_QUALITY } from '$lib/constants';
 
-	let saving = false;
-	let error: string | null = null;
-	let successMessage: string | null = null;
+	let saving = $state(false);
+	let error = $state<string | null>(null);
+	let successMessage = $state<string | null>(null);
 
 	// Local form state
 	let thumbnailQuality = $state(DEFAULT_THUMBNAIL_QUALITY);
@@ -56,7 +56,7 @@
 	}
 
 	function hasChanges(): boolean {
-		if (!settingsStore.appSettings) return false;
+		if (!settingsStore.appSettings) {return false;}
 		return (
 			thumbnailQuality !== settingsStore.appSettings.thumbnailQuality ||
 			clipModel !== settingsStore.appSettings.clipModel ||
@@ -81,7 +81,7 @@
 		<div class="error-banner">
 			<span class="error-icon">⚠️</span>
 			<span>{error}</span>
-			<button class="dismiss-btn" on:click={() => (error = null)}>×</button>
+			<button class="dismiss-btn" onclick={() => (error = null)}>×</button>
 		</div>
 	{/if}
 
@@ -92,7 +92,7 @@
 		</div>
 	{/if}
 
-	<form on:submit|preventDefault={handleSave}>
+	<form onsubmit={(e) => { e.preventDefault(); handleSave(); }}>
 		<div class="settings-grid">
 			<div class="form-group">
 				<label for="thumbnail-quality">Thumbnail Quality</label>

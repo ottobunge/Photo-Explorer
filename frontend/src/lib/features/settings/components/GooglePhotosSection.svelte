@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { settingsStore } from '../stores/settings';
-	import { Card, EmptyState } from '$lib/shared/components';
+	import { settingsStore } from '../stores/settings.svelte';
+	import { EmptyState } from '$lib/shared/components';
 	import ConnectorCard from './ConnectorCard.svelte';
 
 	// Derived value for Google Photos connectors
-	let googlePhotosConnectors = $derived(settingsStore.connectors.filter((c) => c.type === 'google_photos'));
+	const googlePhotosConnectors = $derived(settingsStore.connectors.filter((c) => c.type === 'google_photos'));
 
-	let error: string | null = null;
+	let error = $state<string | null>(null);
 
 	async function handleConnect() {
 		error = null;
@@ -20,20 +20,8 @@
 		}
 	}
 
-	async function handleDisconnect() {
-		if (!confirm('Are you sure you want to disconnect Google Photos? Your indexed photos will remain, but syncing will stop.')) {
-			return;
-		}
-
-		try {
-			await settingsStore.disconnectGooglePhotos();
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to disconnect';
-		}
-	}
-
 	async function handleRemove(event: CustomEvent<{ id: string }>) {
-		if (!confirm('Remove this Google Photos connection?')) {
+		if (!confirm('Remove this Google Photos connection?\n\nWARNING: All imported photos and their data (embeddings, face detections, etc.) will be permanently deleted from Photo Explorer. Your photos in Google Photos will not be affected.')) {
 			return;
 		}
 
@@ -61,7 +49,7 @@
 		<div class="error-banner">
 			<span class="error-icon">⚠️</span>
 			<span>{error}</span>
-			<button class="dismiss-btn" on:click={() => (error = null)}>×</button>
+			<button class="dismiss-btn" onclick={() => (error = null)}>×</button>
 		</div>
 	{/if}
 
@@ -72,7 +60,7 @@
 			{/each}
 		</div>
 
-		<button class="add-account-btn" on:click={handleConnect} disabled={settingsStore.connecting}>
+		<button class="add-account-btn" onclick={handleConnect} disabled={settingsStore.connecting}>
 			{#if settingsStore.connecting}
 				<span class="spinner"></span>
 				Connecting...
@@ -87,7 +75,7 @@
 			description=""
 		>
 			{#snippet action()}
-				<button class="connect-btn" on:click={handleConnect} disabled={settingsStore.connecting}>
+				<button class="connect-btn" onclick={handleConnect} disabled={settingsStore.connecting}>
 					{#if settingsStore.connecting}
 						<span class="spinner"></span>
 						Connecting...

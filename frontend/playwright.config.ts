@@ -1,8 +1,15 @@
-import type { PlaywrightTestConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
+import { defineBddConfig } from 'playwright-bdd';
 
-const config: PlaywrightTestConfig = {
-	testDir: './tests/e2e',
-	testMatch: '**/*.spec.ts',
+const testDir = defineBddConfig({
+	paths: ['tests/e2e/features/**/*.feature'],
+	require: ['tests/e2e/steps/**/*.ts'],
+	importTestFrom: 'tests/e2e/fixtures.ts'
+});
+
+export default defineConfig({
+	testDir,
+	testMatch: '**/*.{spec.ts,feature}',
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
@@ -16,18 +23,16 @@ const config: PlaywrightTestConfig = {
 	projects: [
 		{
 			name: 'chromium',
-			use: { browserName: 'chromium' }
+			use: { ...devices['Desktop Chrome'] }
 		},
 		{
 			name: 'firefox',
-			use: { browserName: 'firefox' }
+			use: { ...devices['Desktop Firefox'] }
 		}
 	],
 	webServer: {
-		command: 'pnpm dev',
+		command: 'npm run dev',
 		port: 5173,
 		reuseExistingServer: !process.env.CI
 	}
-};
-
-export default config;
+});

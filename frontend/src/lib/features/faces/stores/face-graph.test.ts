@@ -30,11 +30,10 @@ describe('faceGraphStore', () => {
 
 	describe('initial state', () => {
 		it('should have null graph initially', () => {
-			const state = get(faceGraphStore);
-			expect(state.graph).toBeNull();
-			expect(state.filteredPersonId).toBeNull();
-			expect(state.loading).toBe(false);
-			expect(state.error).toBeNull();
+			expect(faceGraphStore.graph).toBeNull();
+			expect(faceGraphStore.filteredPersonId).toBeNull();
+			expect(faceGraphStore.loading).toBe(false);
+			expect(faceGraphStore.error).toBeNull();
 		});
 	});
 
@@ -76,11 +75,10 @@ describe('faceGraphStore', () => {
 
 			await faceGraphStore.loadGraph();
 
-			const state = get(faceGraphStore);
-			expect(state.graph).toEqual(mockGraph);
-			expect(state.loading).toBe(false);
-			expect(state.error).toBeNull();
-			expect(state.filteredPersonId).toBeNull();
+			expect(faceGraphStore.graph).toEqual(mockGraph);
+			expect(faceGraphStore.loading).toBe(false);
+			expect(faceGraphStore.error).toBeNull();
+			expect(faceGraphStore.filteredPersonId).toBeNull();
 		});
 
 		it('should set loading state while fetching', async () => {
@@ -94,8 +92,7 @@ describe('faceGraphStore', () => {
 			const loadPromise = faceGraphStore.loadGraph();
 
 			// Check loading state is true
-			const loadingState = get(faceGraphStore);
-			expect(loadingState.loading).toBe(true);
+			expect(faceGraphStore.loading).toBe(true);
 
 			// Resolve the promise
 			resolvePromise!({
@@ -113,8 +110,7 @@ describe('faceGraphStore', () => {
 			await loadPromise;
 
 			// Check loading state is false after completion
-			const finalState = get(faceGraphStore);
-			expect(finalState.loading).toBe(false);
+			expect(faceGraphStore.loading).toBe(false);
 		});
 
 		it('should handle API errors', async () => {
@@ -123,10 +119,9 @@ describe('faceGraphStore', () => {
 
 			await faceGraphStore.loadGraph();
 
-			const state = get(faceGraphStore);
-			expect(state.loading).toBe(false);
-			expect(state.error).toBe('Network error');
-			expect(state.graph).toBeNull();
+			expect(faceGraphStore.loading).toBe(false);
+			expect(faceGraphStore.error).toBe('Network error');
+			expect(faceGraphStore.graph).toBeNull();
 		});
 
 		it('should handle unknown errors', async () => {
@@ -135,9 +130,8 @@ describe('faceGraphStore', () => {
 
 			await faceGraphStore.loadGraph();
 
-			const state = get(faceGraphStore);
-			expect(state.loading).toBe(false);
-			expect(state.error).toBe('Failed to load social graph');
+			expect(faceGraphStore.loading).toBe(false);
+			expect(faceGraphStore.error).toBe('Failed to load social graph');
 		});
 
 		it('should load filtered graph when person ID provided', async () => {
@@ -177,9 +171,8 @@ describe('faceGraphStore', () => {
 
 			await faceGraphStore.loadGraph('1');
 
-			const state = get(faceGraphStore);
-			expect(state.graph).toEqual(mockGraph);
-			expect(state.filteredPersonId).toBe('1');
+			expect(faceGraphStore.graph).toEqual(mockGraph);
+			expect(faceGraphStore.filteredPersonId).toBe('1');
 
 			// Verify API was called with correct params
 			expect(apiClient.client.get).toHaveBeenCalledWith(
@@ -214,8 +207,7 @@ describe('faceGraphStore', () => {
 
 			await faceGraphStore.filterByPerson('1');
 
-			const state = get(faceGraphStore);
-			expect(state.filteredPersonId).toBe('1');
+			expect(faceGraphStore.filteredPersonId).toBe('1');
 			expect(apiClient.client.get).toHaveBeenCalledWith(
 				'/faces/graph',
 				{ person_id: '1' }
@@ -255,8 +247,7 @@ describe('faceGraphStore', () => {
 
 			await faceGraphStore.clearFilter();
 
-			const state = get(faceGraphStore);
-			expect(state.filteredPersonId).toBeNull();
+			expect(faceGraphStore.filteredPersonId).toBeNull();
 			expect(apiClient.client.get).toHaveBeenLastCalledWith(
 				'/faces/graph',
 				{}
@@ -282,18 +273,16 @@ describe('faceGraphStore', () => {
 			await faceGraphStore.loadGraph();
 
 			// Verify data is loaded
-			let state = get(faceGraphStore);
-			expect(state.graph).not.toBeNull();
+			expect(faceGraphStore.graph).not.toBeNull();
 
 			// Reset the store
 			faceGraphStore.reset();
 
 			// Verify reset to initial state
-			state = get(faceGraphStore);
-			expect(state.graph).toBeNull();
-			expect(state.filteredPersonId).toBeNull();
-			expect(state.loading).toBe(false);
-			expect(state.error).toBeNull();
+			expect(faceGraphStore.graph).toBeNull();
+			expect(faceGraphStore.filteredPersonId).toBeNull();
+			expect(faceGraphStore.loading).toBe(false);
+			expect(faceGraphStore.error).toBeNull();
 		});
 	});
 
@@ -315,10 +304,9 @@ describe('faceGraphStore', () => {
 
 			await faceGraphStore.loadGraph();
 
-			const state = get(faceGraphStore);
-			expect(state.graph).toEqual(emptyGraph);
-			expect(state.graph?.isEmpty).toBe(true);
-			expect(state.graph?.hasConnections).toBe(false);
+			expect(faceGraphStore.graph).toEqual(emptyGraph);
+			expect(faceGraphStore.graph?.is_empty).toBe(true);
+			expect(faceGraphStore.graph?.has_connections).toBe(false);
 		});
 	});
 
@@ -343,11 +331,10 @@ describe('faceGraphStore', () => {
 
 			await faceGraphStore.loadGraph();
 
-			const state = get(faceGraphStore);
-			expect(state.graph?.isEmpty).toBe(false);
-			expect(state.graph?.hasConnections).toBe(false);
-			expect(state.graph?.nodeCount).toBe(2);
-			expect(state.graph?.edgeCount).toBe(0);
+			expect(faceGraphStore.graph?.is_empty).toBe(false);
+			expect(faceGraphStore.graph?.has_connections).toBe(false);
+			expect(faceGraphStore.graph?.node_count).toBe(2);
+			expect(faceGraphStore.graph?.edge_count).toBe(0);
 		});
 	});
 });

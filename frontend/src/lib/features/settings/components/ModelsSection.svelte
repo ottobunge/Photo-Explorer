@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { settingsStore } from '../stores/settings';
+	import { settingsStore } from '../stores/settings.svelte';
 	import type { HFModel, DownloadProgress } from '../types';
 
 	let searchQuery = '';
@@ -15,7 +15,7 @@
 	let lookingUp = false;
 
 	// Download tracking
-	let downloadingModels: Map<string, DownloadProgress> = new Map();
+	let downloadingModels = new Map<string, DownloadProgress>();
 
 	onMount(async () => {
 		await Promise.all([
@@ -26,7 +26,7 @@
 	});
 
 	async function handleSearch() {
-		if (!searchQuery.trim()) return;
+		if (!searchQuery.trim()) {return;}
 
 		searching = true;
 		error = null;
@@ -47,7 +47,7 @@
 	}
 
 	async function handleLookup() {
-		if (!lookupModelId.trim()) return;
+		if (!lookupModelId.trim()) {return;}
 
 		lookingUp = true;
 		error = null;
@@ -99,7 +99,7 @@
 	}
 
 	async function deleteModel(modelId: string) {
-		if (!confirm(`Delete downloaded model: ${modelId}?`)) return;
+		if (!confirm(`Delete downloaded model: ${modelId}?`)) {return;}
 
 		try {
 			await settingsStore.deleteModel(modelId);
@@ -109,7 +109,7 @@
 	}
 
 	function formatBytes(bytes: number): string {
-		if (bytes === 0) return '0 B';
+		if (bytes === 0) {return '0 B';}
 		const k = 1024;
 		const sizes = ['B', 'KB', 'MB', 'GB'];
 		const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -117,14 +117,14 @@
 	}
 
 	function formatNumber(num: number): string {
-		if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-		if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+		if (num >= 1000000) {return (num / 1000000).toFixed(1) + 'M';}
+		if (num >= 1000) {return (num / 1000).toFixed(1) + 'K';}
 		return num.toString();
 	}
 
 	function getModelStatus(modelId: string): 'downloaded' | 'downloading' | 'not_downloaded' {
-		if (settingsStore.downloadedModels.includes(modelId)) return 'downloaded';
-		if (downloadingModels.has(modelId)) return 'downloading';
+		if (settingsStore.downloadedModels.includes(modelId)) {return 'downloaded';}
+		if (downloadingModels.has(modelId)) {return 'downloading';}
 		return 'not_downloaded';
 	}
 
@@ -195,12 +195,12 @@
 						<span class="model-icon">🖼️</span>
 						<div class="model-info">
 							<h4>Image Embeddings (CLIP)</h4>
-							<p>{settingsStore.activeModels?.clip_model ?? 'Not configured'}</p>
+							<p>{settingsStore.activeModels.clip_model ?? 'Not configured'}</p>
 						</div>
 						<div class="model-status">
-							{#if settingsStore.activeModels?.clip_status === 'downloaded'}
+							{#if settingsStore.activeModels.clip_status === 'downloaded'}
 								<span class="status-badge ready">Ready</span>
-							{:else if settingsStore.activeModels?.clip_status === 'auto_download'}
+							{:else if settingsStore.activeModels.clip_status === 'auto_download'}
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
 							{:else if settingsStore.activeModels && getModelStatus(settingsStore.activeModels.clip_model) === 'downloading'}
 								{@const progress = getProgress(settingsStore.activeModels.clip_model)}
@@ -219,12 +219,12 @@
 						<span class="model-icon">👤</span>
 						<div class="model-info">
 							<h4>Face Detection</h4>
-							<p>{settingsStore.activeModels?.face_model ?? 'Not configured'}</p>
+							<p>{settingsStore.activeModels.face_model ?? 'Not configured'}</p>
 						</div>
 						<div class="model-status">
-							{#if settingsStore.activeModels?.face_status === 'downloaded'}
+							{#if settingsStore.activeModels.face_status === 'downloaded'}
 								<span class="status-badge ready">Ready</span>
-							{:else if settingsStore.activeModels?.face_status === 'auto_download'}
+							{:else if settingsStore.activeModels.face_status === 'auto_download'}
 								<span class="status-badge auto" title="Will download automatically on first use">Auto</span>
 							{:else if settingsStore.activeModels && getModelStatus(settingsStore.activeModels.face_model) === 'downloading'}
 								{@const progress = getProgress(settingsStore.activeModels.face_model)}
@@ -353,9 +353,9 @@
 <!-- Lookup Modal -->
 {#if showLookupModal}
 	<div class="modal-overlay" on:click={() => (showLookupModal = false)} on:keydown={(e) => e.key === 'Escape' && (showLookupModal = false)} role="button" tabindex="0">
-		<div class="modal" on:click|stopPropagation role="dialog" aria-modal="true">
+		<div class="modal" on:click|stopPropagation on:keydown|stopPropagation role="dialog" aria-modal="true" aria-labelledby="lookup-modal-title" tabindex="-1">
 			<div class="modal-header">
-				<h3>Lookup Model by ID</h3>
+				<h3 id="lookup-modal-title">Lookup Model by ID</h3>
 				<button class="close-btn" on:click={() => (showLookupModal = false)}>×</button>
 			</div>
 
@@ -417,7 +417,7 @@
 										{#if progress?.current_file}
 											<span class="current-file">{progress.current_file.split('/').pop()}</span>
 										{/if}
-										{#if progress?.downloaded_bytes && progress?.total_bytes}
+										{#if progress?.downloaded_bytes && progress.total_bytes}
 											<span class="progress-bytes">
 												{formatBytes(progress.downloaded_bytes)} / {formatBytes(progress.total_bytes)}
 											</span>
@@ -425,7 +425,7 @@
 									</div>
 								</div>
 							{:else}
-								<button class="download-btn primary" on:click={() => downloadModel(lookupResult.model_id)}>
+								<button class="download-btn primary" on:click={() => lookupResult && downloadModel(lookupResult.model_id)}>
 									Download Model
 								</button>
 							{/if}

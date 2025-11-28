@@ -2,6 +2,7 @@
 	import Modal from '$lib/shared/components/Modal.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { settingsStore } from '$lib/features/settings';
+	import type { LocalFolderConfig } from '$lib/features/settings/types';
 
 	const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -36,13 +37,17 @@
 		error = null;
 
 		try {
-			await settingsStore.addLocalFolder({
+			const config: LocalFolderConfig = {
+				type: 'local',
 				path: localFolderPath,
-				name: localFolderName || undefined,
 				recursive,
 				watch: false,
 				autoAlbum: false
-			});
+			};
+			if (localFolderName) {
+				config.name = localFolderName;
+			}
+			await settingsStore.addLocalFolder(config);
 			dispatch('close');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create local connector';

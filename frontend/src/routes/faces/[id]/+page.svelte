@@ -3,6 +3,8 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { client, API_HOST } from '$lib/api/client';
+	import { faceSelectionStore } from '$lib/features/faces/stores/face-selection.svelte';
+	import { ClusterPicker } from '$lib/features/faces';
 
 	interface Face {
 		id: string;
@@ -22,11 +24,6 @@
 		faces?: Face[];
 	}
 
-	interface ClusterResponse {
-		cluster: ClusterData;
-		faces: Face[];
-	}
-
 	let cluster = $state<ClusterData | null>(null);
 	let faces = $state<Face[]>([]);
 	let loading = $state(true);
@@ -34,8 +31,14 @@
 	let isEditing = $state(false);
 	let editName = $state('');
 	let saving = $state(false);
+	let showClusterPicker = $state(false);
+	let operationInProgress = $state(false);
 
 	const clusterId = $derived($page.params.id);
+	const editMode = $derived(faceSelectionStore.editMode);
+	const selectedFaceIds = $derived(faceSelectionStore.selectedFaceIds);
+	const selectedCount = $derived(faceSelectionStore.selectedFaceCount);
+	const allSelected = $derived(faces.length > 0 && faces.every((f) => selectedFaceIds.has(f.id)));
 
 	onMount(() => {
 		void loadCluster();
@@ -107,6 +110,67 @@
 
 	function goBack(): void {
 		void goto('/faces');
+	}
+
+	function toggleEditMode(): void {
+		faceSelectionStore.toggleEditMode();
+	}
+
+	function toggleSelectAll(): void {
+		if (allSelected) {
+			faceSelectionStore.clearFaceSelection();
+		} else {
+			faceSelectionStore.selectAllFaces(
+				faces.map((f) => ({ id: f.id, photoId: f.photo_id, cropUrl: f.crop_url }))
+			);
+		}
+	}
+
+	function toggleFaceSelection(faceId: string): void {
+		faceSelectionStore.toggleFace(faceId);
+	}
+
+	async function handleSplitSelected(): Promise<void> {
+		if (selectedCount === 0) {return;}
+
+		if (
+			!confirm(
+				`Split ${selectedCount} face${selectedCount > 1 ? 's' : ''} into ${selectedCount > 1 ? 'separate' : 'a new'} cluster${selectedCount > 1 ? 's' : ''}?`
+			)
+		) {
+			return;
+		}
+
+		operationInProgress = true;
+		try {
+			await faceSelectionStore.splitSelectedFaces();
+			await loadCluster();
+		} catch (err) {
+			console.error('Failed to split faces:', err);
+			error = err instanceof Error ? err.message : 'Failed to split faces';
+		} finally {
+			operationInProgress = false;
+		}
+	}
+
+	function handleMoveSelected(): void {
+		if (selectedCount === 0) {return;}
+		showClusterPicker = true;
+	}
+
+	async function handleClusterSelected(cluster: any): Promise<void> {
+		showClusterPicker = false;
+		operationInProgress = true;
+
+		try {
+			await faceSelectionStore.moveSelectedFaces(cluster.id);
+			await loadCluster();
+		} catch (err) {
+			console.error('Failed to move faces:', err);
+			error = err instanceof Error ? err.message : 'Failed to move faces';
+		} finally {
+			operationInProgress = false;
+		}
 	}
 </script>
 
@@ -238,27 +302,82 @@
 
 			<!-- All Faces in Cluster -->
 			<div>
-				<h2 class="text-lg font-semibold text-gray-900 mb-4">
-					All Faces ({cluster.face_count})
-				</h2>
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-lg font-semibold text-gray-900">
+						All Faces ({cluster.face_count})
+					</h2>
+
+					<!-- Edit Mode Toggle -->
+					<button
+						onclick={toggleEditMode}
+						class="px-4 py-2 rounded-lg transition-colors"
+						class:bg-blue-500={editMode}
+						class:text-white={editMode}
+						class:hover:bg-blue-600={editMode}
+						class:border={!editMode}
+						class:border-gray-300={!editMode}
+						class:hover:bg-gray-50={!editMode}
+					>
+						{editMode ? 'Done' : 'Edit'}
+					</button>
+				</div>
 
 				{#if faces.length === 0}
 					<p class="text-gray-500">No faces loaded yet.</p>
 				{:else}
 					<div class="grid grid-cols-4 gap-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
 						{#each faces as face (face.id)}
-							<a
-								href="/photos/{face.photo_id}"
-								class="group block aspect-square rounded-lg overflow-hidden bg-gray-100 hover:ring-2 hover:ring-blue-500"
-								title="View photo"
-							>
-								<img
-									src="{API_HOST}{face.crop_url}"
-									alt="Face"
-									class="w-full h-full object-cover"
-									loading="lazy"
-								/>
-							</a>
+							{#if editMode}
+								<!-- Selectable face in edit mode -->
+								<button
+									type="button"
+									onclick={() => { toggleFaceSelection(face.id); }}
+									class="relative aspect-square rounded-lg overflow-hidden bg-gray-100 transition-all"
+									class:ring-4={selectedFaceIds.has(face.id)}
+									class:ring-blue-500={selectedFaceIds.has(face.id)}
+									disabled={operationInProgress}
+								>
+									<img
+										src="{API_HOST}{face.crop_url}"
+										alt="Face"
+										class="w-full h-full object-cover"
+										loading="lazy"
+									/>
+
+									<!-- Checkbox overlay -->
+									<div
+										class="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+										class:bg-blue-500={selectedFaceIds.has(face.id)}
+										class:bg-white={!selectedFaceIds.has(face.id)}
+										class:border-2={!selectedFaceIds.has(face.id)}
+										class:border-gray-300={!selectedFaceIds.has(face.id)}
+									>
+										{#if selectedFaceIds.has(face.id)}
+											<svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+												<path
+													fill-rule="evenodd"
+													d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+													clip-rule="evenodd"
+												/>
+											</svg>
+										{/if}
+									</div>
+								</button>
+							{:else}
+								<!-- Regular clickable face -->
+								<a
+									href="/photos/{face.photo_id}"
+									class="group block aspect-square rounded-lg overflow-hidden bg-gray-100 hover:ring-2 hover:ring-blue-500"
+									title="View photo"
+								>
+									<img
+										src="{API_HOST}{face.crop_url}"
+										alt="Face"
+										class="w-full h-full object-cover"
+										loading="lazy"
+									/>
+								</a>
+							{/if}
 						{/each}
 					</div>
 				{/if}
@@ -266,5 +385,64 @@
 		</div>
 	{:else}
 		<div class="text-center py-12 text-gray-500">Cluster not found</div>
+	{/if}
+
+	<!-- Floating Action Bar (shown when in edit mode and faces are selected) -->
+	{#if editMode && selectedCount > 0}
+		<div
+			class="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 bg-white rounded-full shadow-2xl border border-gray-200 px-6 py-4"
+		>
+			<div class="flex items-center gap-6">
+				<!-- Selection count -->
+				<div class="flex items-center gap-2">
+					<span class="text-sm font-medium text-gray-900">
+						{selectedCount} selected
+					</span>
+					<button
+						type="button"
+						onclick={toggleSelectAll}
+						class="text-sm text-blue-600 hover:text-blue-700"
+						disabled={operationInProgress}
+					>
+						{allSelected ? 'Deselect All' : 'Select All'}
+					</button>
+				</div>
+
+				<div class="h-6 w-px bg-gray-300"></div>
+
+				<!-- Actions -->
+				<div class="flex items-center gap-3">
+					<button
+						type="button"
+						onclick={() => void handleSplitSelected()}
+						disabled={operationInProgress}
+						class="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+						title="Split selected faces into new clusters"
+					>
+						Split
+					</button>
+
+					<button
+						type="button"
+						onclick={handleMoveSelected}
+						disabled={operationInProgress}
+						class="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+						title="Move selected faces to another cluster"
+					>
+						Move
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Cluster Picker Modal -->
+	{#if showClusterPicker && clusterId}
+		<ClusterPicker
+			title="Move Faces To..."
+			excludeClusterIds={[clusterId]}
+			onclose={() => (showClusterPicker = false)}
+			onselect={handleClusterSelected}
+		/>
 	{/if}
 </div>

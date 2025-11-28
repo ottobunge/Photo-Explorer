@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { settingsStore } from './settings';
+import { settingsStore } from './settings.svelte';
 
 // Mock the API client
 vi.mock('$lib/api/client', () => ({
@@ -77,6 +77,7 @@ describe('settingsStore', () => {
 			});
 
 			const result = await settingsStore.addLocalFolder({
+				type: 'local',
 				path: '/home/user/Photos',
 				recursive: true,
 				watch: true,

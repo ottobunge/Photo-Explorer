@@ -16,7 +16,7 @@
 		class?: string;
 	}
 
-	let {
+	const {
 		status,
 		label = status.charAt(0).toUpperCase() + status.slice(1),
 		showDot = true,
@@ -41,7 +41,7 @@
 		}
 	}
 
-	let statusColor = $derived(getStatusColor(status));
+	const statusColor = $derived(getStatusColor(status));
 </script>
 
 <div class="status-badge {className}">

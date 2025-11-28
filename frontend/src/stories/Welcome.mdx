@@ -1,0 +1,164 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Introduction/Welcome" />
+
+# Photo Explorer Component Library
+
+Welcome to the Photo Explorer Storybook! This is a living documentation of all UI components used in the Photo Explorer application.
+
+## What is Storybook?
+
+Storybook is a development environment for UI components. It allows you to:
+
+- Browse and interact with components in isolation
+- Test different states and variations
+- Document component APIs and usage
+- Catch UI bugs through visual testing
+- Ensure accessibility compliance
+
+## Getting Started
+
+### Running Storybook
+
+```bash
+cd frontend
+npm run storybook
+```
+
+Storybook will start on [http://localhost:6006](http://localhost:6006)
+
+### Building Storybook
+
+```bash
+npm run build-storybook
+```
+
+This creates a static build in `storybook-static/` that can be deployed.
+
+## Component Organization
+
+Components are organized into categories:
+
+### Shared Components
+
+Basic, reusable UI components used throughout the application:
+
+- **Button** - Action buttons with variants and sizes
+- **Card** - Container component for card layouts
+- **Modal** - Dialog overlays for focused interactions
+- **LoadingSpinner** - Loading indicators
+- **StatusBadge** - Status indicators with colors
+- **EmptyState** - Placeholders for empty states
+
+### Feature Components
+
+Coming soon! Feature-specific components like:
+
+- Search components
+- Photo grid and detail views
+- Face detection and clustering UI
+- Album management
+- Settings panels
+
+## Writing Stories
+
+### Basic Story Structure
+
+Stories are written in TypeScript with the `.stories.ts` extension:
+
+```typescript
+import type { Meta, StoryObj } from '@storybook/svelte';
+import MyComponent from './MyComponent.svelte';
+
+const meta = {
+  title: 'Category/MyComponent',
+  component: MyComponent,
+  tags: ['autodocs'],
+  argTypes: {
+    prop: {
+      control: 'text',
+      description: 'Description of prop'
+    }
+  }
+} satisfies Meta<MyComponent>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {
+  args: {
+    prop: 'value'
+  }
+};
+```
+
+### Best Practices
+
+1. **Co-locate stories** - Place `.stories.ts` files next to component files
+2. **Use autodocs** - Add `tags: ['autodocs']` for automatic documentation
+3. **Document props** - Add descriptions to all argTypes
+4. **Show variations** - Create stories for all important states
+5. **Add interactions** - Use `@storybook/addon-interactions` for complex interactions
+6. **Test accessibility** - Enable a11y addon to catch accessibility issues
+
+## Testing with Storybook
+
+### Visual Testing
+
+Stories serve as visual test cases. Each story should represent a specific state or variation of your component.
+
+### Accessibility Testing
+
+The a11y addon automatically runs accessibility checks on all stories. Look for the "Accessibility" tab in the addons panel.
+
+### Interaction Testing
+
+Use the `@storybook/addon-interactions` to test user interactions:
+
+```typescript
+export const WithInteraction: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole('button');
+    await userEvent.click(button);
+    await expect(canvas.getByText('Clicked!')).toBeInTheDocument();
+  }
+};
+```
+
+## Viewports
+
+Test components at different screen sizes using the viewport toolbar:
+
+- **Mobile** - 375px (iPhone)
+- **Tablet** - 768px (iPad)
+- **Desktop** - 1280px
+
+## Addons
+
+The following addons are enabled:
+
+- **Controls** - Interact with component props dynamically
+- **Actions** - Log component events
+- **Docs** - Auto-generated documentation
+- **Viewport** - Test responsive designs
+- **Backgrounds** - Test on different backgrounds
+- **A11y** - Accessibility testing
+- **Vitest** - Component testing integration
+
+## Contributing
+
+When adding new components:
+
+1. Create the component in `src/lib/shared/components/` or `src/lib/features/`
+2. Add comprehensive stories showing all variations
+3. Document all props with descriptions
+4. Test accessibility
+5. Add interaction tests if applicable
+
+## Resources
+
+- [Storybook Documentation](https://storybook.js.org/docs)
+- [Svelte Documentation](https://svelte.dev/docs)
+- [Accessibility Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
+- [Photo Explorer Architecture](/docs/architecture)
