@@ -57,7 +57,8 @@
       "Bash(npx storybook@latest init:*)",
       "Bash(timeout 45 npm run storybook:*)",
       "Bash(pkill:*)",
-      "WebFetch(domain:storybook.js.org)"
+      "WebFetch(domain:storybook.js.org)",
+      "Bash(pytest:*)"
     ],
     "deny": [],
     "ask": []

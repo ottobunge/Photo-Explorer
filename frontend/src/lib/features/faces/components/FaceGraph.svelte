@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import cytoscape from 'cytoscape';
 	import type { Core, ElementDefinition } from 'cytoscape';
 	import { faceGraphStore } from '../stores/face-graph.svelte';
@@ -15,9 +15,11 @@
 	const error = $derived(faceGraphStore.error);
 	const filteredPersonId = $derived(faceGraphStore.filteredPersonId);
 
-	// Initialize Cytoscape instance
-	onMount(() => {
-		if (containerElement) {
+	// Initialize Cytoscape when container becomes available
+	$effect(() => {
+		console.log('FaceGraph effect - containerElement:', containerElement, 'cy:', cy);
+		if (containerElement && !cy) {
+			console.log('Initializing cytoscape...');
 			cy = cytoscape({
 				container: containerElement,
 				style: [
@@ -141,24 +143,31 @@
 				}
 			});
 		}
-
-		return () => {
-			if (cy) {
-				cy.destroy();
-				cy = null;
-			}
-		};
 	});
 
 	// Update graph when data changes using Svelte 5 $effect
 	$effect(() => {
+		console.log('Graph data changed:', {
+			hasCy: !!cy,
+			hasGraph: !!graph,
+			isEmpty: graph?.is_empty,
+			hasConnections: graph?.has_connections,
+			nodeCount: graph?.node_count,
+			edgeCount: graph?.edge_count,
+			nodesLength: graph?.nodes?.length,
+			edgesLength: graph?.edges?.length
+		});
 		if (cy && graph) {
 			updateGraph(graph.nodes, graph.edges, filteredPersonId);
 		}
 	});
 
 	function updateGraph(nodes: GraphNode[], edges: GraphEdge[], currentFilteredPersonId: string | null): void {
-		if (!cy) {return;}
+		console.log('updateGraph called:', { nodes: nodes.length, edges: edges.length, hasCy: !!cy });
+		if (!cy) {
+			console.warn('Cannot update graph - cy not initialized');
+			return;
+		}
 
 		// Convert nodes to Cytoscape format
 		const cytoscapeNodes: ElementDefinition[] = nodes.map((node) => ({
