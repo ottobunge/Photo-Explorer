@@ -125,6 +125,7 @@ class SearchRequest(BaseModel):
             r"(\bDROP\b.*\bTABLE\b)",
             r"(\bDELETE\b.*\bFROM\b)",
             r"(--|;|\/\*|\*\/|xp_|sp_)",
+            r"(\bOR\b\s+['\"]?\w+['\"]?\s*=\s*['\"]?\w+['\"]?)",  # OR '1'='1' tautologies
         ]
         for pattern in suspicious_patterns:
             if re.search(pattern, v, re.IGNORECASE):

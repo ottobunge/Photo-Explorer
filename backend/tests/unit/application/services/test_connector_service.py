@@ -396,7 +396,7 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
     async def test_delete_connector_orphans_photos_default(
         self, service, mock_connector_repo, mock_photo_repo
     ):
-        """Test that photos are orphaned by default when connector deleted."""
+        """Test that photos can be orphaned when delete_photos=False."""
         # Arrange
         connector_id = uuid4()
         existing_connector = Connector(
@@ -410,16 +410,17 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
 
-        # Act
-        await service.delete_connector(connector_id)
+        # Act - explicitly pass delete_photos=False to orphan photos
+        result = await service.delete_connector(connector_id, delete_photos=False)
 
         # Assert
         mock_connector_repo.delete.assert_called_once_with(connector_id)
-        # Photos should NOT be deleted
+        # Photos should NOT be deleted when delete_photos=False
         mock_photo_repo.delete_bulk_by_connector.assert_not_called()
+        assert result == 0  # No photos deleted
 
     async def test_delete_connector_deletes_photos_when_flagged(
-        self, service, mock_connector_repo, mock_photo_repo
+        self, service, mock_connector_repo, mock_photo_repo, mock_file_storage, mock_vector_store
     ):
         """Test that photos are deleted when delete_photos=True."""
         # Arrange
@@ -434,6 +435,18 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
             created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
+
+        # Mock find_all to return 42 photos (implementation counts these)
+        from app.domain.entities.photo import Photo
+        mock_photos = [Mock(spec=Photo) for _ in range(42)]
+        for photo in mock_photos:
+            photo.storage_path = None
+            photo.thumbnail_path = None
+            photo.cached_thumbnail_path = None
+            photo.face_ids = []
+            photo.id = Mock()
+            photo.id.value = uuid4()
+        mock_photo_repo.find_all = AsyncMock(return_value=mock_photos)
         mock_photo_repo.delete_bulk_by_connector.return_value = 42
 
         # Act
@@ -442,10 +455,10 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
         # Assert
         mock_photo_repo.delete_bulk_by_connector.assert_called_once_with(connector_id)
         mock_connector_repo.delete.assert_called_once_with(connector_id)
-        assert result == 42  # Number of photos deleted
+        assert result == 42  # Number of photos fetched and deleted
 
     async def test_delete_connector_deletes_connector_and_photos(
-        self, service, mock_connector_repo, mock_photo_repo
+        self, service, mock_connector_repo, mock_photo_repo, mock_file_storage, mock_vector_store
     ):
         """Test that both connector and photos are deleted in correct order."""
         # Arrange
@@ -460,6 +473,18 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
             created_at=datetime.utcnow(),
         )
         mock_connector_repo.find_by_id.return_value = existing_connector
+
+        # Mock find_all to return 10 photos
+        from app.domain.entities.photo import Photo
+        mock_photos = [Mock(spec=Photo) for _ in range(10)]
+        for photo in mock_photos:
+            photo.storage_path = None
+            photo.thumbnail_path = None
+            photo.cached_thumbnail_path = None
+            photo.face_ids = []
+            photo.id = Mock()
+            photo.id.value = uuid4()
+        mock_photo_repo.find_all = AsyncMock(return_value=mock_photos)
         mock_photo_repo.delete_bulk_by_connector.return_value = 10
 
         # Act
@@ -468,7 +493,7 @@ class TestConnectorServiceDelete(BaseConnectorServiceTest):
         # Assert - photos deleted first, then connector
         mock_photo_repo.delete_bulk_by_connector.assert_called_once_with(connector_id)
         mock_connector_repo.delete.assert_called_once_with(connector_id)
-        assert result == 10
+        assert result == 10  # Number of photos fetched and deleted
 
     async def test_delete_connector_uses_bulk_delete(
         self, service, mock_connector_repo, mock_photo_repo
