@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { foldersStore } from './folders.svelte';
-import { client, ApiError } from '$lib/api/client';
+import { client } from '$lib/api/client';
 
 vi.mock('$lib/api/client');
 

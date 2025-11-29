@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { searchStore } from './search.svelte';
-import { client, ApiError } from '$lib/api/client';
+import { client } from '$lib/api/client';
 
 vi.mock('$lib/api/client');
 
@@ -159,7 +159,7 @@ describe('searchStore', () => {
 		});
 
 		it('should set loading state during search', async () => {
-			const states: Array<{ loading: boolean }> = [];
+			const states: { loading: boolean }[] = [];
 
 			vi.mocked(client.post).mockImplementation(async () => {
 				states.push({ loading: searchStore.loading });
