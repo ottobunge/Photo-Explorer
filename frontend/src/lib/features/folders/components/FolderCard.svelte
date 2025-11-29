@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { WatchedFolder } from '../types';
-	import { foldersStore } from '../stores/folders';
+	import { foldersStore } from '../stores/folders.svelte';
 
 	export let folder: WatchedFolder;
 

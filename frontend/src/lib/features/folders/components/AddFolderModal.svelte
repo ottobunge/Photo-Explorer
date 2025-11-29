@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { foldersStore } from '../stores/folders';
+	import { foldersStore } from '../stores/folders.svelte';
 
 	interface Props {
 		onClose: () => void;

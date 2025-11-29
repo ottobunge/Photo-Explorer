@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { albumsStore } from '../stores/albums';
+	import { albumsStore } from '../stores/albums.svelte';
 
 	interface Props {
 		onClose: () => void;
