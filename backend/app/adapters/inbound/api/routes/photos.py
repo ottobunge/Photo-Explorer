@@ -100,9 +100,11 @@ async def upload_photos(
         - Maximum file size depends on server configuration
         - Photos are processed asynchronously in the background
         - Check processing_status field to track completion
+        - If upload fails after partial success, all uploaded photos are automatically deleted
     """
     uploaded = []
     failed = []
+    successfully_uploaded_photo_ids: list[UUID] = []
 
     # Validate number of files
     if not files:
@@ -147,120 +149,182 @@ async def upload_photos(
     # Maximum file size: 50MB
     max_file_size = 50 * 1024 * 1024
 
-    for file in files:
-        try:
-            # Validate filename
-            if not file.filename:
-                failed.append(
+    try:
+        for file in files:
+            try:
+                # Validate filename
+                if not file.filename:
+                    failed.append(
+                        {
+                            "filename": "unknown",
+                            "error": "Filename is required",
+                        }
+                    )
+                    continue
+
+                # Sanitize filename length
+                if len(file.filename) > 255:
+                    failed.append(
+                        {
+                            "filename": file.filename[:50] + "...",
+                            "error": "Filename is too long (max 255 characters)",
+                        }
+                    )
+                    continue
+
+                # Validate file type
+                if not file.content_type:
+                    failed.append(
+                        {
+                            "filename": file.filename,
+                            "error": "Content type is required",
+                        }
+                    )
+                    continue
+
+                if file.content_type.lower() not in allowed_mime_types:
+                    failed.append(
+                        {
+                            "filename": file.filename,
+                            "error": f"Invalid file type: {file.content_type}. Allowed: {', '.join(sorted(allowed_mime_types))}",
+                        }
+                    )
+                    continue
+
+                # Read file content
+                file_content = await file.read()
+                if not file_content:
+                    failed.append(
+                        {
+                            "filename": file.filename,
+                            "error": "Empty file",
+                        }
+                    )
+                    continue
+
+                # Validate file size
+                if len(file_content) > max_file_size:
+                    failed.append(
+                        {
+                            "filename": file.filename,
+                            "error": f"File size exceeds maximum of {max_file_size // (1024 * 1024)}MB",
+                        }
+                    )
+                    continue
+
+                # Upload photo using photo service
+                file_obj = io.BytesIO(file_content)
+                photo = await photo_service.upload_photo(
+                    file=file_obj,
+                    filename=file.filename or "unnamed.jpg",
+                    content_type=file.content_type,
+                    album_id=album_id,
+                    connector_type=ConnectorType.UPLOAD.value if upload_connector else "local",
+                    connector_id=upload_connector_id,
+                )
+
+                # Track successfully uploaded photo ID for cleanup if needed
+                successfully_uploaded_photo_ids.append(photo.id.value)
+
+                # Queue background processing tasks
+                process_photo_task.delay(str(photo.id.value))
+                detect_faces_task.delay(str(photo.id.value))
+
+                logger.info(
+                    "Photo uploaded and queued for processing",
+                    extra={
+                        "photo_id": str(photo.id.value),
+                        "photo_filename": photo.filename,
+                        "album_id": str(album_id) if album_id else None,
+                    },
+                )
+
+                uploaded.append(
                     {
-                        "filename": "unknown",
-                        "error": "Filename is required",
+                        "id": str(photo.id.value),
+                        "filename": photo.filename,
+                        "status": "processing",
                     }
                 )
-                continue
 
-            # Sanitize filename length
-            if len(file.filename) > 255:
+            except Exception as e:
+                logger.error(
+                    "Failed to upload photo",
+                    extra={
+                        "photo_filename": file.filename or "unknown",
+                        "error": str(e),
+                    },
+                    exc_info=True,
+                )
                 failed.append(
                     {
-                        "filename": file.filename[:50] + "...",
-                        "error": "Filename is too long (max 255 characters)",
+                        "filename": file.filename or "unknown",
+                        "error": f"Upload failed: {e!s}",
                     }
                 )
-                continue
 
-            # Validate file type
-            if not file.content_type:
-                failed.append(
-                    {
-                        "filename": file.filename,
-                        "error": "Content type is required",
-                    }
-                )
-                continue
+    except Exception as batch_error:
+        # Batch-level error occurred - cleanup successfully uploaded photos
+        logger.error(
+            "Batch upload failed with error",
+            extra={
+                "error": str(batch_error),
+                "uploaded_count": len(successfully_uploaded_photo_ids),
+            },
+            exc_info=True,
+        )
 
-            if file.content_type.lower() not in allowed_mime_types:
-                failed.append(
-                    {
-                        "filename": file.filename,
-                        "error": f"Invalid file type: {file.content_type}. Allowed: {', '.join(sorted(allowed_mime_types))}",
-                    }
-                )
-                continue
+        await _cleanup_partial_uploads(
+            successfully_uploaded_photo_ids,
+            photo_service,
+        )
 
-            # Read file content
-            file_content = await file.read()
-            if not file_content:
-                failed.append(
-                    {
-                        "filename": file.filename,
-                        "error": "Empty file",
-                    }
-                )
-                continue
+        error_message = (
+            f"Batch upload failed. Uploaded {len(successfully_uploaded_photo_ids)} of "
+            f"{len(files)} photos before error. Changes rolled back. Error: {batch_error!s}"
+        )
 
-            # Validate file size
-            if len(file_content) > max_file_size:
-                failed.append(
-                    {
-                        "filename": file.filename,
-                        "error": f"File size exceeds maximum of {max_file_size // (1024 * 1024)}MB",
-                    }
-                )
-                continue
-
-            # Upload photo using photo service
-            file_obj = io.BytesIO(file_content)
-            photo = await photo_service.upload_photo(
-                file=file_obj,
-                filename=file.filename or "unnamed.jpg",
-                content_type=file.content_type,
-                album_id=album_id,
-                connector_type=ConnectorType.UPLOAD.value if upload_connector else "local",
-                connector_id=upload_connector_id,
-            )
-
-            # Queue background processing tasks
-            process_photo_task.delay(str(photo.id.value))
-            detect_faces_task.delay(str(photo.id.value))
-
-            logger.info(
-                "Photo uploaded and queued for processing",
-                extra={
-                    "photo_id": str(photo.id.value),
-                    "photo_filename": photo.filename,
-                    "album_id": str(album_id) if album_id else None,
-                },
-            )
-
-            uploaded.append(
-                {
-                    "id": str(photo.id.value),
-                    "filename": photo.filename,
-                    "status": "processing",
-                }
-            )
-
-        except Exception as e:
-            logger.error(
-                "Failed to upload photo",
-                extra={
-                    "photo_filename": file.filename or "unknown",
-                    "error": str(e),
-                },
-                exc_info=True,
-            )
-            failed.append(
-                {
-                    "filename": file.filename or "unknown",
-                    "error": f"Upload failed: {e!s}",
-                }
-            )
+        raise HTTPException(status_code=500, detail=error_message)
 
     return PhotoUploadResponse(
         success=True,
         data={"uploaded": uploaded, "failed": failed},
     )
+
+
+async def _cleanup_partial_uploads(
+    photo_ids: list[UUID],
+    photo_service: PhotoServiceDep,
+) -> None:
+    """Delete uploaded photos on batch failure.
+
+    This function ensures that if a batch upload fails partway through,
+    all successfully uploaded photos are cleaned up to maintain data
+    consistency and prevent orphaned records.
+
+    Args:
+        photo_ids: List of photo IDs to delete
+        photo_service: Photo service dependency for deletion
+    """
+    for photo_id in photo_ids:
+        try:
+            deleted = await photo_service.delete_photo(photo_id)
+            logger.info(
+                "Cleanup deleted photo",
+                extra={
+                    "photo_id": str(photo_id),
+                    "success": deleted,
+                },
+            )
+        except Exception as cleanup_error:
+            logger.error(
+                "Cleanup error during batch upload rollback",
+                extra={
+                    "photo_id": str(photo_id),
+                    "error": str(cleanup_error),
+                },
+                exc_info=True,
+            )
 
 
 @router.get(

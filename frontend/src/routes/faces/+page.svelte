@@ -136,7 +136,12 @@
 			sortOrder = urlSortOrder;
 		}
 
-		void loadClusters();
+		// Only load list data when we're actually in the list view.
+		// This prevents an initial navigation from /faces?view=graph
+		// being immediately overwritten back to the list view URL.
+		if (activeTab === 'list') {
+			void loadClusters();
+		}
 	});
 
 	function updateUrl(): void {

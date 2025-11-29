@@ -254,9 +254,12 @@ async def test_process_queue_async_processes_face_embeddings():
     mock_vector_store.store_face_embedding = AsyncMock()
     mock_redis.close = AsyncMock()
 
+    async def mock_from_url(*args, **kwargs):
+        return mock_redis
+
     with patch(
         "app.adapters.inbound.workers.tasks.qdrant_recovery.from_url",
-        return_value=mock_redis,
+        side_effect=mock_from_url,
     ):
         with patch(
             "app.adapters.inbound.workers.tasks.qdrant_recovery.QdrantFallbackQueue",
@@ -293,9 +296,12 @@ async def test_process_queue_async_handles_unknown_operation():
     mock_queue.dequeue_batch = AsyncMock(side_effect=[[task], []])
     mock_redis.close = AsyncMock()
 
+    async def mock_from_url(*args, **kwargs):
+        return mock_redis
+
     with patch(
         "app.adapters.inbound.workers.tasks.qdrant_recovery.from_url",
-        return_value=mock_redis,
+        side_effect=mock_from_url,
     ):
         with patch(
             "app.adapters.inbound.workers.tasks.qdrant_recovery.QdrantFallbackQueue",
@@ -334,9 +340,12 @@ async def test_process_queue_async_retries_failed_tasks():
     mock_vector_store.store_photo_embedding = AsyncMock(side_effect=Exception("DB error"))
     mock_redis.close = AsyncMock()
 
+    async def mock_from_url(*args, **kwargs):
+        return mock_redis
+
     with patch(
         "app.adapters.inbound.workers.tasks.qdrant_recovery.from_url",
-        return_value=mock_redis,
+        side_effect=mock_from_url,
     ):
         with patch(
             "app.adapters.inbound.workers.tasks.qdrant_recovery.QdrantFallbackQueue",
@@ -376,9 +385,12 @@ async def test_process_queue_async_respects_max_retries():
     mock_vector_store.store_photo_embedding = AsyncMock(side_effect=Exception("Error"))
     mock_redis.close = AsyncMock()
 
+    async def mock_from_url(*args, **kwargs):
+        return mock_redis
+
     with patch(
         "app.adapters.inbound.workers.tasks.qdrant_recovery.from_url",
-        return_value=mock_redis,
+        side_effect=mock_from_url,
     ):
         with patch(
             "app.adapters.inbound.workers.tasks.qdrant_recovery.QdrantFallbackQueue",
@@ -427,9 +439,12 @@ async def test_process_queue_async_processes_multiple_batches():
     mock_vector_store.store_face_embedding = AsyncMock()
     mock_redis.close = AsyncMock()
 
+    async def mock_from_url(*args, **kwargs):
+        return mock_redis
+
     with patch(
         "app.adapters.inbound.workers.tasks.qdrant_recovery.from_url",
-        return_value=mock_redis,
+        side_effect=mock_from_url,
     ):
         with patch(
             "app.adapters.inbound.workers.tasks.qdrant_recovery.QdrantFallbackQueue",
@@ -458,9 +473,12 @@ async def test_process_queue_async_closes_redis_connection():
     mock_queue.queue_length = AsyncMock(return_value=0)
     mock_redis.close = AsyncMock()
 
+    async def mock_from_url(*args, **kwargs):
+        return mock_redis
+
     with patch(
         "app.adapters.inbound.workers.tasks.qdrant_recovery.from_url",
-        return_value=mock_redis,
+        side_effect=mock_from_url,
     ):
         with patch(
             "app.adapters.inbound.workers.tasks.qdrant_recovery.QdrantFallbackQueue",
@@ -485,9 +503,12 @@ async def test_process_queue_async_closes_redis_on_error():
     mock_queue.queue_length = AsyncMock(side_effect=Exception("Redis error"))
     mock_redis.close = AsyncMock()
 
+    async def mock_from_url(*args, **kwargs):
+        return mock_redis
+
     with patch(
         "app.adapters.inbound.workers.tasks.qdrant_recovery.from_url",
-        return_value=mock_redis,
+        side_effect=mock_from_url,
     ):
         with patch(
             "app.adapters.inbound.workers.tasks.qdrant_recovery.QdrantFallbackQueue",

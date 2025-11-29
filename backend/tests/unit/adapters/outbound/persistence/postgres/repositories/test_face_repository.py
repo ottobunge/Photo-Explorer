@@ -494,3 +494,125 @@ class TestGetSharedPhotos(TestFaceRepositoryBatchMethods):
 
         # Assert
         assert shared_photos == []
+
+
+class TestCountPhotosByClustersBatch:
+    """Unit tests for batch photo counting method."""
+
+    @pytest.fixture
+    def mock_session(self) -> Mock:
+        """Create a mock async session."""
+        session = Mock(spec=AsyncSession)
+        session.execute = AsyncMock()
+        return session
+
+    @pytest.fixture
+    def face_repo(self, mock_session: Mock) -> FaceRepositoryPostgres:
+        """Create FaceRepositoryPostgres with mock session."""
+        return FaceRepositoryPostgres(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_count_photos_by_clusters_batch_empty_list(
+        self,
+        face_repo: FaceRepositoryPostgres,
+    ) -> None:
+        """When given empty cluster list, should return empty dict."""
+        # Act
+        result = await face_repo.count_photos_by_clusters_batch([])
+
+        # Assert
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_count_photos_by_clusters_batch_single_cluster(
+        self,
+        face_repo: FaceRepositoryPostgres,
+        mock_session: Mock,
+    ) -> None:
+        """When given single cluster, should return correct photo count."""
+        # Arrange
+        cluster_id = uuid4()
+        mock_row = Mock()
+        mock_row.cluster_id = cluster_id
+        mock_row.photo_count = 15
+
+        mock_result = Mock()
+        mock_result.all = Mock(return_value=[mock_row])
+        mock_session.execute.return_value = mock_result
+
+        # Act
+        result = await face_repo.count_photos_by_clusters_batch([cluster_id])
+
+        # Assert
+        assert result == {cluster_id: 15}
+
+    @pytest.mark.asyncio
+    async def test_count_photos_by_clusters_batch_multiple_clusters(
+        self,
+        face_repo: FaceRepositoryPostgres,
+        mock_session: Mock,
+    ) -> None:
+        """When given multiple clusters, should return counts for all."""
+        # Arrange
+        cluster_ids = [uuid4(), uuid4(), uuid4()]
+        mock_rows = [
+            Mock(cluster_id=cluster_ids[0], photo_count=10),
+            Mock(cluster_id=cluster_ids[1], photo_count=25),
+            Mock(cluster_id=cluster_ids[2], photo_count=5),
+        ]
+
+        mock_result = Mock()
+        mock_result.all = Mock(return_value=mock_rows)
+        mock_session.execute.return_value = mock_result
+
+        # Act
+        result = await face_repo.count_photos_by_clusters_batch(cluster_ids)
+
+        # Assert
+        assert len(result) == 3
+        assert result[cluster_ids[0]] == 10
+        assert result[cluster_ids[1]] == 25
+        assert result[cluster_ids[2]] == 5
+
+    @pytest.mark.asyncio
+    async def test_count_photos_by_clusters_batch_cluster_with_zero_photos(
+        self,
+        face_repo: FaceRepositoryPostgres,
+        mock_session: Mock,
+    ) -> None:
+        """When cluster has no photos, should default to 0."""
+        # Arrange
+        cluster_ids = [uuid4(), uuid4()]
+        # Only one cluster has results
+        mock_rows = [Mock(cluster_id=cluster_ids[0], photo_count=5)]
+
+        mock_result = Mock()
+        mock_result.all = Mock(return_value=mock_rows)
+        mock_session.execute.return_value = mock_result
+
+        # Act
+        result = await face_repo.count_photos_by_clusters_batch(cluster_ids)
+
+        # Assert
+        assert len(result) == 2
+        assert result[cluster_ids[0]] == 5
+        assert result[cluster_ids[1]] == 0
+
+    @pytest.mark.asyncio
+    async def test_count_photos_by_clusters_batch_uses_single_query(
+        self,
+        face_repo: FaceRepositoryPostgres,
+        mock_session: Mock,
+    ) -> None:
+        """Should execute exactly one query regardless of cluster count."""
+        # Arrange
+        cluster_ids = [uuid4() for _ in range(50)]
+        mock_result = Mock()
+        mock_result.all = Mock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        # Act
+        await face_repo.count_photos_by_clusters_batch(cluster_ids)
+
+        # Assert - should only call execute once
+        mock_session.execute.assert_called_once()

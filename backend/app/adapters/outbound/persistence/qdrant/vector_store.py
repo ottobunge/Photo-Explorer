@@ -158,6 +158,9 @@ class QdrantVectorStore(VectorStore):
             for result in results
         ]
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("delete_photo_embedding")
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def delete_photo_embedding(self, photo_id: UUID) -> bool:
         """Delete a photo's embedding."""
         try:
@@ -173,6 +176,9 @@ class QdrantVectorStore(VectorStore):
             logger.error(f"Error deleting photo embedding: {e}")
             return False
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("get_photo_embedding")
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def get_photo_embedding(self, photo_id: UUID) -> Optional[Embedding]:
         """Retrieve a photo's stored embedding."""
         try:
@@ -217,6 +223,9 @@ class QdrantVectorStore(VectorStore):
         )
         logger.debug(f"Stored embedding for face {face_id}")
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("search_faces")
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def search_faces(
         self,
         query_embedding: Embedding,
@@ -244,6 +253,9 @@ class QdrantVectorStore(VectorStore):
             for result in results
         ]
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("delete_face_embedding")
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def delete_face_embedding(self, face_id: UUID) -> bool:
         """Delete a face's embedding."""
         try:
@@ -309,6 +321,9 @@ class QdrantVectorStore(VectorStore):
             logger.error(f"Error finding similar faces: {e}")
             return []
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("get_face_embedding")
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def get_face_embedding(self, face_id: UUID) -> Optional[Embedding]:
         """Retrieve a face's stored embedding."""
         try:
@@ -328,6 +343,9 @@ class QdrantVectorStore(VectorStore):
 
     # Batch operations
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("store_photo_embeddings_batch")
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def store_photo_embeddings_batch(
         self,
         embeddings: list[tuple[UUID, Embedding, Optional[dict]]],
@@ -350,6 +368,9 @@ class QdrantVectorStore(VectorStore):
         )
         logger.debug(f"Stored {len(embeddings)} photo embeddings in batch")
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("store_face_embeddings_batch")
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def store_face_embeddings_batch(
         self,
         embeddings: list[tuple[UUID, Embedding, Optional[dict]]],
@@ -372,6 +393,9 @@ class QdrantVectorStore(VectorStore):
         )
         logger.debug(f"Stored {len(embeddings)} face embeddings in batch")
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("update_face_payload")
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
     async def update_face_payload(self, face_id: UUID, payload: dict) -> None:
         """Update the payload (metadata) for a face embedding."""
         await self._client.set_payload(
@@ -379,6 +403,49 @@ class QdrantVectorStore(VectorStore):
             payload=payload,
             points=[str(face_id)],
         )
+
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("update_face_payloads_batch")
+    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    async def update_face_payloads_batch(
+        self,
+        updates: list[tuple[UUID, dict]],
+    ) -> None:
+        """
+        Update payloads for multiple faces in a single batch operation.
+
+        This uses Qdrant's set_payload with multiple point IDs for atomicity.
+
+        Args:
+            updates: List of (face_id, payload_updates) tuples
+
+        Raises:
+            Exception: If batch update fails
+        """
+        if not updates:
+            return
+
+        # Group updates by payload to reduce Qdrant calls
+        # All updates have the same payload structure, just different values
+        # So we can do one set_payload call per unique payload update
+        payload_map: dict[str, tuple[dict, list[str]]] = {}
+
+        for face_id, payload in updates:
+            # Convert payload to hashable key for grouping
+            payload_key = str(sorted(payload.items()))
+            if payload_key not in payload_map:
+                payload_map[payload_key] = (payload, [])
+            payload_map[payload_key][1].append(str(face_id))
+
+        # Execute batch updates
+        for payload, point_ids in payload_map.values():
+            await self._client.set_payload(
+                collection_name=self._faces_collection,
+                payload=payload,
+                points=point_ids,
+            )
+
+        logger.debug(f"Batch updated payloads for {len(updates)} faces")
 
     def _build_filter(self, filters: dict) -> qdrant_models.Filter:
         """Build a Qdrant filter from a dictionary."""

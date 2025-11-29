@@ -154,12 +154,15 @@ async def list_clusters(
         total = await face_repo.count_clusters(named_only=named_only)
 
     # Build cluster data with photo counts
-    cluster_data_list = []
-    for cluster in clusters:
-        # Get unique photo count for this cluster
-        photo_count = await face_repo.count_photos_by_cluster(cluster.id.value)
+    # Get all cluster IDs for batch query (eliminates N+1 queries)
+    cluster_ids = [cluster.id.value for cluster in clusters]
+    photo_counts = await face_repo.count_photos_by_clusters_batch(cluster_ids)
 
-        cluster_data_list.append(_build_cluster_data(cluster, photo_count))
+    # Build cluster data using batched photo counts
+    cluster_data_list = [
+        _build_cluster_data(cluster, photo_counts[cluster.id.value])
+        for cluster in clusters
+    ]
 
     return ClusterListResponse(
         success=True,

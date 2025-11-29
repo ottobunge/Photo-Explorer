@@ -76,50 +76,135 @@ class FaceService(FaceUseCases):
         source_cluster_ids: list[UUID],
         target_cluster_id: UUID,
     ) -> FaceCluster:
-        """Merge multiple clusters into one."""
+        """
+        Merge multiple clusters into one with atomic state updates.
+
+        This operation is designed to be resilient to failures:
+        1. Phase 1: Collect all updates without applying them
+        2. Phase 2: Update database (transactional)
+        3. Phase 3: Update vector store (batch operation)
+        4. Phase 4: Delete source clusters
+        If Phase 3 fails, compensates by reverting database updates.
+        """
         # Get target cluster
         target = await self._face_repo.find_cluster_by_id(target_cluster_id)
         if not target:
             raise EntityNotFoundException("Cluster", str(target_cluster_id))
 
         total_moved = 0
+        # Track all face updates and their original state for potential rollback
+        all_face_updates: list[tuple[Face, UUID | None]] = []  # (face, original_cluster_id)
 
-        for source_id in source_cluster_ids:
-            if source_id == target_cluster_id:
-                continue
+        try:
+            # PHASE 1: Collect all updates without applying them
+            for source_id in source_cluster_ids:
+                if source_id == target_cluster_id:
+                    continue
 
-            source = await self._face_repo.find_cluster_by_id(source_id)
-            if not source:
-                continue
+                source = await self._face_repo.find_cluster_by_id(source_id)
+                if not source:
+                    continue
 
-            # Merge faces from source to target
-            moved_faces = target.merge_from(source)
-            total_moved += len(moved_faces)
+                # Merge faces from source to target (updates cluster internally)
+                moved_faces = target.merge_from(source)
+                total_moved += len(moved_faces)
 
-            # Update face assignments in database - batch operation to avoid N+1 queries
-            faces = await self._face_repo.find_faces_by_ids(source.face_ids)
-            for face in faces:
-                face.assign_to_cluster(target_cluster_id)
+                # Fetch faces and track them with original cluster ID
+                faces = await self._face_repo.find_faces_by_ids(source.face_ids)
+                for face in faces:
+                    # Store original cluster ID before modifying
+                    original_cluster_id = face.cluster_id
+                    all_face_updates.append((face, original_cluster_id))
 
-                # Update vector store
-                await self._vector_store.update_face_payload(
-                    face.id.value,
-                    {"cluster_id": str(target_cluster_id)},
-                )
+            # Only proceed if there are faces to update
+            if all_face_updates:
+                # PHASE 2: Update database in transaction
+                # Update all faces with new cluster assignment
+                for face, _ in all_face_updates:
+                    face.assign_to_cluster(target_cluster_id)
 
-            # Save all faces in a single batch
-            await self._face_repo.save_faces_batch(faces)
+                await self._face_repo.save_faces_batch([face for face, _ in all_face_updates])
 
-            # Delete source cluster
-            await self._face_repo.delete_cluster(source_id)
+                # PHASE 3: Batch update vector store
+                # Prepare batch updates for all faces
+                vector_updates = [
+                    (face.id.value, {"cluster_id": str(target_cluster_id)})
+                    for face, _ in all_face_updates
+                ]
 
-        # Save target cluster
-        target = await self._face_repo.save_cluster(target)
+                try:
+                    await self._vector_store.update_face_payloads_batch(vector_updates)
+                except Exception as vector_error:
+                    # If vector store fails, compensate by reverting database changes
+                    logger.error(
+                        f"Vector store batch update failed during merge: {vector_error}. "
+                        f"Compensating by reverting database changes."
+                    )
+                    await self._compensate_merge_failure(all_face_updates)
+                    raise
 
-        logger.info(
-            f"Merged {len(source_cluster_ids)} clusters into {target_cluster_id}, moved {total_moved} faces"
-        )
-        return target
+            # PHASE 4: Delete source clusters
+            for source_id in source_cluster_ids:
+                if source_id != target_cluster_id:
+                    await self._face_repo.delete_cluster(source_id)
+
+            # Save target cluster
+            target = await self._face_repo.save_cluster(target)
+
+            logger.info(
+                f"Merged {len(source_cluster_ids)} clusters into {target_cluster_id}, "
+                f"moved {total_moved} faces"
+            )
+            return target
+
+        except Exception as e:
+            logger.error(f"Merge operation failed: {e}")
+            raise
+
+    async def _compensate_merge_failure(
+        self,
+        face_updates: list[tuple[Face, UUID | None]],
+    ) -> None:
+        """
+        Compensating transaction to rollback failed merge.
+
+        Reverts faces back to their original clusters in both database and vector store.
+
+        Args:
+            face_updates: List of (face, original_cluster_id) tuples to revert
+        """
+        logger.info(f"Compensating merge failure by reverting {len(face_updates)} faces")
+
+        try:
+            # Revert database changes
+            for face, original_cluster_id in face_updates:
+                if original_cluster_id is not None:
+                    face.assign_to_cluster(original_cluster_id)
+                else:
+                    face.remove_from_cluster()
+
+            await self._face_repo.save_faces_batch([face for face, _ in face_updates])
+
+            # Revert vector store changes
+            vector_reversion = [
+                (face.id.value, {"cluster_id": str(original_cluster_id)})
+                for face, original_cluster_id in face_updates
+                if original_cluster_id is not None
+            ]
+
+            if vector_reversion:
+                await self._vector_store.update_face_payloads_batch(vector_reversion)
+
+            logger.info(f"Successfully compensated merge failure for {len(face_updates)} faces")
+
+        except Exception as compensation_error:
+            # If compensation fails, log critically but don't raise
+            # Database and vector store are now in inconsistent state
+            logger.critical(
+                f"CRITICAL: Failed to compensate merge failure: {compensation_error}. "
+                f"Database and vector store may be in inconsistent state. "
+                f"Manual intervention may be required."
+            )
 
     async def split_face(self, face_id: UUID) -> FaceCluster:
         """Split a face from its cluster into a new cluster."""

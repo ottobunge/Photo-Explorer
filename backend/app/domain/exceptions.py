@@ -119,6 +119,14 @@ class StorageError(DomainException):
     """Raised when a storage operation fails."""
 
 
+class PathSecurityError(StorageError):
+    """Raised when a path traversal or security violation is detected."""
+
+    def __init__(self, message: str, attempted_path: str | None = None) -> None:
+        self.attempted_path = attempted_path
+        super().__init__(message)
+
+
 class FileNotFoundError(StorageError):
     """Raised when a file is not found in storage."""
 

@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import cytoscape from 'cytoscape';
 	import type { Core, ElementDefinition, EventObject, NodeSingular, EdgeSingular } from 'cytoscape';
+	import { API_HOST } from '$lib/api/client';
 	import { faceGraphStore } from '../stores/face-graph.svelte';
 	import { goto } from '$app/navigation';
 	import type { GraphNode, GraphEdge } from '../types';
@@ -28,17 +29,24 @@
 					{
 						selector: 'node',
 						style: {
-							'background-color': '#4f46e5',
-							label: 'data(name)',
-							'text-valign': 'center',
-							'text-halign': 'center',
-							color: '#1f2937',
-							'font-size': '12px',
-							'font-weight': 'bold',
+							// Use face thumbnails as node background where available
+							'background-image': 'data(imageUrl)',
+							'background-fit': 'cover cover',
+							'background-opacity': 1,
+							'background-color': '#e5e7eb', // fallback when no image
+							shape: 'ellipse',
 							width: 'data(size)',
 							height: 'data(size)',
 							'border-width': 2,
 							'border-color': '#fff',
+							// Label styling (person name) rendered below the node
+							label: 'data(name)',
+							'text-valign': 'bottom',
+							'text-halign': 'center',
+							'text-margin-y': 8,
+							color: '#111827',
+							'font-size': '12px',
+							'font-weight': '600',
 							'overlay-opacity': 0
 						}
 					},
@@ -77,20 +85,9 @@
 						}
 					}
 				],
-				layout: {
-					name: 'cose',
-					animate: true,
-					animationDuration: 500,
-					nodeRepulsion: 8000,
-					idealEdgeLength: 100,
-					edgeElasticity: 100,
-					nestingFactor: 1.2,
-					gravity: 1,
-					numIter: 1000,
-					initialTemp: 200,
-					coolingFactor: 0.95,
-					minTemp: 1.0
-				},
+				// Use preset layout; we provide explicit positions for nodes in
+				// updateGraph to avoid Cytoscape's internal layout bugs.
+				layout: { name: 'preset' },
 				userZoomingEnabled: true,
 				userPanningEnabled: true,
 				boxSelectionEnabled: false,
@@ -171,16 +168,36 @@
 		}
 
 		// Convert nodes to Cytoscape format
-		const cytoscapeNodes: ElementDefinition[] = nodes.map((node) => ({
-			data: {
-				id: node.id,
-				name: node.name ?? 'Unknown',
-				faceCount: node.face_count || 0,
-				size: Math.max(30, Math.min(80, (node.face_count || 0) * 2)), // Size based on face count
-				representativeFaceId: node.representative_face_id
-			},
-			classes: currentFilteredPersonId === node.id ? 'highlighted' : ''
-		}));
+		// We compute simple circular positions ourselves and use Cytoscape's
+		// "preset" layout so we don't depend on its force-directed algorithms.
+		const nodeCount = Math.max(nodes.length, 1);
+		const radius = 200;
+
+		const cytoscapeNodes: ElementDefinition[] = nodes.map((node, index) => {
+			const faceCount = node.face_count || 0;
+			const size = Math.max(40, Math.min(100, faceCount * 2)); // Size based on face count
+			const imageUrl =
+				node.representative_face_id !== null
+					? `${API_HOST}/api/v1/faces/${node.representative_face_id}/crop`
+					: null;
+
+			const angle = (2 * Math.PI * index) / nodeCount;
+			const x = radius * Math.cos(angle);
+			const y = radius * Math.sin(angle);
+
+			return {
+				data: {
+					id: node.id,
+					name: node.name ?? 'Unknown',
+					faceCount,
+					size,
+					imageUrl,
+					representativeFaceId: node.representative_face_id
+				},
+				position: { x, y },
+				classes: currentFilteredPersonId === node.id ? 'highlighted' : ''
+			};
+		});
 
 		// Convert edges to Cytoscape format
 		const cytoscapeEdges: ElementDefinition[] = edges.map((edge) => ({
@@ -198,28 +215,10 @@
 		cy.elements().remove();
 		cy.add([...cytoscapeNodes, ...cytoscapeEdges]);
 
-		// Run layout
-		const layout = cy.layout({
-			name: 'cose',
-			animate: true,
-			animationDuration: 500,
-			nodeRepulsion: 8000,
-			idealEdgeLength: 100,
-			edgeElasticity: 100,
-			nestingFactor: 1.2,
-			gravity: 1,
-			numIter: 1000,
-			initialTemp: 200,
-			coolingFactor: 0.95,
-			minTemp: 1.0
-		});
-
-		layout.run();
-
-		// Fit to viewport after layout completes
+		// Fit to viewport after elements are added
 		setTimeout(() => {
 			cy?.fit(undefined, 50);
-		}, 600);
+		}, 0);
 	}
 
 	function handleZoomIn(): void {

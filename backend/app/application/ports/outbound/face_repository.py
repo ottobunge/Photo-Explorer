@@ -204,6 +204,23 @@ class FaceRepository(ABC):
             Count of unique photos containing faces from this cluster
         """
 
+    @abstractmethod
+    async def count_photos_by_clusters_batch(
+        self, cluster_ids: list[UUID]
+    ) -> dict[UUID, int]:
+        """
+        Count unique photos for multiple clusters in a single batch query.
+
+        This eliminates N+1 queries by fetching all photo counts in one query
+        with a GROUP BY clause, instead of querying each cluster individually.
+
+        Args:
+            cluster_ids: List of cluster IDs to count photos for
+
+        Returns:
+            Dictionary mapping cluster_id to photo_count
+        """
+
     # Social graph operations
 
     @abstractmethod

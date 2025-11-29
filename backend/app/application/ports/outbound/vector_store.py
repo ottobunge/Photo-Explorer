@@ -164,6 +164,25 @@ class VectorStore(ABC):
             payload: Metadata to update (e.g., {"cluster_id": "..."})
         """
 
+    @abstractmethod
+    async def update_face_payloads_batch(
+        self,
+        updates: list[tuple[UUID, PayloadDict]],
+    ) -> None:
+        """
+        Update payloads for multiple faces in a single batch operation.
+
+        This is critical for atomic operations like cluster merging to ensure
+        vector store and database don't get out of sync.
+
+        Args:
+            updates: List of (face_id, payload_updates) tuples
+                    e.g. [(UUID1, {"cluster_id": "cluster-uuid"}), ...]
+
+        Raises:
+            Exception: If batch update fails
+        """
+
     # TODO(performance): Batch face clustering operations
     # Currently face clustering processes 1,000+ faces one-by-one with individual
     # vector searches and payload updates. This is very slow.
@@ -183,18 +202,6 @@ class VectorStore(ABC):
     #
     #     Returns:
     #         Dictionary mapping face IDs to their embeddings
-    #     """
-    #
-    # @abstractmethod
-    # async def update_face_payloads_batch(
-    #     self,
-    #     updates: list[tuple[UUID, dict]]
-    # ) -> None:
-    #     """
-    #     Update payloads for multiple faces in a single batch operation.
-    #
-    #     Args:
-    #         updates: List of (face_id, payload_updates) tuples
     #     """
     #
     # With these methods, clustering could:

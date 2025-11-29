@@ -1,4 +1,14 @@
-"""File storage port - Interface for file system operations."""
+"""File storage port - Interface for file system operations.
+
+Security Model:
+- All storage paths are relative to designated storage directories (photos, thumbnails, faces)
+- Path traversal attacks using ".." are rejected
+- Absolute paths are rejected
+- Symlinks that escape storage directories are rejected
+- All paths are canonicalized before use
+
+Implementations MUST enforce these security properties.
+"""
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -6,7 +16,29 @@ from typing import BinaryIO, Optional
 
 
 class FileStorage(ABC):
-    """Interface for file storage operations."""
+    """Interface for file storage operations.
+
+    All implementations must enforce the following security guarantees:
+
+    1. Path Containment: All file operations are restricted to designated
+       storage directories (photos, thumbnails, faces). No file outside
+       these directories can be accessed or modified.
+
+    2. Path Traversal Prevention: Paths containing ".." components are
+       rejected to prevent directory traversal attacks.
+
+    3. Absolute Path Rejection: Absolute paths (/etc/passwd, C:\\Windows\\)
+       are rejected. Only relative paths within storage directories are allowed.
+
+    4. Symlink Safety: Symlinks that resolve outside the storage directory
+       are rejected, preventing symlink escapes.
+
+    5. Canonical Resolution: All paths are resolved to their canonical form
+       using resolve(), eliminating . and .. references before validation.
+
+    These guarantees prevent attackers from accessing files outside the
+    intended storage directories, even with malicious path inputs.
+    """
 
     @abstractmethod
     async def save_photo(
@@ -61,48 +93,68 @@ class FileStorage(ABC):
 
     @abstractmethod
     async def get_file(self, path: str) -> Optional[bytes]:
-        """
-        Read a file from storage.
+        """Read a file from storage.
+
+        The path must be relative and safe. Absolute paths and path
+        traversal attempts are rejected.
 
         Args:
-            path: The storage path
+            path: The relative storage path (must not contain ".." or be absolute)
 
         Returns:
             File bytes or None if not found
+
+        Raises:
+            PathSecurityError: If path contains security vulnerabilities
         """
 
     @abstractmethod
     async def delete_file(self, path: str) -> bool:
-        """
-        Delete a file from storage.
+        """Delete a file from storage.
+
+        The path must be relative and safe. Absolute paths and path
+        traversal attempts are rejected.
 
         Args:
-            path: The storage path
+            path: The relative storage path (must not contain ".." or be absolute)
 
         Returns:
             True if deleted, False if not found
+
+        Raises:
+            PathSecurityError: If path contains security vulnerabilities
         """
 
     @abstractmethod
     async def file_exists(self, path: str) -> bool:
-        """
-        Check if a file exists.
+        """Check if a file exists.
+
+        The path must be relative and safe. Absolute paths and path
+        traversal attempts are rejected.
 
         Args:
-            path: The storage path
+            path: The relative storage path (must not contain ".." or be absolute)
 
         Returns:
             True if file exists
+
+        Raises:
+            PathSecurityError: If path contains security vulnerabilities
         """
 
     @abstractmethod
     def get_absolute_path(self, storage_path: str) -> Path:
-        """
-        Get the absolute filesystem path for a storage path.
+        """Get the absolute filesystem path for a storage path.
+
+        The path is validated for security before returning. Absolute paths
+        and path traversal attempts are rejected.
 
         Args:
-            storage_path: The relative storage path
+            storage_path: The relative storage path (must not contain ".." or be absolute)
 
         Returns:
-            Absolute Path object
+            Absolute Path object within a storage directory
+
+        Raises:
+            PathSecurityError: If path contains security vulnerabilities
         """

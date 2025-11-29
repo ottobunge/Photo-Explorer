@@ -295,6 +295,42 @@ class FaceRepositoryPostgres(FaceRepository):
         result = await self._session.execute(stmt)
         return result.scalar_one()
 
+    async def count_photos_by_clusters_batch(
+        self, cluster_ids: list[UUID]
+    ) -> dict[UUID, int]:
+        """
+        Count unique photos for multiple clusters in a single batch query.
+
+        Uses GROUP BY to aggregate all photo counts in one query,
+        eliminating N+1 queries.
+        """
+        if not cluster_ids:
+            return {}
+
+        # Query groups by cluster_id and counts distinct photos
+        stmt = (
+            select(
+                FaceModel.cluster_id,
+                func.count(func.distinct(FaceModel.photo_id)).label("photo_count"),
+            )
+            .where(FaceModel.cluster_id.in_(cluster_ids))
+            .group_by(FaceModel.cluster_id)
+        )
+        result = await self._session.execute(stmt)
+
+        # Build dictionary mapping cluster_id -> photo_count
+        photo_counts: dict[UUID, int] = {}
+        for row in result.all():
+            if row.cluster_id is not None:
+                photo_counts[row.cluster_id] = row.photo_count
+
+        # Ensure all requested cluster IDs are in the result (default to 0)
+        for cluster_id in cluster_ids:
+            if cluster_id not in photo_counts:
+                photo_counts[cluster_id] = 0
+
+        return photo_counts
+
     async def get_co_appearances(
         self,
         cluster_id: UUID | None = None,
