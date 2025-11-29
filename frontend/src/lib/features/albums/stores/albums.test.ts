@@ -207,7 +207,7 @@ describe('albumsStore', () => {
 			const originalAlbums = [...albumsStore.albums];
 
 			vi.mocked(client.delete).mockRejectedValue(
-				new ApiError('Error', 500, 'ERROR')
+				new Error('Delete failed')
 			);
 
 			await expect(albumsStore.delete('1')).rejects.toThrow();
