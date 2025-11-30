@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { client, API_HOST } from '$lib/api/client';
+	import { PAGINATION } from '$lib/constants';
 	import FaceTabs from '$lib/features/faces/components/FaceTabs.svelte';
 	import { FaceGraph, faceGraphStore, ClusterMergeModal, faceSelectionStore } from '$lib/features/faces';
 	import type { FaceClusterType } from '$lib/features/faces';
@@ -24,12 +25,12 @@
 		clusters: FaceCluster[];
 	}
 
-	type TabType = 'list' | 'graph';
+type TabType = 'list' | 'graph';
 
-	// Derive activeTab from URL - single source of truth (fixes race condition)
-	const activeTab = $derived<TabType>(
-		$page.url.searchParams.get('view') === 'graph' ? 'graph' : 'list'
-	);
+// Derive activeTab from URL - single source of truth (fixes race condition)
+const activeTab = $derived<TabType>(
+	$page.url.searchParams.get('view') === 'graph' ? 'graph' : 'list'
+);
 
 	let clusters = $state<FaceCluster[]>([]);
 	let loading = $state(true);
@@ -37,7 +38,7 @@
 	let showNamedOnly = $state(false);
 	let showUnnamedOnly = $state(false);
 	let currentPage = $state(1);
-	let perPage = $state(30);
+	let perPage = $state(PAGINATION.FACES_PAGE_SIZE);
 	let total = $state(0);
 	let sortBy = $state<'face_count' | 'photo_count' | 'name'>('face_count');
 	let sortOrder = $state<'asc' | 'desc'>('desc');
@@ -96,10 +97,12 @@
 			});
 	});
 
-	// Load graph data when switching to graph tab
+// Load base graph data when switching to graph tab. Per-person filtering is
+// handled inside the faceGraphStore via filterByPerson/clearFilter; we keep
+// this effect simple to avoid subtle races with URL/query param changes.
 	$effect(() => {
 		if (activeTab === 'graph') {
-			void faceGraphStore.loadGraph();
+		void faceGraphStore.loadGraph();
 		}
 	});
 
@@ -150,7 +153,9 @@
 		if (currentPage > 1) {
 			params.set('page', currentPage.toString());
 		}
-		if (perPage !== 30) {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+		if (perPage !== PAGINATION.FACES_PAGE_SIZE) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call
 			params.set('per_page', perPage.toString());
 		}
 		if (showNamedOnly) {

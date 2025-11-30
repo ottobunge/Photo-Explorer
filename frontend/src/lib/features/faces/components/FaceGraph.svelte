@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+import { onDestroy, tick } from 'svelte';
 	import cytoscape from 'cytoscape';
 	import type { Core, ElementDefinition, EventObject, NodeSingular, EdgeSingular } from 'cytoscape';
 	import { API_HOST } from '$lib/api/client';
@@ -9,6 +9,7 @@
 
 	let containerElement = $state<HTMLDivElement | null>(null);
 	let cy: Core | null = null;
+	let rerenderTimeout: number | null = null;
 
 	// Derived state from store using Svelte 5 runes
 	const graph = $derived(faceGraphStore.graph);
@@ -16,29 +17,45 @@
 	const error = $derived(faceGraphStore.error);
 	const filteredPersonId = $derived(faceGraphStore.filteredPersonId);
 
-	// Initialize Cytoscape when container becomes available
-	$effect(() => {
-		console.log('FaceGraph effect - containerElement:', containerElement, 'cy:', cy);
-		if (containerElement && !cy) {
-			console.log('Initializing cytoscape...');
-			// Capture container reference for event handlers
-			const container = containerElement;
-			cy = cytoscape({
-				container: containerElement,
-				style: [
+// Initialise Cytoscape once, after the container has been bound and has real
+// dimensions. This avoids the classic timing issue where Cytoscape measures a
+// 0x0 container on first load but works after a hot reload.
+async function initCytoscape(container: HTMLDivElement): Promise<void> {
+		// Avoid double‑init
+		if (cy) {
+			return;
+		}
+
+		// Wait for Svelte to flush DOM updates, then a microtask so the browser
+		// has painted and computed layout.
+		await tick();
+		await Promise.resolve();
+
+	// Debug: track Cytoscape lifecycle and container size
+	console.log('FaceGraph init - containerElement:', container);
+
+		const rect = container.getBoundingClientRect();
+		console.log('FaceGraph container rect:', rect);
+		if (rect.width === 0 || rect.height === 0) {
+			console.error('FaceGraph container has zero dimensions, skipping Cytoscape init');
+			return;
+		}
+
+		console.log('Initializing cytoscape...');
+
+		cy = cytoscape({
+			container,
+			style: [
 					{
+						// Base node styling that always applies
 						selector: 'node',
 						style: {
-							// Use face thumbnails as node background where available
-							'background-image': 'data(imageUrl)',
-							'background-fit': 'cover cover',
-							'background-opacity': 1,
-							'background-color': '#e5e7eb', // fallback when no image
+							'background-color': '#e5e7eb',
 							shape: 'ellipse',
 							width: 'data(size)',
 							height: 'data(size)',
 							'border-width': 2,
-							'border-color': '#fff',
+							'border-color': '#ffffff',
 							// Label styling (person name) rendered below the node
 							label: 'data(name)',
 							'text-valign': 'bottom',
@@ -46,10 +63,20 @@
 							'text-margin-y': 8,
 							color: '#111827',
 							'font-size': '12px',
-							'font-weight': '600',
+							'font-weight': 600,
 							'overlay-opacity': 0
 						}
 					},
+				{
+					// Only apply background images to nodes that actually have an imageUrl.
+					// This avoids Cytoscape warnings and keeps nodes without faces visible.
+					selector: 'node[imageUrl]',
+					style: {
+						'background-image': 'data(imageUrl)',
+						'background-fit': 'cover',
+						'background-opacity': 1
+					}
+				},
 					{
 						selector: 'node:active',
 						style: {
@@ -76,110 +103,146 @@
 							opacity: 0.6
 						}
 					},
-					{
-						selector: 'edge:active',
-						style: {
-							'line-color': '#4f46e5',
-							opacity: 1,
-							width: 4
-						}
+				{
+					selector: 'edge:active',
+					style: {
+						'line-color': '#4f46e5',
+						opacity: 1,
+						width: 4
 					}
-				],
-				// Use preset layout; we provide explicit positions for nodes in
-				// updateGraph to avoid Cytoscape's internal layout bugs.
-				layout: { name: 'preset' },
-				userZoomingEnabled: true,
-				userPanningEnabled: true,
-				boxSelectionEnabled: false,
-				wheelSensitivity: 0.2,
-				minZoom: 0.5,
-				maxZoom: 3
-			});
-
-			// Handle node clicks
-			cy.on('tap', 'node', (event: EventObject) => {
-				const node = event.target as NodeSingular;
-				const personId = node.data('id') as string;
-
-				// If already filtered by this person, clear filter
-				if (filteredPersonId === personId) {
-					void faceGraphStore.clearFilter();
-				} else {
-					// Filter to this person's network
-					void faceGraphStore.filterByPerson(personId);
 				}
-			});
-
-			// Handle edge clicks
-			cy.on('tap', 'edge', (event: EventObject) => {
-				const edge = event.target as EdgeSingular;
-				const personAId = edge.data('source') as string;
-				const personBId = edge.data('target') as string;
-
-				// Navigate to relationship photos page
-				void goto(`/faces/relationships/${personAId}/${personBId}`);
-			});
-
-			// Add hover tooltips
-			cy.on('mouseover', 'node', (event: EventObject) => {
-				const node = event.target as NodeSingular;
-				const nameData = node.data('name') as string | null | undefined;
-				const name = (nameData !== null && nameData !== undefined && nameData !== '') ? nameData : 'Unknown';
-				const faceCountData = node.data('faceCount') as number | null | undefined;
-				const faceCount = faceCountData ?? 0;
-				node.data('label', `${name}\n${faceCount} faces`);
-			});
-
-			cy.on('mouseover', 'edge', (event: EventObject) => {
-				const edge = event.target as EdgeSingular;
-				const sharedCountData = edge.data('sharedPhotoCount') as number | null | undefined;
-				const sharedCount = sharedCountData ?? 0;
-				container.title = `${sharedCount} photos together`;
-			});
-
-			cy.on('mouseout', 'edge', () => {
-				container.title = '';
-			});
-		}
-	});
-
-	// Update graph when data changes using Svelte 5 $effect
-	$effect(() => {
-		console.log('Graph data changed:', {
-			hasCy: !!cy,
-			hasGraph: !!graph,
-			isEmpty: graph?.is_empty,
-			hasConnections: graph?.has_connections,
-			nodeCount: graph?.node_count,
-			edgeCount: graph?.edge_count,
-			nodesLength: graph?.nodes.length,
-			edgesLength: graph?.edges.length
+			],
+			// Use preset layout; we provide explicit positions for nodes in
+			// updateGraph to avoid Cytoscape's internal layout bugs.
+			layout: { name: 'preset' },
+			userZoomingEnabled: true,
+			userPanningEnabled: true,
+			boxSelectionEnabled: false,
+			wheelSensitivity: 0.2,
+			minZoom: 0.5,
+			maxZoom: 3
 		});
-		if (cy && graph) {
-			updateGraph(graph.nodes, graph.edges, filteredPersonId);
+
+		// Handle node clicks: toggle between full graph and a specific person's
+		// ego network. We drive the data via the faceGraphStore, and update the
+		// URL query params for deep-linking without relying on them for logic.
+		cy.on('tap', 'node', (event: EventObject) => {
+			const node = event.target as NodeSingular;
+			const personId = node.data('id') as string;
+
+			if (filteredPersonId === personId) {
+				// Clear filter: load full graph again and drop person_id in URL
+				void faceGraphStore.clearFilter();
+				void goto('/faces?view=graph', { replaceState: true, keepFocus: true });
+			} else {
+				// Focus on this person's network
+				void faceGraphStore.filterByPerson(personId);
+				void goto(`/faces?view=graph&person_id=${personId}`, {
+					replaceState: true,
+					keepFocus: true
+				});
+			}
+		});
+
+		// Handle edge clicks
+		cy.on('tap', 'edge', (event: EventObject) => {
+			const edge = event.target as EdgeSingular;
+			const personAId = edge.data('source') as string;
+			const personBId = edge.data('target') as string;
+
+			// Navigate to relationship photos page
+			void goto(`/faces/relationships/${personAId}/${personBId}`);
+		});
+
+		// Add hover tooltips
+		cy.on('mouseover', 'node', (event: EventObject) => {
+			const node = event.target as NodeSingular;
+			const nameData = node.data('name') as string | null | undefined;
+			const name = (nameData !== null && nameData !== undefined && nameData !== '') ? nameData : 'Unknown';
+			const faceCountData = node.data('faceCount') as number | null | undefined;
+			const faceCount = faceCountData ?? 0;
+			node.data('label', `${name}\n${faceCount} faces`);
+		});
+
+		cy.on('mouseover', 'edge', (event: EventObject) => {
+			const edge = event.target as EdgeSingular;
+			const sharedCountData = edge.data('sharedPhotoCount') as number | null | undefined;
+			const sharedCount = sharedCountData ?? 0;
+			container.title = `${sharedCount} photos together`;
+		});
+
+		cy.on('mouseout', 'edge', () => {
+			container.title = '';
+		});
+
+		// If graph data was already loaded before Cytoscape initialised
+		// (e.g. when navigating directly to ?view=graph), make sure we
+		// render it immediately.
+		if (graph) {
+			void updateGraph(graph.nodes, graph.edges, filteredPersonId);
+		}
+	}
+
+	// When the bound containerElement becomes available, initialise Cytoscape.
+	// Because this is a reactive effect, it will re-run if Svelte rebinds
+	// the element after navigation, but initCytoscape itself is idempotent.
+	$effect(() => {
+		if (!cy && containerElement) {
+			void initCytoscape(containerElement);
 		}
 	});
 
-	function updateGraph(nodes: GraphNode[], edges: GraphEdge[], currentFilteredPersonId: string | null): void {
+	// Preload face thumbnails so we only use images that load successfully.
+	function preloadImage(url: string): Promise<boolean> {
+		return new Promise((resolve) => {
+			const img = new Image();
+			img.crossOrigin = 'anonymous';
+			img.onload = () => {
+				resolve(true);
+			};
+			img.onerror = () => {
+				resolve(false);
+			};
+			img.src = url;
+		});
+	}
+
+	async function updateGraph(
+		nodes: GraphNode[],
+		edges: GraphEdge[],
+		currentFilteredPersonId: string | null
+	): Promise<void> {
 		console.log('updateGraph called:', { nodes: nodes.length, edges: edges.length, hasCy: !!cy });
 		if (!cy) {
 			console.warn('Cannot update graph - cy not initialized');
 			return;
 		}
 
-		// Convert nodes to Cytoscape format
-		// We compute simple circular positions ourselves and use Cytoscape's
-		// "preset" layout so we don't depend on its force-directed algorithms.
+		// Preload representative face images; only attach image URLs that load
+		// successfully so Cytoscape never tries to draw "broken" images.
+		const imageAvailability = new Map<string, string>();
+		await Promise.all(
+			nodes.map(async (node) => {
+				if (node.representative_face_id !== null) {
+					const url = `${API_HOST}/api/v1/faces/${node.representative_face_id}/crop`;
+					const ok = await preloadImage(url);
+					if (ok) {
+						imageAvailability.set(node.id, url);
+					}
+				}
+			})
+		);
+
+		// Convert nodes to Cytoscape format. We compute simple circular
+		// positions ourselves and use Cytoscape's "preset" layout so we don't
+		// depend on its force-directed algorithms.
 		const nodeCount = Math.max(nodes.length, 1);
 		const radius = 200;
 
 		const cytoscapeNodes: ElementDefinition[] = nodes.map((node, index) => {
 			const faceCount = node.face_count || 0;
 			const size = Math.max(40, Math.min(100, faceCount * 2)); // Size based on face count
-			const imageUrl =
-				node.representative_face_id !== null
-					? `${API_HOST}/api/v1/faces/${node.representative_face_id}/crop`
-					: null;
+			const imageUrl = imageAvailability.get(node.id);
 
 			const angle = (2 * Math.PI * index) / nodeCount;
 			const x = radius * Math.cos(angle);
@@ -215,11 +278,49 @@
 		cy.elements().remove();
 		cy.add([...cytoscapeNodes, ...cytoscapeEdges]);
 
-		// Fit to viewport after elements are added
-		setTimeout(() => {
-			cy?.fit(undefined, 50);
-		}, 0);
+		// Ensure the graph is visible in the viewport. We still rely on our
+		// preset positions, but explicitly tell Cytoscape to resize and fit the
+		// current elements. Wrap in try/catch so any internal Cytoscape issues
+		// don't break the page.
+		try {
+			cy.resize();
+			cy.fit(cy.elements(), 50);
+		} catch (err) {
+			console.warn('Cytoscape fit/resize error (non-fatal):', err);
+		}
 	}
+
+	// Update graph when data changes using Svelte 5 $effect
+	$effect(() => {
+		console.log('Graph data changed:', {
+			hasCy: !!cy,
+			hasGraph: !!graph,
+			isEmpty: graph?.is_empty,
+			hasConnections: graph?.has_connections,
+			nodeCount: graph?.node_count,
+			edgeCount: graph?.edge_count,
+			nodesLength: graph?.nodes.length,
+			edgesLength: graph?.edges.length
+		});
+
+		if (cy && graph) {
+			// Immediate render with the latest data
+			void updateGraph(graph.nodes, graph.edges, filteredPersonId);
+
+			// Force a second render 2 seconds later to catch any late image
+			// load/Cytoscape quirks that might have prevented the first draw.
+			if (rerenderTimeout !== null) {
+				window.clearTimeout(rerenderTimeout);
+			}
+			rerenderTimeout = window.setTimeout(() => {
+				// cy might be null if component was destroyed, but graph is already checked
+				if (cy !== null) {
+					console.log('Force re-rendering face graph after delay');
+					void updateGraph(graph.nodes, graph.edges, filteredPersonId);
+				}
+			}, 2000);
+		}
+	});
 
 	function handleZoomIn(): void {
 		if (cy) {
@@ -274,7 +375,13 @@
 			{#if filteredPersonId}
 				<div class="filter-banner">
 					<span>Showing network for selected person</span>
-					<button onclick={() => faceGraphStore.clearFilter()} class="clear-filter-button">
+					<button
+						onclick={() => {
+							void faceGraphStore.clearFilter();
+							void goto('/faces?view=graph', { replaceState: true, keepFocus: true });
+						}}
+						class="clear-filter-button"
+					>
 						Show All
 					</button>
 				</div>

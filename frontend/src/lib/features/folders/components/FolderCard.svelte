@@ -2,9 +2,13 @@
 	import type { WatchedFolder } from '../types';
 	import { foldersStore } from '../stores/folders.svelte';
 
-	export let folder: WatchedFolder;
+	interface Props {
+		folder: WatchedFolder;
+	}
 
-	let scanning = false;
+	const { folder }: Props = $props();
+
+	let scanning = $state(false);
 
 	async function handleScan(): Promise<void> {
 		scanning = true;
@@ -43,10 +47,10 @@
 	</div>
 
 	<div class="mt-4 flex gap-2">
-		<button type="button" class="btn-secondary text-sm" on:click={handleScan} disabled={scanning}>
+		<button type="button" class="btn-secondary text-sm" onclick={handleScan} disabled={scanning}>
 			{scanning ? 'Scanning...' : 'Scan Now'}
 		</button>
-		<button type="button" class="btn-ghost text-sm text-red-600 hover:bg-red-50" on:click={() => foldersStore.remove(folder.id)}>
+		<button type="button" class="btn-ghost text-sm text-red-600 hover:bg-red-50" onclick={() => foldersStore.remove(folder.id)}>
 			Remove
 		</button>
 	</div>

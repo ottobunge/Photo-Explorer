@@ -1,7 +1,11 @@
 <script lang="ts">
 	import type { UploadItem } from '../types';
 
-	export let items: UploadItem[] = [];
+	interface Props {
+		items?: UploadItem[];
+	}
+
+	const { items = [] }: Props = $props();
 </script>
 
 {#if items.length > 0}

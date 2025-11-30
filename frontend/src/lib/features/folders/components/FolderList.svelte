@@ -2,7 +2,11 @@
 	import type { WatchedFolder } from '../types';
 	import FolderCard from './FolderCard.svelte';
 
-	export let folders: WatchedFolder[] = [];
+	interface Props {
+		folders?: WatchedFolder[];
+	}
+
+	const { folders = [] }: Props = $props();
 </script>
 
 <div data-testid="folder-list">

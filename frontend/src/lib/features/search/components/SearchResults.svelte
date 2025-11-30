@@ -1,8 +1,12 @@
 <script lang="ts">
 	import type { SearchResult } from '../types';
 
-	export let results: SearchResult[] = [];
-	export let loading = false;
+	interface Props {
+		results?: SearchResult[];
+		loading?: boolean;
+	}
+
+	const { results = [], loading = false }: Props = $props();
 </script>
 
 <div data-testid="search-results">

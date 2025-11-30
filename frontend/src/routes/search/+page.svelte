@@ -4,6 +4,7 @@
 	import { SearchBar } from '$features/search';
 	import SimilarityThresholdSlider from '$lib/features/search/components/SimilarityThresholdSlider.svelte';
 	import { client, API_HOST } from '$lib/api/client';
+	import { PAGINATION, THRESHOLDS } from '$lib/constants';
 
 	interface Photo {
 		id: string;
@@ -85,7 +86,7 @@
 				return parsed;
 			}
 		}
-		return 24;
+		return PAGINATION.SEARCH_PAGE_SIZE;
 	});
 	const selectedConnectorId = $derived($page.url.searchParams.get('connector_id'));
 	const selectedAlbumId = $derived($page.url.searchParams.get('album_id'));
@@ -97,7 +98,7 @@
 				return parsed;
 			}
 		}
-		return 0.18; // Default
+		return THRESHOLDS.DEFAULT_SIMILARITY;
 	});
 	const isSearchMode = $derived(query.trim().length > 0);
 

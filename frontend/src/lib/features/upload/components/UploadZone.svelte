@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 
-	export let disabled = false;
-	export let accept = 'image/*';
+	interface Props {
+		disabled?: boolean;
+		accept?: string;
+	}
+
+	const { disabled = false, accept = 'image/*' }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ filesSelected: File[] }>();
 
-	let dragOver = false;
+	let dragOver = $state(false);
 	let fileInput: HTMLInputElement;
 
 	function handleDragOver(e: DragEvent): void {
@@ -61,11 +65,11 @@
 	class:opacity-50={disabled}
 	class:cursor-not-allowed={disabled}
 	class:cursor-pointer={!disabled}
-	on:dragover={handleDragOver}
-	on:dragleave={handleDragLeave}
-	on:drop={handleDrop}
-	on:click={handleClick}
-	on:keydown={handleKeyDown}
+	ondragover={handleDragOver}
+	ondragleave={handleDragLeave}
+	ondrop={handleDrop}
+	onclick={handleClick}
+	onkeydown={handleKeyDown}
 	role="button"
 	tabindex={disabled ? -1 : 0}
 	data-testid="upload-zone"
@@ -76,7 +80,7 @@
 		{accept}
 		multiple
 		class="hidden"
-		on:change={handleFileSelect}
+		onchange={handleFileSelect}
 		{disabled}
 	/>
 

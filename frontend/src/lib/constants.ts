@@ -41,3 +41,64 @@ export const DEFAULT_RETRY_ATTEMPTS = 3;
 
 /** Delay between retry attempts (milliseconds) */
 export const RETRY_DELAY = 1000;
+
+// Pagination
+export const PAGINATION = {
+	DEFAULT_PAGE_SIZE: 24,
+	SEARCH_PAGE_SIZE: 24,
+	FACES_PAGE_SIZE: 30,
+	ALBUMS_PAGE_SIZE: 20,
+	MAX_PAGE_SIZE: 100,
+} as const;
+
+// Similarity thresholds for search
+export const THRESHOLDS = {
+	DEFAULT_SIMILARITY: 0.18,
+	MIN_SIMILARITY: 0.0,
+	MAX_SIMILARITY: 1.0,
+	SIMILARITY_STEP: 0.01,
+} as const;
+
+// Face graph visualization
+export const GRAPH_CONFIG = {
+	DEFAULT_RADIUS: 200,
+	MIN_NODE_SIZE: 40,
+	MAX_NODE_SIZE: 100,
+	NODE_SIZE_MULTIPLIER: 2,
+	ANIMATION_DURATION: 500,
+	FORCE_RERENDER_DELAY: 2000,
+	WHEEL_SENSITIVITY: 0.2,
+	ZOOM_FACTOR: 1.2,
+} as const;
+
+// Upload configuration
+export const UPLOAD_CONFIG = {
+	MAX_FILE_SIZE: 50 * 1024 * 1024, // 50MB
+	ACCEPTED_TYPES: 'image/*',
+	MAX_CONCURRENT_UPLOADS: 3,
+	CHUNK_SIZE: 1024 * 1024, // 1MB chunks
+} as const;
+
+// UI configuration
+export const UI_CONFIG = {
+	DEBOUNCE_DELAY: 300,
+	TOAST_DURATION: 5000,
+	MODAL_ANIMATION_DURATION: 200,
+	INFINITE_SCROLL_THRESHOLD: 100,
+	POLL_INTERVAL: 5000, // For status polling
+} as const;
+
+// Connector configuration
+export const CONNECTOR_CONFIG = {
+	SYNC_POLL_INTERVAL: 5000,
+	REPROCESS_DELAY: 1000,
+	DELETE_CONFIRMATION_DELAY: 3000,
+	PHOTOS_RELOAD_DELAY: 5000, // Delay after import before reloading photos
+} as const;
+
+// Type guards for const assertions
+export type PaginationKey = keyof typeof PAGINATION;
+export type ThresholdKey = keyof typeof THRESHOLDS;
+export type GraphConfigKey = keyof typeof GRAPH_CONFIG;
+export type UploadConfigKey = keyof typeof UPLOAD_CONFIG;
+export type UiConfigKey = keyof typeof UI_CONFIG;
