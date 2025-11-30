@@ -134,13 +134,10 @@ class PhotoService(PhotoUseCases):
 
         # For local connector photos, read from source
         if photo.connector_type == "local" and photo.source_path:
-            try:
-                with open(photo.source_path, "rb") as f:
-                    file_bytes = f.read()
+            file_bytes = await self._file_storage.read_source_file(photo.source_path)
+            if file_bytes:
                 content_type = photo.mime_type or "image/jpeg"
                 return (file_bytes, content_type)
-            except OSError:
-                return None
 
         # For remote photos, would need to fetch from source
         # (handled by connector)

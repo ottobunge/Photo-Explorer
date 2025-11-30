@@ -143,6 +143,29 @@ class FileStorage(ABC):
         """
 
     @abstractmethod
+    async def read_source_file(self, source_path: str) -> Optional[bytes]:
+        """Read a file from a connector source path.
+
+        This method is used to read files from local connector source paths
+        (e.g., photos in watched folders). The implementation must validate
+        that the source path is within registered/allowed directories.
+
+        Security considerations:
+        - Path must be validated against registered connector folders
+        - Path traversal attempts must be rejected
+        - Symlinks that escape allowed directories must be rejected
+
+        Args:
+            source_path: The absolute source path from a local connector
+
+        Returns:
+            File bytes or None if not found or not allowed
+
+        Raises:
+            PathSecurityError: If path is outside allowed directories
+        """
+
+    @abstractmethod
     def get_absolute_path(self, storage_path: str) -> Path:
         """Get the absolute filesystem path for a storage path.
 
