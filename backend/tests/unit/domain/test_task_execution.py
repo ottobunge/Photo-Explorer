@@ -4,8 +4,7 @@ Tests verify task state machine, idempotency tracking, and error handling
 for background worker task execution.
 """
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC
 from uuid import uuid4
 
 from app.domain.entities.task_execution import TaskExecution, TaskExecutionStatus
@@ -39,14 +38,15 @@ class TestTaskExecutionCreation:
         # Arrange
         task_id = "task-456"
         task_name = "sync_google_photos"
-        context = {"connector_id": "abc123", "user_id": "user-789"}
+        context: dict[str, object] = {"connector_id": "abc123", "user_id": "user-789"}
 
         # Act
         execution = TaskExecution.create(task_id, task_name, context=context)
 
         # Assert
         assert execution.context == context
-        assert execution.context["connector_id"] == "abc123"
+        assert isinstance(execution.context, dict)
+        assert execution.context.get("connector_id") == "abc123"
 
     def test_created_at_timestamp_is_utc(self) -> None:
         """Created timestamp is timezone-aware UTC."""
@@ -55,7 +55,7 @@ class TestTaskExecutionCreation:
 
         # Assert
         assert execution.created_at.tzinfo is not None
-        assert execution.created_at.tzinfo == timezone.utc
+        assert execution.created_at.tzinfo is UTC
 
     def test_each_task_creation_has_unique_timestamps(self) -> None:
         """Each task execution gets its own timestamp."""
@@ -81,9 +81,9 @@ class TestTaskExecutionStateTransitions:
         execution.mark_running()
 
         # Assert
-        assert execution.status == TaskExecutionStatus.RUNNING
+        assert execution.status == TaskExecutionStatus.RUNNING  # type: ignore[comparison-overlap]
         assert execution.started_at is not None
-        assert execution.started_at.tzinfo == timezone.utc
+        assert execution.started_at.tzinfo is UTC
 
     def test_mark_running_sets_started_at_only_once(self) -> None:
         """Started timestamp is only set on first mark_running call."""
@@ -110,9 +110,9 @@ class TestTaskExecutionStateTransitions:
         execution.mark_completed()
 
         # Assert
-        assert execution.status == TaskExecutionStatus.COMPLETED
+        assert execution.status is TaskExecutionStatus.COMPLETED
         assert execution.completed_at is not None
-        assert execution.completed_at.tzinfo == timezone.utc
+        assert execution.completed_at.tzinfo is UTC
 
     def test_mark_completed_with_result(self) -> None:
         """Completion can include JSON result."""
@@ -126,7 +126,7 @@ class TestTaskExecutionStateTransitions:
 
         # Assert
         assert execution.result == result_json
-        assert execution.status == TaskExecutionStatus.COMPLETED
+        assert execution.status is TaskExecutionStatus.COMPLETED
 
     def test_mark_failed_sets_error_message(self) -> None:
         """Marking task failed records error message."""
@@ -139,7 +139,7 @@ class TestTaskExecutionStateTransitions:
         execution.mark_failed(error_msg)
 
         # Assert
-        assert execution.status == TaskExecutionStatus.FAILED
+        assert execution.status is TaskExecutionStatus.FAILED
         assert execution.error_message == error_msg
         assert execution.completed_at is not None
 
@@ -153,7 +153,7 @@ class TestTaskExecutionStateTransitions:
         execution.mark_failed("Error occurred")
 
         # Assert
-        assert execution.status == TaskExecutionStatus.FAILED
+        assert execution.status is TaskExecutionStatus.FAILED
 
     def test_mark_retrying_increments_retry_count(self) -> None:
         """Marking retrying increments retry counter."""
@@ -168,7 +168,7 @@ class TestTaskExecutionStateTransitions:
 
         # Assert
         assert execution.retries == 3
-        assert execution.status == TaskExecutionStatus.RETRYING
+        assert execution.status is TaskExecutionStatus.RETRYING
 
     def test_mark_retrying_can_happen_after_failure(self) -> None:
         """Task can transition FAILED -> RETRYING."""
@@ -181,7 +181,7 @@ class TestTaskExecutionStateTransitions:
         execution.mark_retrying()
 
         # Assert
-        assert execution.status == TaskExecutionStatus.RETRYING
+        assert execution.status is TaskExecutionStatus.RETRYING
         assert execution.retries == 1
 
 
@@ -194,13 +194,13 @@ class TestTaskExecutionQueries:
         execution = TaskExecution.create("task-1", "my-task")
 
         # Act & Assert
-        assert execution.is_completed() is False
+        assert not execution.is_completed()
 
         execution.mark_running()
-        assert execution.is_completed() is False
+        assert not execution.is_completed()
 
         execution.mark_completed()
-        assert execution.is_completed() is True
+        assert execution.is_completed()
 
     def test_can_retry_returns_true_for_failed_states(self) -> None:
         """can_retry() returns True for FAILED and RETRYING states."""
@@ -208,19 +208,19 @@ class TestTaskExecutionQueries:
         execution = TaskExecution.create("task-1", "my-task")
 
         # PENDING -> not retryable
-        assert execution.can_retry() is False
+        assert not execution.can_retry()
 
         execution.mark_running()
         # RUNNING -> not retryable
-        assert execution.can_retry() is False
+        assert not execution.can_retry()
 
         execution.mark_failed("Error")
         # FAILED -> retryable
-        assert execution.can_retry() is True
+        assert execution.can_retry()
 
         execution.mark_retrying()
         # RETRYING -> retryable
-        assert execution.can_retry() is True
+        assert execution.can_retry()
 
     def test_can_retry_false_for_completed(self) -> None:
         """can_retry() returns False when task completed successfully."""
@@ -230,7 +230,7 @@ class TestTaskExecutionQueries:
         execution.mark_completed()
 
         # Act & Assert
-        assert execution.can_retry() is False
+        assert not execution.can_retry()
 
 
 class TestTaskExecutionIdempotency:
@@ -316,7 +316,7 @@ class TestTaskExecutionErrorHandling:
         execution.mark_failed("Pre-condition check failed")
 
         # Assert
-        assert execution.status == TaskExecutionStatus.FAILED
+        assert execution.status is TaskExecutionStatus.FAILED
         assert execution.started_at is None
         assert execution.completed_at is not None
 
@@ -339,7 +339,7 @@ class TestTaskExecutionErrorHandling:
 
         # Assert
         assert execution.retries == 2  # 2 retries after initial failure
-        assert execution.status == TaskExecutionStatus.FAILED
+        assert execution.status is TaskExecutionStatus.FAILED
 
 
 class TestTaskExecutionIntegration:
@@ -348,31 +348,32 @@ class TestTaskExecutionIntegration:
     def test_successful_task_flow(self) -> None:
         """Complete flow: PENDING -> RUNNING -> COMPLETED."""
         # Arrange & Act
+        context: dict[str, object] = {"sync_id": "batch-42"}
         execution = TaskExecution.create(
             "sync-photos-001",
             "sync_google_photos",
-            context={"sync_id": "batch-42"}
+            context=context
         )
 
         # Assert step 1: Created in PENDING state
         assert execution.status == TaskExecutionStatus.PENDING
-        assert execution.is_completed() is False
+        assert not execution.is_completed()
 
         # Act: Start
         execution.mark_running()
 
         # Assert step 2: Running
-        assert execution.status == TaskExecutionStatus.RUNNING
+        assert execution.status == TaskExecutionStatus.RUNNING  # type: ignore[comparison-overlap]
         assert execution.started_at is not None
-        assert execution.is_completed() is False
+        assert not execution.is_completed()
 
         # Act: Complete
         execution.mark_completed('{"synced": 24, "failed": 0}')
 
         # Assert step 3: Completed with result
-        assert execution.status == TaskExecutionStatus.COMPLETED
+        assert execution.status is TaskExecutionStatus.COMPLETED
         assert execution.result == '{"synced": 24, "failed": 0}'
-        assert execution.is_completed() is True
+        assert execution.is_completed()
 
     def test_failed_task_with_retry_flow(self) -> None:
         """Flow with failure and retry: PENDING -> RUNNING -> FAILED -> RETRYING -> RUNNING -> COMPLETED."""
@@ -385,8 +386,8 @@ class TestTaskExecutionIntegration:
 
         # Step 2: Fail
         execution.mark_failed("Connection timeout")
-        assert execution.status == TaskExecutionStatus.FAILED
-        assert execution.can_retry() is True
+        assert execution.status == TaskExecutionStatus.FAILED  # type: ignore[comparison-overlap]
+        assert execution.can_retry()
 
         # Step 3: Retry
         execution.mark_retrying()
@@ -403,7 +404,7 @@ class TestTaskExecutionIntegration:
         # Assert final state
         assert execution.status == TaskExecutionStatus.COMPLETED
         assert execution.retries == 1  # Retried once
-        assert execution.is_completed() is True
+        assert execution.is_completed()
 
     def test_persistent_failure_scenario(self) -> None:
         """Task that fails multiple times and finally succeeds."""
@@ -417,7 +418,7 @@ class TestTaskExecutionIntegration:
             if attempt < 3:
                 # Fail first 2 attempts
                 execution.mark_failed(f"Attempt {attempt} failed: storage unavailable")
-                assert execution.can_retry() is True
+                assert execution.can_retry()
                 execution.mark_retrying()
                 assert execution.retries == attempt
             else:
@@ -427,7 +428,7 @@ class TestTaskExecutionIntegration:
 
         # Assert final state
         assert execution.retries == 2
-        assert execution.is_completed() is True
+        assert execution.is_completed()
 
 
 class TestTaskExecutionTimestamps:
@@ -441,9 +442,11 @@ class TestTaskExecutionTimestamps:
         execution.mark_completed()
 
         # Assert
-        assert execution.created_at.tzinfo == timezone.utc
-        assert execution.started_at.tzinfo == timezone.utc
-        assert execution.completed_at.tzinfo == timezone.utc
+        assert execution.created_at.tzinfo is UTC
+        assert execution.started_at is not None
+        assert execution.started_at.tzinfo is UTC
+        assert execution.completed_at is not None
+        assert execution.completed_at.tzinfo is UTC
 
     def test_timestamp_ordering(self) -> None:
         """Timestamps maintain logical order."""
@@ -453,9 +456,11 @@ class TestTaskExecutionTimestamps:
 
         execution.mark_running()
         started = execution.started_at
+        assert started is not None
 
         execution.mark_completed()
         completed = execution.completed_at
+        assert completed is not None
 
         # Assert
         assert created <= started  # Task started after creation

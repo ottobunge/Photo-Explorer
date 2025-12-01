@@ -181,21 +181,15 @@ class SearchService(SearchUseCases):
 
         return results
 
-    def _build_qdrant_filters(self, filters: SearchFilters) -> dict:
+    def _build_qdrant_filters(self, filters: SearchFilters) -> dict[str, str | list[str]]:
         """Build Qdrant filter dictionary from SearchFilters."""
-        qdrant_filters = {}
+        qdrant_filters: dict[str, str | list[str]] = {}
 
         if filters.album_ids:
             qdrant_filters["album_id"] = [str(aid) for aid in filters.album_ids]
 
-        if filters.is_indoor is not None:
-            qdrant_filters["is_indoor"] = filters.is_indoor
-
         if filters.connector_ids:
             qdrant_filters["connector_id"] = [str(cid) for cid in filters.connector_ids]
-
-        if filters.connector_type:
-            qdrant_filters["connector_type"] = filters.connector_type
 
         # Note: Most filters need to be applied post-search since they require
         # database lookups or complex object inspection
@@ -232,49 +226,9 @@ class SearchService(SearchUseCases):
             if filters.is_indoor != photo.is_indoor:
                 return False
 
-        # Scene type filter
-        if filters.scene_types and photo.scene_type:
-            if photo.scene_type.lower() not in [s.lower() for s in filters.scene_types]:
-                return False
-
-        # Object filter - check if photo contains any of the specified objects
-        if filters.has_objects and photo.detected_objects:
-            photo_objects = {
-                obj.get("label", "").lower()
-                for obj in photo.detected_objects
-                if isinstance(obj, dict)
-            }
-            filter_objects = {o.lower() for o in filters.has_objects}
-            if not photo_objects.intersection(filter_objects):
-                return False
-
-        # Camera filters
-        if filters.camera_make and photo.exif_data:
-            exif_make = photo.exif_data.get("camera_make", "")
-            if filters.camera_make.lower() not in exif_make.lower():
-                return False
-
-        if filters.camera_model and photo.exif_data:
-            exif_model = photo.exif_data.get("camera_model", "")
-            if filters.camera_model.lower() not in exif_model.lower():
-                return False
-
-        # Dimension filters
-        if filters.min_width and photo.width:
-            if photo.width < filters.min_width:
-                return False
-
-        if filters.min_height and photo.height:
-            if photo.height < filters.min_height:
-                return False
-
         # Connector filters
         if filters.connector_ids and photo.connector_id:
             if photo.connector_id not in filters.connector_ids:
-                return False
-
-        if filters.connector_type and photo.connector_type:
-            if photo.connector_type != filters.connector_type:
                 return False
 
         # Processing status

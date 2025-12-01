@@ -162,7 +162,7 @@ class ConnectorService:
                 # Update config with validated path
                 config["path"] = str(validated_path)
 
-            connector.update_config(config)
+            connector.update_config(config)  # type: ignore[arg-type]
 
         # Persist and return
         return await self._connector_repo.save(connector)

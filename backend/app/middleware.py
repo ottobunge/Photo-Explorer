@@ -9,6 +9,9 @@ from contextvars import ContextVar
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# Import circuit breaker monitoring for correlation ID integration
+from app.infrastructure.monitoring import set_correlation_id
+
 logger = logging.getLogger(__name__)
 
 # Context variables for request tracing
@@ -54,6 +57,11 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
         # Store in request state for easy access
         request.state.request_id = request_id
 
+        # Set correlation ID for circuit breaker monitoring and distributed tracing
+        # Extract or use X-Correlation-ID header, fallback to request ID
+        correlation_id = request.headers.get("X-Correlation-ID", request_id)
+        set_correlation_id(correlation_id)
+
         # Extract user ID if available (from auth header, etc.)
         # For now, we'll leave this as a placeholder
         user_id = request.headers.get("X-User-ID")
@@ -69,6 +77,7 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
             "Request started",
             extra={
                 "request_id": request_id,
+                "correlation_id": correlation_id,
                 "method": request.method,
                 "path": request.url.path,
                 "query_params": str(request.query_params),
@@ -87,11 +96,15 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
             # Add request ID to response headers
             response.headers["X-Request-ID"] = request_id
 
+            # Add correlation ID to response headers for distributed tracing
+            response.headers["X-Correlation-ID"] = correlation_id
+
             # Log response
             logger.info(
                 "Request completed",
                 extra={
                     "request_id": request_id,
+                    "correlation_id": correlation_id,
                     "method": request.method,
                     "path": request.url.path,
                     "status_code": response.status_code,
@@ -110,6 +123,7 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
                 "Request failed",
                 extra={
                     "request_id": request_id,
+                    "correlation_id": correlation_id,
                     "method": request.method,
                     "path": request.url.path,
                     "process_time_ms": round(process_time * 1000, 2),

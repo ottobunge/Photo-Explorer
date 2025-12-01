@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from celery.exceptions import SoftTimeLimitExceeded
@@ -69,7 +69,7 @@ def sync_local_folder_task(self, connector_id: str) -> dict:
 async def _sync_local_folder_async(connector_id: str) -> dict:
     """Async implementation of local folder sync."""
     connector_uuid = UUID(connector_id)
-    started_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
 
     async with get_worker_session_context() as session:
         connector_repo = ConnectorRepositoryPostgres(session)
@@ -189,7 +189,7 @@ async def _sync_local_folder_async(connector_id: str) -> dict:
                 skipped=skipped,
                 failed=failed,
                 started_at=started_at,
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
             )
 
             # Update connector with sync stats

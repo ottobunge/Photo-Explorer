@@ -32,7 +32,13 @@
       "Bash(npm install:*)",
       "Bash(npm run test:coverage:*)",
       "Bash(npm run:*)",
-      "Bash(npx c8 npm test:*)"
+      "Bash(npx c8 npm test:*)",
+      "Bash(poetry run mypy:*)",
+      "Bash(python -m ruff:*)",
+      "Bash(poetry run pytest:*)",
+      "Bash(python3:*)",
+      "Bash(lsof:*)",
+      "Bash(poetry run python:*)"
     ],
     "deny": [],
     "ask": []

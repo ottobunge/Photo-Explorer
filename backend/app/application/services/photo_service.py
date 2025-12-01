@@ -169,4 +169,5 @@ class PhotoService(PhotoUseCases):
 
     async def get_photos_pending_processing(self, limit: int = 100) -> list[Photo]:
         """Get photos that need processing."""
-        return await self._photo_repo.find_pending_processing(limit=limit)
+        # TODO: Implement find_pending_processing in PhotoRepository
+        raise NotImplementedError("find_pending_processing not yet implemented")

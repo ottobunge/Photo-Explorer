@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -267,7 +267,7 @@ class DatabaseTokenStorage(TokenStorage):
 
             if existing:
                 existing.encrypted_data = encrypted
-                existing.updated_at = datetime.utcnow()
+                existing.updated_at = datetime.now(timezone.utc)
             else:
                 token_model = OAuthTokenModel(
                     connector_type=connector_type,

@@ -518,13 +518,23 @@ class TestFaceServiceOtherOperations:
         repo = Mock(spec=FaceRepository)
         repo.find_all_clusters = AsyncMock()
         repo.find_cluster_by_id = AsyncMock()
+        repo.find_face_by_id = AsyncMock()
+        repo.find_faces_by_photo = AsyncMock()
+        repo.find_photo_ids_by_cluster = AsyncMock()
+        repo.count_clusters = AsyncMock()
         repo.save_cluster = AsyncMock()
+        repo.save_face = AsyncMock()
+        repo.delete_cluster = AsyncMock()
+        repo.get_co_appearances = AsyncMock()
+        repo.get_shared_photos = AsyncMock()
         return repo
 
     @pytest.fixture
     def mock_vector_store(self) -> Mock:
         """Mock vector store."""
-        return Mock(spec=VectorStore)
+        store = Mock(spec=VectorStore)
+        store.update_face_payload = AsyncMock()
+        return store
 
     @pytest.fixture
     def mock_file_storage(self) -> Mock:
@@ -551,7 +561,7 @@ class TestFaceServiceOtherOperations:
         service: FaceService,
         mock_face_repo: Mock,
     ) -> None:
-        """Test list_clusters operation."""
+        """When listing clusters, should return all clusters."""
         # Arrange
         clusters = [
             FaceCluster.create(initial_face_id=uuid4()),
@@ -567,12 +577,35 @@ class TestFaceServiceOtherOperations:
         assert all(isinstance(c, FaceCluster) for c in result)
 
     @pytest.mark.asyncio
+    async def test_list_clusters_with_filters(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+    ) -> None:
+        """When listing clusters with filters, should pass them to repository."""
+        # Arrange
+        clusters = [FaceCluster.create(initial_face_id=uuid4())]
+        clusters[0].set_name("John")
+        mock_face_repo.find_all_clusters.return_value = clusters
+
+        # Act
+        result = await service.list_clusters(named_only=True, limit=10, offset=5)
+
+        # Assert
+        mock_face_repo.find_all_clusters.assert_called_once_with(
+            named_only=True,
+            unnamed_only=False,
+            limit=10,
+            offset=5,
+        )
+
+    @pytest.mark.asyncio
     async def test_get_cluster(
         self,
         service: FaceService,
         mock_face_repo: Mock,
     ) -> None:
-        """Test get_cluster operation."""
+        """When getting a cluster by ID, should return the cluster."""
         # Arrange
         cluster = FaceCluster.create(initial_face_id=uuid4())
         cluster_id = cluster.id.value
@@ -586,12 +619,29 @@ class TestFaceServiceOtherOperations:
         assert result.id.value == cluster_id
 
     @pytest.mark.asyncio
+    async def test_get_cluster_not_found(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+    ) -> None:
+        """When cluster not found, should return None."""
+        # Arrange
+        cluster_id = uuid4()
+        mock_face_repo.find_cluster_by_id.return_value = None
+
+        # Act
+        result = await service.get_cluster(cluster_id)
+
+        # Assert
+        assert result is None
+
+    @pytest.mark.asyncio
     async def test_name_cluster(
         self,
         service: FaceService,
         mock_face_repo: Mock,
     ) -> None:
-        """Test name_cluster operation."""
+        """When naming a cluster, should persist the name."""
         # Arrange
         cluster = FaceCluster.create(initial_face_id=uuid4())
         cluster_id = cluster.id.value
@@ -606,3 +656,327 @@ class TestFaceServiceOtherOperations:
         # Assert
         assert result.name == name
         mock_face_repo.save_cluster.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_name_cluster_not_found(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+    ) -> None:
+        """When naming a non-existent cluster, should raise EntityNotFoundException."""
+        # Arrange
+        cluster_id = uuid4()
+        mock_face_repo.find_cluster_by_id.return_value = None
+
+        # Act & Assert
+        with pytest.raises(EntityNotFoundException) as exc:
+            await service.name_cluster(cluster_id, "John")
+        assert "Cluster" in str(exc.value)
+
+
+class TestFaceServiceSplitFace:
+    """Tests for split_face operation."""
+
+    @pytest.fixture
+    def mock_face_repo(self) -> Mock:
+        """Mock face repository."""
+        repo = Mock(spec=FaceRepository)
+        repo.find_face_by_id = AsyncMock()
+        repo.find_cluster_by_id = AsyncMock()
+        repo.save_cluster = AsyncMock()
+        repo.save_face = AsyncMock()
+        repo.delete_cluster = AsyncMock()
+        return repo
+
+    @pytest.fixture
+    def mock_vector_store(self) -> Mock:
+        """Mock vector store."""
+        store = Mock(spec=VectorStore)
+        store.update_face_payload = AsyncMock()
+        return store
+
+    @pytest.fixture
+    def mock_file_storage(self) -> Mock:
+        """Mock file storage."""
+        return Mock(spec=FileStorage)
+
+    @pytest.fixture
+    def service(
+        self,
+        mock_face_repo: Mock,
+        mock_vector_store: Mock,
+        mock_file_storage: Mock,
+    ) -> FaceService:
+        """Create FaceService with mocked dependencies."""
+        return FaceService(
+            mock_face_repo,
+            mock_file_storage,
+            mock_vector_store,
+        )
+
+    @pytest.mark.asyncio
+    async def test_split_face_creates_new_cluster(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+        mock_vector_store: Mock,
+    ) -> None:
+        """When splitting a face, should create new cluster with just that face."""
+        # Arrange
+        old_cluster_id = uuid4()
+        face = Face.create(
+            photo_id=uuid4(),
+            bbox=BoundingBox(x=10, y=20, width=100, height=120),
+        )
+        face.assign_to_cluster(old_cluster_id)
+        face_id = face.id.value
+
+        old_cluster = FaceCluster.create(initial_face_id=face_id)
+        old_cluster._id = old_cluster_id  # type: ignore[attr-defined]
+
+        mock_face_repo.find_face_by_id.return_value = face
+        mock_face_repo.find_cluster_by_id.return_value = old_cluster
+        mock_face_repo.save_cluster.side_effect = lambda c: c
+
+        # Act
+        result = await service.split_face(face_id)
+
+        # Assert
+        assert result.id.value != old_cluster_id
+        # Verify vector store was updated
+        mock_vector_store.update_face_payload.assert_called_once()
+        call_args = mock_vector_store.update_face_payload.call_args
+        assert call_args[0][0] == face_id
+        assert "cluster_id" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_split_face_removes_from_old_cluster(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+        mock_vector_store: Mock,
+    ) -> None:
+        """When splitting a face, should remove it from old cluster."""
+        # Arrange
+        old_cluster_id = uuid4()
+        face = Face.create(
+            photo_id=uuid4(),
+            bbox=BoundingBox(x=10, y=20, width=100, height=120),
+        )
+        face.assign_to_cluster(old_cluster_id)
+        face_id = face.id.value
+
+        old_cluster = FaceCluster.create(initial_face_id=uuid4())
+        old_cluster._id = old_cluster_id  # type: ignore[attr-defined]
+        old_cluster._face_ids = [face_id, uuid4()]  # type: ignore[attr-defined]
+
+        mock_face_repo.find_face_by_id.return_value = face
+        mock_face_repo.find_cluster_by_id.return_value = old_cluster
+        mock_face_repo.save_cluster.side_effect = lambda c: c
+
+        # Act
+        await service.split_face(face_id)
+
+        # Assert - old cluster should be saved (it still has other faces)
+        # Verify save_cluster was called multiple times (new cluster + old cluster)
+        assert mock_face_repo.save_cluster.call_count >= 2
+
+    @pytest.mark.asyncio
+    async def test_split_face_deletes_empty_old_cluster(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+        mock_vector_store: Mock,
+    ) -> None:
+        """When old cluster becomes empty, should delete it."""
+        # Arrange
+        old_cluster_id = uuid4()
+        face = Face.create(
+            photo_id=uuid4(),
+            bbox=BoundingBox(x=10, y=20, width=100, height=120),
+        )
+        face.assign_to_cluster(old_cluster_id)
+        face_id = face.id.value
+
+        # Old cluster with only this face
+        old_cluster = FaceCluster.create(initial_face_id=face_id)
+        old_cluster._id = old_cluster_id  # type: ignore[attr-defined]
+
+        mock_face_repo.find_face_by_id.return_value = face
+        mock_face_repo.find_cluster_by_id.return_value = old_cluster
+        mock_face_repo.save_cluster.side_effect = lambda c: c
+
+        # Act
+        await service.split_face(face_id)
+
+        # Assert
+        # Old cluster should be deleted since it's now empty
+        mock_face_repo.delete_cluster.assert_called_once_with(old_cluster_id)
+
+    @pytest.mark.asyncio
+    async def test_split_face_not_found(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+    ) -> None:
+        """When face not found, should raise EntityNotFoundException."""
+        # Arrange
+        face_id = uuid4()
+        mock_face_repo.find_face_by_id.return_value = None
+
+        # Act & Assert
+        with pytest.raises(EntityNotFoundException) as exc:
+            await service.split_face(face_id)
+        assert "Face" in str(exc.value)
+
+
+class TestFaceServiceMoveFace:
+    """Tests for move_face operation."""
+
+    @pytest.fixture
+    def mock_face_repo(self) -> Mock:
+        """Mock face repository."""
+        repo = Mock(spec=FaceRepository)
+        repo.find_face_by_id = AsyncMock()
+        repo.find_cluster_by_id = AsyncMock()
+        repo.save_cluster = AsyncMock()
+        repo.save_face = AsyncMock()
+        repo.delete_cluster = AsyncMock()
+        return repo
+
+    @pytest.fixture
+    def mock_vector_store(self) -> Mock:
+        """Mock vector store."""
+        store = Mock(spec=VectorStore)
+        store.update_face_payload = AsyncMock()
+        return store
+
+    @pytest.fixture
+    def mock_file_storage(self) -> Mock:
+        """Mock file storage."""
+        return Mock(spec=FileStorage)
+
+    @pytest.fixture
+    def service(
+        self,
+        mock_face_repo: Mock,
+        mock_vector_store: Mock,
+        mock_file_storage: Mock,
+    ) -> FaceService:
+        """Create FaceService with mocked dependencies."""
+        return FaceService(
+            mock_face_repo,
+            mock_file_storage,
+            mock_vector_store,
+        )
+
+    @pytest.mark.asyncio
+    async def test_move_face_to_target_cluster(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+        mock_vector_store: Mock,
+    ) -> None:
+        """When moving a face, should update its cluster assignment."""
+        # Arrange
+        target_cluster_id = uuid4()
+        face = Face.create(
+            photo_id=uuid4(),
+            bbox=BoundingBox(x=10, y=20, width=100, height=120),
+        )
+        face_id = face.id.value
+
+        target_cluster = FaceCluster.create(initial_face_id=uuid4())
+        target_cluster._id = target_cluster_id  # type: ignore[attr-defined]
+
+        mock_face_repo.find_face_by_id.return_value = face
+        mock_face_repo.find_cluster_by_id.return_value = target_cluster
+        mock_face_repo.save_cluster.side_effect = lambda c: c
+        mock_face_repo.save_face.return_value = face
+
+        # Act
+        result = await service.move_face(face_id, target_cluster_id)
+
+        # Assert
+        assert result.cluster_id == target_cluster_id
+        mock_vector_store.update_face_payload.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_move_face_target_cluster_not_found(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+    ) -> None:
+        """When target cluster not found, should raise EntityNotFoundException."""
+        # Arrange
+        face_id = uuid4()
+        target_cluster_id = uuid4()
+
+        face = Face.create(
+            photo_id=uuid4(),
+            bbox=BoundingBox(x=10, y=20, width=100, height=120),
+        )
+        mock_face_repo.find_face_by_id.return_value = face
+        mock_face_repo.find_cluster_by_id.return_value = None
+
+        # Act & Assert
+        with pytest.raises(EntityNotFoundException) as exc:
+            await service.move_face(face_id, target_cluster_id)
+        assert "Cluster" in str(exc.value)
+
+    @pytest.mark.asyncio
+    async def test_move_face_source_face_not_found(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+    ) -> None:
+        """When source face not found, should raise EntityNotFoundException."""
+        # Arrange
+        face_id = uuid4()
+        target_cluster_id = uuid4()
+
+        mock_face_repo.find_face_by_id.return_value = None
+
+        # Act & Assert
+        with pytest.raises(EntityNotFoundException) as exc:
+            await service.move_face(face_id, target_cluster_id)
+        assert "Face" in str(exc.value)
+
+    @pytest.mark.asyncio
+    async def test_move_face_deletes_empty_old_cluster(
+        self,
+        service: FaceService,
+        mock_face_repo: Mock,
+        mock_vector_store: Mock,
+    ) -> None:
+        """When old cluster becomes empty, should delete it."""
+        # Arrange
+        old_cluster_id = uuid4()
+        target_cluster_id = uuid4()
+
+        face = Face.create(
+            photo_id=uuid4(),
+            bbox=BoundingBox(x=10, y=20, width=100, height=120),
+        )
+        face.assign_to_cluster(old_cluster_id)
+        face_id = face.id.value
+
+        # Old cluster with only this face
+        old_cluster = FaceCluster.create(initial_face_id=face_id)
+        old_cluster._id = old_cluster_id  # type: ignore[attr-defined]
+
+        target_cluster = FaceCluster.create(initial_face_id=uuid4())
+        target_cluster._id = target_cluster_id  # type: ignore[attr-defined]
+
+        mock_face_repo.find_face_by_id.return_value = face
+        mock_face_repo.find_cluster_by_id.side_effect = lambda cid: (
+            target_cluster if cid == target_cluster_id else old_cluster
+        )
+        mock_face_repo.save_cluster.side_effect = lambda c: c
+        mock_face_repo.save_face.return_value = face
+
+        # Act
+        await service.move_face(face_id, target_cluster_id)
+
+        # Assert
+        mock_face_repo.delete_cluster.assert_called_once_with(old_cluster_id)

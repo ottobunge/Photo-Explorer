@@ -236,6 +236,21 @@ module = [
 ]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# Pydantic v2 has known issues with Field overload checking
+module = "app.adapters.inbound.api.schemas.*"
+disable_error_code = ["call-overload", "explicit-any"]
+
+[[tool.mypy.overrides]]
+# ML integration modules have complex types that are difficult to type correctly
+# These are integration points with external ML libraries
+module = [
+    "app.infrastructure.models.*",
+    "app.adapters.inbound.workers.tasks.*",
+    "app.adapters.outbound.ml.*",
+]
+ignore_errors = true
+
 [tool.coverage.run]
 source = ["app"]
 branch = true

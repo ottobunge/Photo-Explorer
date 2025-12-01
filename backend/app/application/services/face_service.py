@@ -18,7 +18,7 @@ from app.application.services.constants import (
 from app.domain.entities import Face, FaceCluster
 from app.domain.exceptions import EntityNotFoundException
 from app.domain.value_objects.face_relationship import FaceRelationship
-from app.domain.value_objects.social_graph import SocialGraph
+from app.domain.value_objects.social_graph import ClusterNode, SocialGraph
 
 logger = logging.getLogger(__name__)
 
@@ -378,8 +378,19 @@ class FaceService(FaceUseCases):
             )
             relationships.append(relationship)
 
+        # Convert clusters to immutable ClusterNode value objects
+        nodes = [
+            ClusterNode(
+                id=cluster.id.value,
+                name=cluster.name,
+                face_count=cluster.face_count,
+                representative_face_id=cluster.representative_face_id,
+            )
+            for cluster in clusters
+        ]
+
         # Build graph
-        graph = SocialGraph(nodes=clusters, edges=relationships)
+        graph = SocialGraph(nodes=nodes, edges=relationships)
 
         logger.info(
             f"Built social graph with {graph.node_count} nodes and {graph.edge_count} edges"

@@ -5,8 +5,8 @@ from app.domain.entities.connector import (
     Connector,
     ConnectorStatus,
     ConnectorType,
-    SyncStats,
 )
+from app.domain.value_objects import SyncStats
 from app.domain.entities.face import Face
 from app.domain.entities.face_cluster import FaceCluster
 from app.domain.entities.photo import Photo

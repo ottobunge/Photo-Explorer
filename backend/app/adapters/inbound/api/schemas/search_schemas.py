@@ -2,10 +2,13 @@
 
 import re
 from datetime import date, timedelta
-from typing import Any, Optional, TypedDict
+from typing import TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+
+# Type alias for error details dict
+ErrorDetailsDict = dict[str, str | dict[str, str]]
 
 
 class ErrorDetails(TypedDict, total=False):
@@ -13,27 +16,27 @@ class ErrorDetails(TypedDict, total=False):
 
     code: str
     message: str
-    details: dict[str, Any]  # type: ignore[explicit-any]
+    details: ErrorDetailsDict  # Heterogeneous error details from various sources
 
 
-class SearchFilters(BaseModel):  # type: ignore[explicit-any]
+class SearchFilters(BaseModel):
     """Filters for search queries."""
 
-    album_ids: Optional[list[UUID]] = Field(None, max_length=100, description="Filter by album IDs")
-    connector_ids: Optional[list[UUID]] = Field(
+    album_ids: list[UUID] | None = Field(None, max_length=100, description="Filter by album IDs")
+    connector_ids: list[UUID] | None = Field(
         None, max_length=50, description="Filter by connector IDs"
     )
-    start_date: Optional[date] = Field(None, description="Filter photos taken after this date")
-    end_date: Optional[date] = Field(None, description="Filter photos taken before this date")
-    has_faces: Optional[bool] = Field(None, description="Filter by presence of faces")
-    face_cluster_ids: Optional[list[UUID]] = Field(
+    start_date: date | None = Field(None, description="Filter photos taken after this date")
+    end_date: date | None = Field(None, description="Filter photos taken before this date")
+    has_faces: bool | None = Field(None, description="Filter by presence of faces")
+    face_cluster_ids: list[UUID] | None = Field(
         None, max_length=100, description="Filter by face cluster IDs"
     )
-    is_indoor: Optional[bool] = Field(None, description="Filter by indoor/outdoor classification")
+    is_indoor: bool | None = Field(None, description="Filter by indoor/outdoor classification")
 
     @field_validator("album_ids")
     @classmethod
-    def validate_album_ids(cls, v: Optional[list[UUID]]) -> Optional[list[UUID]]:
+    def validate_album_ids(cls, v: list[UUID] | None) -> list[UUID] | None:
         """Validate album IDs list."""
         if v is not None:
             if len(v) > 100:
@@ -44,7 +47,7 @@ class SearchFilters(BaseModel):  # type: ignore[explicit-any]
 
     @field_validator("connector_ids")
     @classmethod
-    def validate_connector_ids(cls, v: Optional[list[UUID]]) -> Optional[list[UUID]]:
+    def validate_connector_ids(cls, v: list[UUID] | None) -> list[UUID] | None:
         """Validate connector IDs list."""
         if v is not None:
             if len(v) > 50:
@@ -55,7 +58,7 @@ class SearchFilters(BaseModel):  # type: ignore[explicit-any]
 
     @field_validator("face_cluster_ids")
     @classmethod
-    def validate_face_cluster_ids(cls, v: Optional[list[UUID]]) -> Optional[list[UUID]]:
+    def validate_face_cluster_ids(cls, v: list[UUID] | None) -> list[UUID] | None:
         """Validate face cluster IDs list."""
         if v is not None:
             if len(v) > 100:
@@ -66,9 +69,7 @@ class SearchFilters(BaseModel):  # type: ignore[explicit-any]
 
     @field_validator("end_date")
     @classmethod
-    def validate_date_range(  # type: ignore[explicit-any]
-        cls, v: Optional[date], info: Any  # type: ignore[explicit-any]
-    ) -> Optional[date]:
+    def validate_date_range(cls, v: date | None, info) -> date | None:  # type: ignore[no-untyped-def]
         """Validate date range is logical."""
         if v is not None:
             # Check if end_date is in the future
@@ -81,25 +82,26 @@ class SearchFilters(BaseModel):  # type: ignore[explicit-any]
         return v
 
 
-class SearchRequest(BaseModel):  # type: ignore[explicit-any]
+class SearchRequest(BaseModel):
     """Request for semantic search."""
 
-    query: str = Field(
-        ...,
+    query: str = Field(  
         min_length=1,
         max_length=500,
         description="Natural language search query",
         example="sunset over mountains",
     )
-    filters: Optional[SearchFilters] = Field(None, description="Optional filters to narrow results")
-    limit: int = Field(
-        20, ge=1, le=100, description="Maximum number of results to return", example=20
+    filters: SearchFilters | None = Field(
+        default=None, description="Optional filters to narrow results"
     )
-    offset: int = Field(
-        0, ge=0, le=10000, description="Number of results to skip for pagination", example=0
+    limit: int = Field(  
+        default=20, ge=1, le=100, description="Maximum number of results to return", example=20
     )
-    similarity_threshold: Optional[float] = Field(
-        None,
+    offset: int = Field(  
+        default=0, ge=0, le=10000, description="Number of results to skip for pagination", example=0
+    )
+    similarity_threshold: float | None = Field(  
+        default=None,
         ge=0.0,
         le=1.0,
         description="Minimum cosine similarity score (0.0-1.0). Only return results with score >= threshold.",
@@ -143,15 +145,15 @@ class SearchRequest(BaseModel):  # type: ignore[explicit-any]
         return v
 
 
-class SearchResultItem(BaseModel):  # type: ignore[explicit-any]
+class SearchResultItem(BaseModel):
     """Single search result."""
 
-    photo: dict[str, Any] = Field(..., description="Photo metadata")  # type: ignore[explicit-any]
-    score: float = Field(
-        ..., description="Similarity score (0-1, higher is better)", ge=0, le=1, example=0.85
+    photo: dict[str, str | int | float | bool | None] = Field(description="Photo metadata")  
+    score: float = Field(  
+        description="Similarity score (0-1, higher is better)", ge=0, le=1, example=0.85
     )
-    highlights: list[str] = Field(
-        ..., description="Matched keywords or phrases", example=["mountain", "sunset"]
+    highlights: list[str] = Field(  
+        description="Matched keywords or phrases", example=["mountain", "sunset"]
     )
 
     class Config:
@@ -170,15 +172,15 @@ class SearchResultItem(BaseModel):  # type: ignore[explicit-any]
         }
 
 
-class SearchResultData(BaseModel):  # type: ignore[explicit-any]
+class SearchResultData(BaseModel):
     """Search results data."""
 
-    results: list[SearchResultItem] = Field(..., description="List of matching photos")
-    query_embedding_time_ms: float = Field(
-        ..., description="Time to generate query embedding (ms)", example=45.2
+    results: list[SearchResultItem] = Field(description="List of matching photos")
+    query_embedding_time_ms: float = Field(  
+        description="Time to generate query embedding (ms)", example=45.2
     )
-    search_time_ms: float = Field(
-        ..., description="Time to search vector database (ms)", example=12.8
+    search_time_ms: float = Field(  
+        description="Time to search vector database (ms)", example=12.8
     )
 
     class Config:
@@ -201,12 +203,18 @@ class SearchResultData(BaseModel):  # type: ignore[explicit-any]
         }
 
 
-class SearchMeta(BaseModel):  # type: ignore[explicit-any]
+class SearchMeta(BaseModel):
     """Search metadata."""
 
-    total: int = Field(..., description="Total number of results", ge=0, example=5)
-    limit: int = Field(..., description="Maximum results requested", ge=1, example=20)
-    offset: int = Field(..., description="Number of results skipped", ge=0, example=0)
+    total: int = Field(  
+        description="Total number of results", ge=0, example=5
+    )
+    limit: int = Field(  
+        description="Maximum results requested", ge=1, example=20
+    )
+    offset: int = Field(  
+        description="Number of results skipped", ge=0, example=0
+    )
 
     class Config:
         json_schema_extra = {
@@ -218,13 +226,13 @@ class SearchMeta(BaseModel):  # type: ignore[explicit-any]
         }
 
 
-class SearchResponse(BaseModel):  # type: ignore[explicit-any]
+class SearchResponse(BaseModel):
     """Response for search."""
 
-    success: bool = Field(..., description="Whether the search succeeded", example=True)
+    success: bool = Field(description="Whether the search succeeded", example=True)
     data: SearchResultData
     meta: SearchMeta
-    error: Optional[ErrorDetails] = Field(None, description="Error details if success is false")
+    error: ErrorDetails | None = Field(None, description="Error details if success is false")
 
     class Config:
         json_schema_extra = {

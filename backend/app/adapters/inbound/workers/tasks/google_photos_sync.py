@@ -4,7 +4,7 @@ import asyncio
 import io
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 import httpx
@@ -158,7 +158,7 @@ async def _sync_google_photos_async(
     from app.adapters.outbound.persistence.postgres.database import get_worker_session_context
 
     connector_uuid = UUID(connector_id)
-    started_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
 
     async with get_worker_session_context() as session:
         # Check idempotency if task_id provided
@@ -409,7 +409,7 @@ async def _sync_google_photos_async(
                 skipped=sync_counters["skipped"],
                 failed=sync_counters["failed"],
                 started_at=started_at,
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
             )
 
             # Update connector with sync stats
@@ -755,7 +755,7 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
     from app.adapters.outbound.persistence.postgres.database import get_worker_session_context
 
     connector_uuid = UUID(connector_id)
-    started_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
 
     async with get_worker_session_context() as session:
         connector_repo = ConnectorRepositoryPostgres(session)
@@ -935,7 +935,7 @@ async def _import_picker_photos_async(connector_id: str, session_id: str) -> dic
                 skipped=sync_counters["skipped"],
                 failed=sync_counters["failed"],
                 started_at=started_at,
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
             )
 
             # Update connector with sync stats
