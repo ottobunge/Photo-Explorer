@@ -629,16 +629,16 @@ async def get_social_graph(
 
         # Convert to response format
         nodes = []
-        for cluster in graph.nodes:
-            node = GraphNode(
-                id=str(cluster.id.value),
-                name=cluster.name,
-                face_count=cluster.face_count,
-                representative_face_id=str(cluster.representative_face_id)
-                if cluster.representative_face_id
+        for node in graph.nodes:
+            graph_node = GraphNode(
+                id=str(node.id),
+                name=node.name,
+                face_count=node.face_count,
+                representative_face_id=str(node.representative_face_id)
+                if node.representative_face_id
                 else None,
             )
-            nodes.append(node)
+            nodes.append(graph_node)
 
         edges = []
         for relationship in graph.edges:
@@ -752,12 +752,10 @@ async def get_relationship_photos(
         # Get shared photos
         photo_ids = await face_service.get_relationship_photos(person_a_id, person_b_id)
 
-        # Build cluster data for both people
-        photo_count_a = await face_repo.count_photos_by_cluster(person_a_id)
-        cluster_data_a = _build_cluster_data(cluster_a, photo_count_a)
-
-        photo_count_b = await face_repo.count_photos_by_cluster(person_b_id)
-        cluster_data_b = _build_cluster_data(cluster_b, photo_count_b)
+        # Build cluster data for both people using batch query (eliminates N+1 queries)
+        photo_counts = await face_repo.count_photos_by_clusters_batch([person_a_id, person_b_id])
+        cluster_data_a = _build_cluster_data(cluster_a, photo_counts[person_a_id])
+        cluster_data_b = _build_cluster_data(cluster_b, photo_counts[person_b_id])
 
         data = RelationshipPhotosData(
             photo_ids=[str(photo_id) for photo_id in photo_ids],
