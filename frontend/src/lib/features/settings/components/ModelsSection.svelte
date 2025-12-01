@@ -182,7 +182,7 @@
 		<div class="error-banner">
 			<span class="error-icon">⚠️</span>
 			<span>{error}</span>
-			<button class="dismiss-btn" on:click={() => (error = null)}>×</button>
+			<button class="dismiss-btn" onclick={() => (error = null)}>×</button>
 		</div>
 	{/if}
 
@@ -208,7 +208,7 @@
 								<!-- eslint-disable-next-line @typescript-eslint/no-confusing-void-expression -->
 								{@render circularProgress(progress?.progress ?? 0, 36)}
 							{:else}
-								<button class="download-btn small" on:click={() => { void downloadModel(settingsStore.activeModels.clip_model); }}>
+								<button class="download-btn small" onclick={() => { void downloadModel(settingsStore.activeModels.clip_model); }}>
 									Download
 								</button>
 							{/if}
@@ -252,14 +252,14 @@
 					type="text"
 					placeholder="Search Hugging Face models..."
 					bind:value={searchQuery}
-					on:keydown={(e) => e.key === 'Enter' && handleSearch()}
+					onkeydown={(e) => e.key === 'Enter' && handleSearch()}
 				/>
-				<button on:click={handleSearch} disabled={searching}>
+				<button onclick={handleSearch} disabled={searching}>
 					{searching ? '...' : '🔍'}
 				</button>
 			</div>
 
-			<button class="lookup-btn" on:click={openLookupModal}>
+			<button class="lookup-btn" onclick={openLookupModal}>
 				📥 Lookup by ID
 			</button>
 		</div>
@@ -298,7 +298,7 @@
 									{/if}
 								</div>
 							{:else}
-								<button class="download-btn" on:click={() => downloadModel(model.model_id)}>
+								<button class="download-btn" onclick={() => downloadModel(model.model_id)}>
 									Download
 								</button>
 							{/if}
@@ -326,7 +326,7 @@
 										<!-- eslint-disable-next-line @typescript-eslint/no-confusing-void-expression -->
 										{@render circularProgress(progress?.progress ?? 0, 24)}
 									{:else}
-										<button class="mini-download-btn" on:click={() => downloadModel(model.model_id)}>
+										<button class="mini-download-btn" onclick={() => downloadModel(model.model_id)}>
 											⬇️
 										</button>
 									{/if}
@@ -345,7 +345,7 @@
 				{#each settingsStore.downloadedModels as modelId}
 					<div class="downloaded-item">
 						<span class="model-name">{modelId}</span>
-						<button class="delete-btn" on:click={() => deleteModel(modelId)}>
+						<button class="delete-btn" onclick={() => deleteModel(modelId)}>
 							🗑️
 						</button>
 					</div>
@@ -357,11 +357,11 @@
 
 <!-- Lookup Modal -->
 {#if showLookupModal}
-	<div class="modal-overlay" on:click={() => (showLookupModal = false)} on:keydown={(e) => e.key === 'Escape' && (showLookupModal = false)} role="button" tabindex="0">
-		<div class="modal" on:click|stopPropagation on:keydown|stopPropagation role="dialog" aria-modal="true" aria-labelledby="lookup-modal-title" tabindex="-1">
+	<div class="modal-overlay" onclick={() => (showLookupModal = false)} onkeydown={(e) => e.key === 'Escape' && (showLookupModal = false)} role="button" tabindex="0">
+		<div class="modal" onclick|stopPropagation onkeydown|stopPropagation role="dialog" aria-modal="true" aria-labelledby="lookup-modal-title" tabindex="-1">
 			<div class="modal-header">
 				<h3 id="lookup-modal-title">Lookup Model by ID</h3>
-				<button class="close-btn" on:click={() => (showLookupModal = false)}>×</button>
+				<button class="close-btn" onclick={() => (showLookupModal = false)}>×</button>
 			</div>
 
 			<div class="modal-body">
@@ -372,9 +372,9 @@
 						type="text"
 						placeholder="author/model-name"
 						bind:value={lookupModelId}
-						on:keydown={(e) => e.key === 'Enter' && handleLookup()}
+						onkeydown={(e) => e.key === 'Enter' && handleLookup()}
 					/>
-					<button on:click={handleLookup} disabled={lookingUp}>
+					<button onclick={handleLookup} disabled={lookingUp}>
 						{lookingUp ? 'Looking up...' : 'Lookup'}
 					</button>
 				</div>
@@ -431,7 +431,7 @@
 									</div>
 								</div>
 							{:else}
-								<button class="download-btn primary" on:click={() => lookupResult && downloadModel(lookupResult.model_id)}>
+								<button class="download-btn primary" onclick={() => lookupResult && downloadModel(lookupResult.model_id)}>
 									Download Model
 								</button>
 							{/if}

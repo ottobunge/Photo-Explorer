@@ -424,8 +424,8 @@ export function useUrlParams<T extends Record<string, unknown>>(
 		} else if (spec.type === 'number') {
 			const numSpec = spec;
 			const options: NumberOptions = {};
-			if (numSpec.min !== undefined) options.min = numSpec.min;
-			if (numSpec.max !== undefined) options.max = numSpec.max;
+			if (numSpec.min !== undefined) {options.min = numSpec.min;}
+			if (numSpec.max !== undefined) {options.max = numSpec.max;}
 			result[key as keyof T] = useUrlParamNumber(
 				page,
 				key,

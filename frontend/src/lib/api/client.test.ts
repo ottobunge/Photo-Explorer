@@ -8,7 +8,7 @@ global.fetch = vi.fn();
 // Helper to create mock Headers
 function createMockHeaders(entries: [string, string][]): Headers {
 	const headers = new Headers();
-	entries.forEach(([key, value]) => headers.set(key, value));
+	entries.forEach(([key, value]) => { headers.set(key, value); });
 	return headers;
 }
 

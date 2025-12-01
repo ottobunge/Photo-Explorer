@@ -62,13 +62,13 @@
 		}
 	}
 
-	async function handleRemove(event: CustomEvent<{ id: string }>): Promise<void> {
+	async function handleRemove(data: { id: string }): Promise<void> {
 		if (!confirm('Remove this folder from Photo Explorer?\n\nWARNING: All indexed photos and their data (embeddings, face detections, etc.) will be permanently deleted from Photo Explorer. Your original files on disk will not be affected.')) {
 			return;
 		}
 
 		try {
-			await settingsStore.removeConnector(event.detail.id);
+			await settingsStore.removeConnector(data.id);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to remove folder';
 		}
@@ -102,7 +102,7 @@
 	{#if localConnectors.length > 0}
 		<div class="connectors-list">
 			{#each localConnectors as connector (connector.id)}
-				<ConnectorCard {connector} on:remove={handleRemove} />
+				<ConnectorCard {connector} onremove={handleRemove} />
 			{/each}
 		</div>
 	{:else}

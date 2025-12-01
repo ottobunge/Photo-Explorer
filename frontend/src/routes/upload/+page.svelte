@@ -13,8 +13,8 @@
 	let failedCount = 0;
 	let error: string | null = null;
 
-	function handleFilesSelected(event: CustomEvent<File[]>): void {
-		files = [...files, ...event.detail];
+	function handleFilesSelected(selectedFiles: File[]): void {
+		files = [...files, ...selectedFiles];
 		error = null;
 	}
 
@@ -77,7 +77,7 @@
 	</header>
 
 	<div class="mx-auto max-w-3xl">
-		<UploadZone on:filesSelected={handleFilesSelected} disabled={uploading} />
+		<UploadZone onfilesSelected={handleFilesSelected} disabled={uploading} />
 
 		{#if error}
 			<div class="mt-4 rounded-lg bg-red-50 border border-red-200 p-4">
@@ -118,7 +118,7 @@
 							<button
 								type="button"
 								class="text-gray-400 hover:text-red-500"
-								on:click={() => { removeFile(index); }}
+								onclick={() => { removeFile(index); }}
 							>
 								×
 							</button>
@@ -127,10 +127,10 @@
 				</ul>
 
 				<div class="mt-6 flex justify-end gap-4">
-					<button type="button" class="btn-secondary" on:click={() => (files = [])}>
+					<button type="button" class="btn-secondary" onclick={() => (files = [])}>
 						Clear All
 					</button>
-					<button type="button" class="btn-primary" on:click={handleUpload}>
+					<button type="button" class="btn-primary" onclick={handleUpload}>
 						Upload {files.length} Photo{files.length === 1 ? '' : 's'}
 					</button>
 				</div>

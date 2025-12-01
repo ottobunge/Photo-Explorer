@@ -171,8 +171,8 @@ export function createFaceCluster(overrides: Partial<FaceClusterType> = {}): Fac
  * Create FaceGraphData
  */
 export function createFaceGraphData(
-	nodeCount: number = 5,
-	edgeCount: number = 4
+	nodeCount = 5,
+	edgeCount = 4
 ): FaceGraphData {
 	const nodes = Array.from({ length: nodeCount }, (_, i) => ({
 		id: `person-${i + 1}`,
@@ -217,24 +217,24 @@ export class PhotoBuilder {
 		this.photo = createPhoto();
 	}
 
-	withDimensions(width: number, height: number): PhotoBuilder {
+	withDimensions(width: number, height: number): this {
 		this.photo.width = width;
 		this.photo.height = height;
 		return this;
 	}
 
-	withConnector(type: string): PhotoBuilder {
+	withConnector(type: string): this {
 		this.photo.connector_type = type;
 		return this;
 	}
 
-	withDates(taken: string, created: string): PhotoBuilder {
+	withDates(taken: string, created: string): this {
 		this.photo.taken_at = taken;
 		this.photo.created_at = created;
 		return this;
 	}
 
-	withScore(score: number): PhotoBuilder {
+	withScore(score: number): this {
 		this.photo.score = score;
 		return this;
 	}
@@ -251,22 +251,22 @@ export class AlbumBuilder {
 		this.album = createAlbum();
 	}
 
-	withName(name: string): AlbumBuilder {
+	withName(name: string): this {
 		this.album.name = name;
 		return this;
 	}
 
-	withPhotoCount(count: number): AlbumBuilder {
+	withPhotoCount(count: number): this {
 		this.album.photoCount = count;
 		return this;
 	}
 
-	withDescription(description: string): AlbumBuilder {
+	withDescription(description: string): this {
 		this.album.description = description;
 		return this;
 	}
 
-	empty(): AlbumBuilder {
+	empty(): this {
 		this.album.photoCount = 0;
 		this.album.coverPhotoUrl = undefined;
 		return this;
@@ -284,23 +284,23 @@ export class FaceClusterBuilder {
 		this.cluster = createFaceCluster();
 	}
 
-	withName(name: string | undefined): FaceClusterBuilder {
+	withName(name: string | undefined): this {
 		this.cluster.name = name;
 		return this;
 	}
 
-	unnamed(): FaceClusterBuilder {
+	unnamed(): this {
 		this.cluster.name = undefined;
 		return this;
 	}
 
-	withCounts(faces: number, photos: number): FaceClusterBuilder {
+	withCounts(faces: number, photos: number): this {
 		this.cluster.faceCount = faces;
 		this.cluster.photoCount = photos;
 		return this;
 	}
 
-	withoutRepresentative(): FaceClusterBuilder {
+	withoutRepresentative(): this {
 		this.cluster.representativeFace = undefined;
 		return this;
 	}
@@ -327,7 +327,7 @@ export function createPhotoGrid(rows: number, cols: number): Photo[] {
 	return photos;
 }
 
-export function createSearchResults(count: number, baseScore: number = 0.9): SearchResult[] {
+export function createSearchResults(count: number, baseScore = 0.9): SearchResult[] {
 	return Array.from({ length: count }, (_, i) =>
 		createSearchResult({
 			score: baseScore - (i * 0.05)

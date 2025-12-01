@@ -15,7 +15,7 @@
 			<h1 class="text-3xl font-bold text-gray-900">Watched Folders</h1>
 			<p class="mt-2 text-gray-600">Automatically import photos from local directories</p>
 		</div>
-		<button type="button" class="btn-primary" on:click={() => (showAddModal = true)}>
+		<button type="button" class="btn-primary" onclick={() => (showAddModal = true)}>
 			Add Folder
 		</button>
 	</header>

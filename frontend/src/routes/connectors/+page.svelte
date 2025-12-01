@@ -177,5 +177,5 @@
 </div>
 
 {#if showAddModal}
-	<AddConnectorModal on:close={handleModalClose} />
+	<AddConnectorModal onclose={handleModalClose} />
 {/if}

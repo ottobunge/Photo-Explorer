@@ -1,14 +1,11 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
-
 	interface Props {
 		disabled?: boolean;
 		accept?: string;
+		onFilesSelected?: (files: File[]) => void;
 	}
 
-	const { disabled = false, accept = 'image/*' }: Props = $props();
-
-	const dispatch = createEventDispatcher<{ filesSelected: File[] }>();
+	const { disabled = false, accept = 'image/*', onFilesSelected }: Props = $props();
 
 	let dragOver = $state(false);
 	let fileInput: HTMLInputElement;
@@ -31,7 +28,7 @@
 			f.type.startsWith('image/')
 		);
 		if (files.length > 0) {
-			dispatch('filesSelected', files);
+			onFilesSelected?.(files);
 		}
 	}
 
@@ -39,7 +36,7 @@
 		const input = e.target as HTMLInputElement;
 		const files = Array.from(input.files ?? []);
 		if (files.length > 0) {
-			dispatch('filesSelected', files);
+			onFilesSelected?.(files);
 		}
 		input.value = '';
 	}

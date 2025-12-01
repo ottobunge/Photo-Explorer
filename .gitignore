@@ -1,5 +1,3 @@
-# Agentic settings
-.claude/
 # Environment files (contain secrets)
 .env
 .env.local
@@ -151,3 +149,4 @@ frontend/test-results/
 frontend/playwright-report/
 *storybook.log
 storybook-static
+frontend/coverage/

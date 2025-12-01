@@ -17,6 +17,38 @@ if (typeof window !== 'undefined') {
 			whenDefined: (): Promise<void> => Promise.resolve()
 		};
 	}
+
+	// Mock Web Animations API for Svelte transitions
+	if (!Element.prototype.animate) {
+		Element.prototype.animate = function (): any {
+			return {
+				finished: Promise.resolve(),
+				cancel: (): void => {},
+				play: (): void => {},
+				pause: (): void => {},
+				reverse: (): void => {},
+				finish: (): void => {},
+				onfinish: null,
+				oncancel: null,
+				currentTime: 0,
+				playbackRate: 1,
+				startTime: null,
+				effect: null,
+				id: '',
+				playState: 'finished' as AnimationPlayState,
+				replaceState: 'active' as AnimationReplaceState,
+				pending: false,
+				ready: Promise.resolve(this),
+				timeline: null,
+				addEventListener: (): void => {},
+				removeEventListener: (): void => {},
+				dispatchEvent: (): boolean => true,
+				commitStyles: (): void => {},
+				persist: (): void => {},
+				updatePlaybackRate: (): void => {}
+			} as Animation;
+		};
+	}
 }
 
 // Mock fetch globally

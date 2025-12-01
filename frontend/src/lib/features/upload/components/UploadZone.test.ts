@@ -176,7 +176,7 @@ describe('UploadZone', () => {
 			});
 
 			const zone = container.querySelector('[data-testid="upload-zone"]')!;
-			const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="file"]')!;
 
 			// Mock click on input
 			const clickSpy = vi.spyOn(input, 'click');
@@ -194,7 +194,7 @@ describe('UploadZone', () => {
 				}
 			});
 
-			const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="file"]')!;
 			const files = [
 				new File(['test1'], 'photo1.jpg', { type: 'image/jpeg' }),
 				new File(['test2'], 'photo2.jpg', { type: 'image/jpeg' })
@@ -219,7 +219,7 @@ describe('UploadZone', () => {
 				}
 			});
 
-			const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="file"]')!;
 			const file = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
 
 			Object.defineProperty(input, 'files', {
@@ -241,7 +241,7 @@ describe('UploadZone', () => {
 			});
 
 			const zone = container.querySelector('[data-testid="upload-zone"]')!;
-			const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="file"]')!;
 			const clickSpy = vi.spyOn(input, 'click');
 
 			await fireEvent.click(zone);
@@ -257,7 +257,7 @@ describe('UploadZone', () => {
 			});
 
 			const zone = container.querySelector('[data-testid="upload-zone"]')!;
-			const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="file"]')!;
 			const clickSpy = vi.spyOn(input, 'click');
 
 			await fireEvent.keyDown(zone, { key: 'Enter' });
@@ -271,7 +271,7 @@ describe('UploadZone', () => {
 			});
 
 			const zone = container.querySelector('[data-testid="upload-zone"]')!;
-			const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="file"]')!;
 			const clickSpy = vi.spyOn(input, 'click');
 
 			await fireEvent.keyDown(zone, { key: ' ' });
@@ -287,7 +287,7 @@ describe('UploadZone', () => {
 			});
 
 			const zone = container.querySelector('[data-testid="upload-zone"]')!;
-			const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="file"]')!;
 			const clickSpy = vi.spyOn(input, 'click');
 
 			await fireEvent.keyDown(zone, { key: 'Enter' });

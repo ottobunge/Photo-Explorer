@@ -30,7 +30,7 @@ describe('SearchBar', () => {
 				}
 			});
 
-			const input = container.querySelector('input[type="search"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="search"]')!;
 			expect(input.value).toBe('sunset photos');
 		});
 
@@ -109,7 +109,7 @@ describe('SearchBar', () => {
 				}
 			});
 
-			const input = container.querySelector('input[type="search"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="search"]')!;
 
 			await fireEvent.input(input, { target: { value: 'new query' } });
 			expect(input.value).toBe('new query');
@@ -173,7 +173,7 @@ describe('SearchBar', () => {
 				}
 			});
 
-			const input = container.querySelector('input[type="search"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="search"]')!;
 
 			// Type multiple characters quickly
 			await fireEvent.input(input, { target: { value: 's' } });
@@ -201,7 +201,7 @@ describe('SearchBar', () => {
 				}
 			});
 
-			const input = container.querySelector('input[type="search"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="search"]')!;
 			const form = container.querySelector('form');
 
 			// Type and immediately submit
@@ -228,7 +228,7 @@ describe('SearchBar', () => {
 				}
 			});
 
-			const input = container.querySelector('input[type="search"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="search"]')!;
 
 			await fireEvent.input(input, { target: { value: 'test' } });
 
@@ -454,7 +454,7 @@ describe('SearchBar', () => {
 				}
 			});
 
-			const input = container.querySelector('input[type="search"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="search"]')!;
 			expect(input.value.length).toBeLessThanOrEqual(100);
 		});
 
@@ -466,7 +466,7 @@ describe('SearchBar', () => {
 				}
 			});
 
-			const input = container.querySelector('input[type="search"]') as HTMLInputElement;
+			const input = container.querySelector('input[type="search"]')!;
 			// Value should be escaped/safe
 			expect(input.value).toBe(specialQuery);
 			expect(container.innerHTML).not.toContain('<script>');

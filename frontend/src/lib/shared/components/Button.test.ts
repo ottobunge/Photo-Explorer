@@ -289,7 +289,7 @@ describe('Button', () => {
 		});
 
 		it('handles form submission', () => {
-			const handleSubmit = vi.fn((e: Event) => e.preventDefault());
+			const handleSubmit = vi.fn((e: Event) => { e.preventDefault(); });
 
 			const form = document.createElement('form');
 			form.addEventListener('submit', handleSubmit);

@@ -59,11 +59,11 @@ export function createMockStore<T>(initialValue: T) {
 		}),
 		set: vi.fn((newValue: T) => {
 			value = newValue;
-			subscribers.forEach(cb => cb(value));
+			subscribers.forEach(cb => { cb(value); });
 		}),
 		update: vi.fn((updater: (value: T) => T) => {
 			value = updater(value);
-			subscribers.forEach(cb => cb(value));
+			subscribers.forEach(cb => { cb(value); });
 		}),
 		// For testing - get current value
 		get: () => value
@@ -191,10 +191,20 @@ export function createDragEvent(
 		dropEffect: 'copy' as DataTransferDropEffect
 	};
 
-	return new Event(type, {
+	const event = new Event(type, {
 		bubbles: true,
 		cancelable: true
-	}) as DragEvent & { dataTransfer: typeof dataTransfer };
+	}) as unknown as DragEvent;
+
+	// Properly attach dataTransfer to the event
+	Object.defineProperty(event, 'dataTransfer', {
+		value: dataTransfer,
+		writable: true,
+		enumerable: true,
+		configurable: true
+	});
+
+	return event;
 }
 
 /**
@@ -222,7 +232,7 @@ export class MockWebSocket {
 
 	constructor(url: string) {
 		this.url = url;
-		setTimeout(() => this.connect(), 0);
+		setTimeout(() => { this.connect(); }, 0);
 	}
 
 	connect(): void {

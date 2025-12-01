@@ -1,17 +1,20 @@
 <script lang="ts">
 	import Modal from '$lib/shared/components/Modal.svelte';
-	import { createEventDispatcher } from 'svelte';
 	import { settingsStore } from '$lib/features/settings';
 	import type { LocalFolderConfig } from '$lib/features/settings/types';
 
-	const dispatch = createEventDispatcher<{ close: never }>();
+	interface Props {
+		onclose?: () => void;
+	}
 
-	let connecting = false;
-	let error: string | null = null;
-	let selectedType: 'google_photos' | 'local' | null = null;
-	let localFolderPath = '';
-	let localFolderName = '';
-	let recursive = true;
+	const { onclose }: Props = $props();
+
+	let connecting = $state(false);
+	let error = $state<string | null>(null);
+	let selectedType = $state<'google_photos' | 'local' | null>(null);
+	let localFolderPath = $state('');
+	let localFolderName = $state('');
+	let recursive = $state(true);
 
 	async function handleGooglePhotos(): Promise<void> {
 		connecting = true;
@@ -48,7 +51,7 @@
 				config.name = localFolderName;
 			}
 			await settingsStore.addLocalFolder(config);
-			dispatch('close');
+			onclose?.();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create local connector';
 			connecting = false;
@@ -61,17 +64,17 @@
 	}
 </script>
 
-<Modal title={selectedType ? 'Add Connector' : 'Choose Connector Type'} on:close>
+<Modal title={selectedType ? 'Add Connector' : 'Choose Connector Type'} {onclose}>
 	{#if !selectedType}
 		<!-- Type selection -->
 		<div class="connector-types">
-			<button class="connector-type-card" on:click={() => (selectedType = 'google_photos')}>
+			<button class="connector-type-card" onclick={() => (selectedType = 'google_photos')}>
 				<div class="icon">📷</div>
 				<h3>Google Photos</h3>
 				<p>Connect your Google Photos library for cloud photo management</p>
 			</button>
 
-			<button class="connector-type-card" on:click={() => (selectedType = 'local')}>
+			<button class="connector-type-card" onclick={() => (selectedType = 'local')}>
 				<div class="icon">📁</div>
 				<h3>Local Folder</h3>
 				<p>Index photos from a folder on your computer</p>
@@ -95,8 +98,8 @@
 			{/if}
 
 			<div class="button-group">
-				<button class="btn-secondary" on:click={handleBack} disabled={connecting}>Back</button>
-				<button class="btn-primary" on:click={handleGooglePhotos} disabled={connecting}>
+				<button class="btn-secondary" onclick={handleBack} disabled={connecting}>Back</button>
+				<button class="btn-primary" onclick={handleGooglePhotos} disabled={connecting}>
 					{#if connecting}
 						<span class="spinner"></span>
 						Connecting...
@@ -143,8 +146,8 @@
 			{/if}
 
 			<div class="button-group">
-				<button class="btn-secondary" on:click={handleBack} disabled={connecting}>Back</button>
-				<button class="btn-primary" on:click={handleCreateLocal} disabled={connecting}>
+				<button class="btn-secondary" onclick={handleBack} disabled={connecting}>Back</button>
+				<button class="btn-primary" onclick={handleCreateLocal} disabled={connecting}>
 					{#if connecting}
 						<span class="spinner"></span>
 						Creating...

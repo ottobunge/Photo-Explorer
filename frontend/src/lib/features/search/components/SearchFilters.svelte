@@ -1,16 +1,16 @@
 <script lang="ts">
-	let showFilters = false;
-	let startDate = '';
-	let endDate = '';
-	let hasFaces = false;
-	let isIndoor: boolean | null = null;
+	let showFilters = $state(false);
+	let startDate = $state('');
+	let endDate = $state('');
+	let hasFaces = $state(false);
+	let isIndoor = $state<boolean | null>(null);
 </script>
 
 <div data-testid="search-filters">
 	<button
 		type="button"
 		class="btn-ghost text-sm"
-		on:click={() => (showFilters = !showFilters)}
+		onclick={() => (showFilters = !showFilters)}
 		data-testid="filter-toggle"
 	>
 		{showFilters ? '▼' : '▶'} Filters

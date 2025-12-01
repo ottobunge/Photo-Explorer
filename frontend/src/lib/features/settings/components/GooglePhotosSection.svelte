@@ -20,13 +20,13 @@
 		}
 	}
 
-	async function handleRemove(event: CustomEvent<{ id: string }>): Promise<void> {
+	async function handleRemove(data: { id: string }): Promise<void> {
 		if (!confirm('Remove this Google Photos connection?\n\nWARNING: All imported photos and their data (embeddings, face detections, etc.) will be permanently deleted from Photo Explorer. Your photos in Google Photos will not be affected.')) {
 			return;
 		}
 
 		try {
-			await settingsStore.removeConnector(event.detail.id);
+			await settingsStore.removeConnector(data.id);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to remove connector';
 		}
@@ -56,7 +56,7 @@
 	{#if googlePhotosConnectors.length > 0}
 		<div class="connectors-list">
 			{#each googlePhotosConnectors as connector (connector.id)}
-				<ConnectorCard {connector} on:remove={handleRemove} />
+				<ConnectorCard {connector} onremove={handleRemove} />
 			{/each}
 		</div>
 

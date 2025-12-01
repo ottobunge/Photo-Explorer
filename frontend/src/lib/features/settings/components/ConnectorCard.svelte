@@ -2,7 +2,7 @@
 	import type { Connector, PickerSession } from '../types';
 	import { isLocalFolderConfig } from '../types';
 	import { settingsStore } from '../stores/settings.svelte';
-	import { createEventDispatcher, onDestroy } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { StatusBadge } from '$lib/shared/components';
 	import type { StatusType } from '$lib/shared/components/StatusBadge.svelte';
 	import {
@@ -15,14 +15,11 @@
 
 	interface Props {
 		connector: Connector;
+		onsync?: (data: { id: string }) => void;
+		onremove?: (data: { id: string }) => void;
 	}
 
-	const { connector }: Props = $props();
-
-	const dispatch = createEventDispatcher<{
-		remove: { id: string };
-		sync: { id: string };
-	}>();
+	const { connector, onsync, onremove }: Props = $props();
 
 	let syncing = $state(false);
 	let reprocessing = $state(false);
@@ -96,14 +93,14 @@
 		syncing = true;
 		try {
 			await settingsStore.triggerSync(connector.id);
-			dispatch('sync', { id: connector.id });
+			onsync?.({ id: connector.id });
 		} finally {
 			syncing = false;
 		}
 	}
 
 	function handleRemove(): void {
-		dispatch('remove', { id: connector.id });
+		onremove?.({ id: connector.id });
 	}
 
 	async function handleReprocess(): Promise<void> {
