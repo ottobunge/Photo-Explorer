@@ -44,7 +44,7 @@ Modal component displays content in a dialog overlay.
 	<div>
 		<Button onclick={() => { isOpen1.set(true); }}>Open Modal</Button>
 		{#if $isOpen1}
-			<Modal title="Default Modal" on:close={() => { isOpen1.set(false); }}>
+			<Modal title="Default Modal" onclose={() => { isOpen1.set(false); }}>
 				<p style="margin: 0; color: #6b7280;">
 					This is a default modal with a title and some content.
 				</p>
@@ -64,7 +64,7 @@ Modal component displays content in a dialog overlay.
 	<div>
 		<Button onclick={() => { isOpen2.set(true); }}>Open Small Modal</Button>
 		{#if $isOpen2}
-			<Modal title="Small Modal" on:close={() => { isOpen2.set(false); }}>
+			<Modal title="Small Modal" onclose={() => { isOpen2.set(false); }}>
 				<p style="margin: 0; color: #6b7280;">This is a small modal.</p>
 				{#snippet footer()}
 					<Button onclick={() => { isOpen2.set(false); }}>Close</Button>
@@ -79,7 +79,7 @@ Modal component displays content in a dialog overlay.
 	<div>
 		<Button onclick={() => { isOpen3.set(true); }}>Open Large Modal</Button>
 		{#if $isOpen3}
-			<Modal title="Create New Album" on:close={() => { isOpen3.set(false); }}>
+			<Modal title="Create New Album" onclose={() => { isOpen3.set(false); }}>
 			<div style="display: flex; flex-direction: column; gap: 1rem;">
 				<div>
 					<label for="album-name" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Album Name</label>

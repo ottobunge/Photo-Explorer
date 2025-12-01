@@ -5,6 +5,43 @@ import { client, ApiError, API_HOST } from './client';
 // Mock fetch globally
 global.fetch = vi.fn();
 
+// Helper to create mock Headers
+function createMockHeaders(entries: [string, string][]): Headers {
+	const headers = new Headers();
+	entries.forEach(([key, value]) => headers.set(key, value));
+	return headers;
+}
+
+// Helper to create mock Response
+function createMockResponse(options: {
+	ok: boolean;
+	status?: number;
+	statusText?: string;
+	headers?: Headers;
+	json?: () => Promise<unknown>;
+	text?: () => Promise<string>;
+}): Response {
+	return {
+		ok: options.ok,
+		status: options.status ?? (options.ok ? 200 : 500),
+		statusText: options.statusText ?? (options.ok ? 'OK' : 'Internal Server Error'),
+		headers: options.headers ?? new Headers(),
+		json: options.json ?? (async () => ({})),
+		text: options.text ?? (async () => ''),
+		// Add other required Response properties
+		redirected: false,
+		type: 'basic',
+		url: '',
+		clone: () => createMockResponse(options),
+		body: null,
+		bodyUsed: false,
+		arrayBuffer: async () => new ArrayBuffer(0),
+		blob: async () => new Blob(),
+		formData: async () => new FormData(),
+		bytes: async () => new Uint8Array()
+	} as Response;
+}
+
 describe('API Client', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -30,14 +67,20 @@ describe('API Client', () => {
 		it('should handle timeout errors', async () => {
 			// Mock AbortController to trigger timeout
 			const mockAbort = vi.fn();
-			type MockAbortController = new () => {
-				abort: typeof mockAbort;
-				signal: { aborted: boolean };
-			};
+			const mockSignal = {
+				aborted: false,
+				onabort: null as ((this: AbortSignal, ev: Event) => unknown) | null,
+				reason: undefined as unknown,
+				throwIfAborted: vi.fn(),
+				addEventListener: vi.fn(),
+				removeEventListener: vi.fn(),
+				dispatchEvent: vi.fn().mockReturnValue(true)
+			} as AbortSignal;
+
 			global.AbortController = vi.fn().mockImplementation(() => ({
 				abort: mockAbort,
-				signal: { aborted: false }
-			})) as unknown as MockAbortController;
+				signal: mockSignal
+			})) as unknown as typeof AbortController;
 
 			const mockFetch = vi.mocked(global.fetch);
 		mockFetch.mockImplementation(
@@ -52,13 +95,13 @@ describe('API Client', () => {
 	describe('Response Parsing', () => {
 		it('should handle non-JSON responses', async () => {
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: false,
 				status: 500,
 				statusText: 'Internal Server Error',
-				headers: new Map([['content-type', 'text/html']]),
+				headers: createMockHeaders([['content-type', 'text/html']]),
 				text: async () => '<html>Error page</html>'
-			});
+			}));
 
 			await expect(client.get('/test')).rejects.toThrow(ApiError);
 			await expect(client.get('/test')).rejects.toThrow('non-JSON response');
@@ -66,13 +109,13 @@ describe('API Client', () => {
 
 		it('should handle invalid JSON responses', async () => {
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: true,
-				headers: new Map([['content-type', 'application/json']]),
+				headers: createMockHeaders([['content-type', 'application/json']]),
 				json: async () => {
 					throw new Error('Invalid JSON');
 				}
-			});
+			}));
 
 			await expect(client.get('/test')).rejects.toThrow(ApiError);
 			await expect(client.get('/test')).rejects.toThrow('Failed to parse');
@@ -81,11 +124,11 @@ describe('API Client', () => {
 		it('should parse successful JSON responses', async () => {
 			const mockData = { id: '123', name: 'Test' };
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: true,
-				headers: new Map([['content-type', 'application/json']]),
+				headers: createMockHeaders([['content-type', 'application/json']]),
 				json: async () => ({ success: true, data: mockData })
-			});
+			}));
 
 			const result = await client.get('/test');
 			expect(result.success).toBe(true);
@@ -96,11 +139,11 @@ describe('API Client', () => {
 	describe('HTTP Methods', () => {
 		it('should make GET requests with query params', async () => {
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: true,
-				headers: new Map([['content-type', 'application/json']]),
+				headers: createMockHeaders([['content-type', 'application/json']]),
 				json: async () => ({ success: true, data: {} })
-			});
+			}));
 
 			await client.get('/test', { params: { page: '1', limit: '10' } });
 
@@ -112,11 +155,11 @@ describe('API Client', () => {
 
 		it('should make POST requests with JSON body', async () => {
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: true,
-				headers: new Map([['content-type', 'application/json']]),
+				headers: createMockHeaders([['content-type', 'application/json']]),
 				json: async () => ({ success: true, data: {} })
-			});
+			}));
 
 			const body = { name: 'Test' };
 			await client.post('/test', body);
@@ -133,11 +176,11 @@ describe('API Client', () => {
 
 		it('should make PATCH requests', async () => {
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: true,
-				headers: new Map([['content-type', 'application/json']]),
+				headers: createMockHeaders([['content-type', 'application/json']]),
 				json: async () => ({ success: true, data: {} })
-			});
+			}));
 
 			await client.patch('/test', { name: 'Updated' });
 
@@ -149,11 +192,11 @@ describe('API Client', () => {
 
 		it('should make DELETE requests', async () => {
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: true,
-				headers: new Map([['content-type', 'application/json']]),
+				headers: createMockHeaders([['content-type', 'application/json']]),
 				json: async () => ({ success: true, data: {} })
-			});
+			}));
 
 			await client.delete('/test');
 
@@ -165,11 +208,11 @@ describe('API Client', () => {
 
 		it('should make POST requests with FormData', async () => {
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: true,
-				headers: new Map([['content-type', 'application/json']]),
+				headers: createMockHeaders([['content-type', 'application/json']]),
 				json: async () => ({ success: true, data: { uploaded: [], failed: [] } })
-			});
+			}));
 
 			const formData = new FormData();
 			formData.append('file', new Blob(['test']), 'test.jpg');
@@ -188,10 +231,10 @@ describe('API Client', () => {
 	describe('Error Response Handling', () => {
 		it('should throw ApiError with error details from server', async () => {
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: false,
 				status: 400,
-				headers: new Map([['content-type', 'application/json']]),
+				headers: createMockHeaders([['content-type', 'application/json']]),
 				json: async () => ({
 					success: false,
 					error: {
@@ -200,7 +243,7 @@ describe('API Client', () => {
 						details: { field: 'name' }
 					}
 				})
-			});
+			}));
 
 			try {
 				await client.get('/test');
@@ -217,12 +260,12 @@ describe('API Client', () => {
 
 		it('should provide default error message for unknown errors', async () => {
 			const mockFetch = vi.mocked(global.fetch);
-		mockFetch.mockResolvedValue({
+		mockFetch.mockResolvedValue(createMockResponse({
 				ok: false,
 				status: 500,
-				headers: new Map([['content-type', 'application/json']]),
+				headers: createMockHeaders([['content-type', 'application/json']]),
 				json: async () => ({ success: false })
-			});
+			}));
 
 			try {
 				await client.get('/test');

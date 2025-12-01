@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
@@ -7,21 +6,20 @@
 		title?: string;
 		children?: Snippet;
 		footer?: Snippet;
+		onclose?: () => void;
 	}
 
-	const { title = '', children, footer }: Props = $props();
-
-	const dispatch = createEventDispatcher<{ close: never }>();
+	const { title = '', children, footer, onclose }: Props = $props();
 
 	function handleBackdropClick(e: MouseEvent): void {
 		if (e.target === e.currentTarget) {
-			dispatch('close');
+			onclose?.();
 		}
 	}
 
 	function handleKeydown(e: KeyboardEvent): void {
 		if (e.key === 'Escape') {
-			dispatch('close');
+			onclose?.();
 		}
 	}
 </script>
@@ -69,7 +67,7 @@
 		<button
 			type="button"
 			class="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-			onclick={() => dispatch('close')}
+			onclick={() => onclose?.()}
 			aria-label="Close modal"
 		>
 			×

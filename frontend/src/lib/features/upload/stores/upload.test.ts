@@ -78,8 +78,12 @@ describe('uploadStore', () => {
 			uploadStore.addFiles(files);
 
 			expect(uploadStore.items).toHaveLength(2);
-			expect(uploadStore.items[0].file).toBe(files[0]);
-			expect(uploadStore.items[1].file).toBe(files[1]);
+			const item0 = uploadStore.items[0];
+			const item1 = uploadStore.items[1];
+			expect(item0).toBeDefined();
+			expect(item1).toBeDefined();
+			expect(item0!.file).toBe(files[0]);
+			expect(item1!.file).toBe(files[1]);
 		});
 
 		it('should initialize with pending status and zero progress', () => {
@@ -119,7 +123,9 @@ describe('uploadStore', () => {
 			uploadStore.addFiles([new File([], 'new.jpg')]);
 
 			expect(uploadStore.items).toHaveLength(2);
-			expect(uploadStore.items[0].id).toBe('old');
+			const firstItem = uploadStore.items[0];
+			expect(firstItem).toBeDefined();
+			expect(firstItem!.id).toBe('old');
 		});
 	});
 
@@ -182,25 +188,31 @@ describe('uploadStore', () => {
 
 		it('should update progress incrementally', () => {
 			uploadStore.updateProgress('1', 25);
-			expect(uploadStore.items[0].progress).toBe(25);
+			const item = uploadStore.items[0];
+			expect(item).toBeDefined();
+			expect(item!.progress).toBe(25);
 
 			uploadStore.updateProgress('1', 75);
-			expect(uploadStore.items[0].progress).toBe(75);
+			expect(item!.progress).toBe(75);
 		});
 
 		it('should not affect other items', () => {
 			uploadStore.updateProgress('1', 50);
 
-			expect(uploadStore.items[1].progress).toBe(0);
-			expect(uploadStore.items[1].status).toBe('pending');
+			const item1 = uploadStore.items[1];
+			expect(item1).toBeDefined();
+			expect(item1!.progress).toBe(0);
+			expect(item1!.status).toBe('pending');
 		});
 
 		it('should handle progress 0-100', () => {
 			uploadStore.updateProgress('1', 0);
-			expect(uploadStore.items[0].progress).toBe(0);
+			const item = uploadStore.items[0];
+			expect(item).toBeDefined();
+			expect(item!.progress).toBe(0);
 
 			uploadStore.updateProgress('1', 100);
-			expect(uploadStore.items[0].progress).toBe(100);
+			expect(item!.progress).toBe(100);
 		});
 	});
 
@@ -231,8 +243,12 @@ describe('uploadStore', () => {
 
 			uploadStore.setCompleted('1');
 
-			expect(uploadStore.items[0].status).toBe('completed');
-			expect(uploadStore.items[1].status).toBe('uploading');
+			const item0 = uploadStore.items[0];
+			const item1 = uploadStore.items[1];
+			expect(item0).toBeDefined();
+			expect(item1).toBeDefined();
+			expect(item0!.status).toBe('completed');
+			expect(item1!.status).toBe('uploading');
 		});
 	});
 
@@ -258,7 +274,9 @@ describe('uploadStore', () => {
 		it('should preserve progress on failure', () => {
 			uploadStore.setFailed('1', 'Upload aborted');
 
-			expect(uploadStore.items[0].progress).toBe(50);
+			const item = uploadStore.items[0];
+			expect(item).toBeDefined();
+			expect(item!.progress).toBe(50);
 		});
 
 		it('should only update the specified item', () => {
@@ -269,8 +287,12 @@ describe('uploadStore', () => {
 
 			uploadStore.setFailed('1', 'Error');
 
-			expect(uploadStore.items[0].status).toBe('failed');
-			expect(uploadStore.items[1].status).toBe('uploading');
+			const item0 = uploadStore.items[0];
+			const item1 = uploadStore.items[1];
+			expect(item0).toBeDefined();
+			expect(item1).toBeDefined();
+			expect(item0!.status).toBe('failed');
+			expect(item1!.status).toBe('uploading');
 		});
 	});
 
@@ -342,7 +364,9 @@ describe('uploadStore', () => {
 			expect(uploadStore.uploadingItems).toBe(0);
 			expect(uploadStore.completedItems).toBe(0);
 
-			uploadStore.items[0].status = 'uploading';
+			const item = uploadStore.items[0];
+			expect(item).toBeDefined();
+			item!.status = 'uploading';
 
 			expect(uploadStore.pendingItems).toBe(0);
 			expect(uploadStore.uploadingItems).toBe(1);
@@ -355,7 +379,9 @@ describe('uploadStore', () => {
 
 			expect(uploadStore.totalProgress).toBe(50);
 
-			uploadStore.items[0].progress = 100;
+			const item = uploadStore.items[0];
+			expect(item).toBeDefined();
+			item!.progress = 100;
 
 			expect(uploadStore.totalProgress).toBe(100);
 		});
@@ -366,36 +392,42 @@ describe('uploadStore', () => {
 			const file = new File([], 'photo.jpg');
 
 			uploadStore.addFiles([file]);
-			expect(uploadStore.items[0].status).toBe('pending');
+			const item = uploadStore.items[0];
+			expect(item).toBeDefined();
+			expect(item!.status).toBe('pending');
 
-			uploadStore.updateProgress(uploadStore.items[0].id, 25);
-			expect(uploadStore.items[0].status).toBe('uploading');
-			expect(uploadStore.items[0].progress).toBe(25);
+			uploadStore.updateProgress(item!.id, 25);
+			expect(item!.status).toBe('uploading');
+			expect(item!.progress).toBe(25);
 
-			uploadStore.updateProgress(uploadStore.items[0].id, 75);
-			expect(uploadStore.items[0].progress).toBe(75);
+			uploadStore.updateProgress(item!.id, 75);
+			expect(item!.progress).toBe(75);
 
-			uploadStore.setCompleted(uploadStore.items[0].id);
-			expect(uploadStore.items[0].status).toBe('completed');
-			expect(uploadStore.items[0].progress).toBe(100);
+			uploadStore.setCompleted(item!.id);
+			expect(item!.status).toBe('completed');
+			expect(item!.progress).toBe(100);
 		});
 
 		it('should handle failed upload recovery', () => {
 			const file = new File([], 'photo.jpg');
 
 			uploadStore.addFiles([file]);
-			const itemId = uploadStore.items[0].id;
+			const firstItem = uploadStore.items[0];
+			expect(firstItem).toBeDefined();
+			const itemId = firstItem!.id;
 
 			uploadStore.updateProgress(itemId, 50);
 			uploadStore.setFailed(itemId, 'Network error');
 
-			expect(uploadStore.items[0].status).toBe('failed');
+			expect(firstItem!.status).toBe('failed');
 
 			uploadStore.removeItem(itemId);
 			uploadStore.addFiles([file]);
 
-			expect(uploadStore.items[0].status).toBe('pending');
-			expect(uploadStore.items[0].progress).toBe(0);
+			const newItem = uploadStore.items[0];
+			expect(newItem).toBeDefined();
+			expect(newItem!.status).toBe('pending');
+			expect(newItem!.progress).toBe(0);
 		});
 
 		it('should track multiple concurrent uploads', () => {
@@ -407,13 +439,18 @@ describe('uploadStore', () => {
 
 			uploadStore.addFiles(files);
 
-			uploadStore.updateProgress(uploadStore.items[0].id, 50);
-			uploadStore.updateProgress(uploadStore.items[1].id, 75);
+			const item0 = uploadStore.items[0];
+			const item1 = uploadStore.items[1];
+			expect(item0).toBeDefined();
+			expect(item1).toBeDefined();
+
+			uploadStore.updateProgress(item0!.id, 50);
+			uploadStore.updateProgress(item1!.id, 75);
 
 			expect(uploadStore.uploadingItems).toBe(2);
 			expect(uploadStore.pendingItems).toBe(1);
 
-			uploadStore.setCompleted(uploadStore.items[0].id);
+			uploadStore.setCompleted(item0!.id);
 
 			expect(uploadStore.completedItems).toBe(1);
 			expect(uploadStore.uploadingItems).toBe(1);

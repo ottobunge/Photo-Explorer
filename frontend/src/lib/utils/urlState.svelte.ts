@@ -423,11 +423,14 @@ export function useUrlParams<T extends Record<string, unknown>>(
 			);
 		} else if (spec.type === 'number') {
 			const numSpec = spec;
+			const options: NumberOptions = {};
+			if (numSpec.min !== undefined) options.min = numSpec.min;
+			if (numSpec.max !== undefined) options.max = numSpec.max;
 			result[key as keyof T] = useUrlParamNumber(
 				page,
 				key,
 				numSpec.default as number,
-				{ min: numSpec.min, max: numSpec.max }
+				options
 			) as T[keyof T];
 		} else if (spec.type === 'boolean') {
 			result[key as keyof T] = useUrlParamBoolean(

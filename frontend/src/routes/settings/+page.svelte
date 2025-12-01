@@ -73,10 +73,6 @@
 		gap: 3rem;
 	}
 
-	.settings-category {
-		/* Wrapping section */
-	}
-
 	.category-title {
 		font-size: 1.5rem;
 		font-weight: 600;

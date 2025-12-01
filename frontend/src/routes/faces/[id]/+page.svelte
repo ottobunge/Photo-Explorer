@@ -5,6 +5,7 @@
 	import { client, API_HOST } from '$lib/api/client';
 	import { faceSelectionStore } from '$lib/features/faces/stores/face-selection.svelte';
 	import { ClusterPicker } from '$lib/features/faces';
+	import type { FaceClusterType } from '$lib/features/faces/types';
 
 	interface Face {
 		id: string;
@@ -158,7 +159,7 @@
 		showClusterPicker = true;
 	}
 
-	async function handleClusterSelected(selectedCluster: ClusterData): Promise<void> {
+	async function handleClusterSelected(selectedCluster: FaceClusterType): Promise<void> {
 		showClusterPicker = false;
 		operationInProgress = true;
 

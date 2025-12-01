@@ -50,7 +50,7 @@
 		<button type="button" class="btn-secondary text-sm" onclick={handleScan} disabled={scanning}>
 			{scanning ? 'Scanning...' : 'Scan Now'}
 		</button>
-		<button type="button" class="btn-ghost text-sm text-red-600 hover:bg-red-50" onclick={() => foldersStore.remove(folder.id)}>
+		<button type="button" class="btn-ghost text-sm text-red-600 hover:bg-red-50" onclick={() => foldersStore.remove(folder.id, false)}>
 			Remove
 		</button>
 	</div>

@@ -21,7 +21,15 @@
       "Bash(/home/otto/repos/personal/photo-explorer/backend/INTEGRATION_EXAMPLE.md)",
       "Bash(nix-shell:*)",
       "Bash(npx vitest:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(xargs ls:*)",
+      "Bash(npm test)",
+      "Bash(npm run check:*)",
+      "Bash(do test_file=\"$f%.svelte.test.ts\" if [ ! -f \"$test_file\" ])",
+      "Bash(then echo \"NO TEST: $f\" fi done)",
+      "Bash(xargs:*)",
+      "Bash(npm test:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []
