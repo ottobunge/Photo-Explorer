@@ -2,13 +2,19 @@
 
 import asyncio
 import io
+import logging
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Optional
+from uuid import UUID
 
 import pytest
 import pytest_asyncio
+from celery import Celery
+from celery.result import AsyncResult
 from PIL import Image
 
 # Import common fixtures from integration tests
@@ -19,6 +25,8 @@ from tests.integration.conftest import (
     test_vector_store,
 )
 
+logger = logging.getLogger(__name__)
+
 
 # ===== Fixture Aliases =====
 
@@ -27,6 +35,117 @@ from tests.integration.conftest import (
 def db_session(test_session):
     """Alias for test_session for consistency with API tests."""
     return test_session
+
+
+# ===== Celery Worker for E2E Tests =====
+
+
+class TestCeleryWorker:
+    """Manage Celery worker lifecycle for E2E tests."""
+
+    def __init__(self, celery_app: Celery, worker_concurrency: int = 2):
+        """
+        Initialize test worker.
+
+        Args:
+            celery_app: Celery application instance
+            worker_concurrency: Number of concurrent worker processes
+        """
+        self.celery_app = celery_app
+        self.worker_concurrency = worker_concurrency
+        self.worker_thread: Optional[threading.Thread] = None
+        self.worker: Optional[Any] = None
+        self._stop_event = threading.Event()
+
+    def start(self) -> None:
+        """Start Celery worker in a background thread."""
+        if self.worker_thread is not None:
+            logger.warning("Worker already started")
+            return
+
+        logger.info("Starting Celery worker for E2E tests...")
+
+        def run_worker() -> None:
+            """Run worker in background thread."""
+            try:
+                self.worker = self.celery_app.Worker(
+                    concurrency=self.worker_concurrency,
+                    loglevel=logging.INFO,
+                    without_gossip=True,
+                    without_mingle=True,
+                    without_heartbeat=True,
+                    queues=["default", "processing", "clustering", "dlq"],
+                    pool="threads",  # Use thread pool for testing (no fork issues)
+                )
+                # Run worker until stop event is set
+                self.worker.start()
+            except Exception as e:
+                logger.error(f"Worker error: {e}", exc_info=True)
+
+        self.worker_thread = threading.Thread(target=run_worker, daemon=True)
+        self.worker_thread.start()
+
+        # Wait for worker to be ready (max 10 seconds)
+        for _ in range(100):
+            if self.worker and self.worker.state in ("online", "ready"):
+                logger.info("Celery worker ready")
+                return
+            time.sleep(0.1)
+
+        logger.warning("Celery worker did not reach ready state within timeout")
+
+    def stop(self) -> None:
+        """Stop Celery worker."""
+        if self.worker is None:
+            return
+
+        logger.info("Stopping Celery worker...")
+        self._stop_event.set()
+
+        # Send stop signal
+        if self.worker:
+            try:
+                self.worker.stop()
+            except Exception as e:
+                logger.warning(f"Error stopping worker: {e}")
+
+        # Wait for worker thread to finish (max 10 seconds)
+        if self.worker_thread:
+            self.worker_thread.join(timeout=10.0)
+
+        self.worker = None
+        self.worker_thread = None
+        logger.info("Celery worker stopped")
+
+
+@pytest.fixture(scope="session")
+def celery_app_for_e2e():
+    """Get Celery app configured for testing."""
+    from app.adapters.inbound.workers.celery_app import celery_app
+
+    # Configure for testing
+    celery_app.conf.update(
+        task_always_eager=False,  # Actually run tasks in worker
+        task_eager_propagates=True,
+        worker_prefetch_multiplier=1,
+    )
+
+    return celery_app
+
+
+@pytest.fixture(scope="session", autouse=True)
+def celery_worker(celery_app_for_e2e: Celery) -> None:
+    """Start and stop Celery worker for entire E2E test session.
+
+    This fixture starts a worker at session scope so it runs once for all tests.
+    The autouse=True parameter ensures it runs automatically for all E2E tests.
+    """
+    worker_manager = TestCeleryWorker(celery_app_for_e2e, worker_concurrency=2)
+    worker_manager.start()
+
+    yield  # Run all tests with worker running
+
+    worker_manager.stop()
 
 
 # ===== Image Processing Helpers =====
@@ -86,6 +205,106 @@ async def crop_face_from_image(
 
 
 # ===== Helper Utilities for Async Task Testing =====
+
+
+def wait_for_celery_task(
+    task_id: str,
+    expected_state: str = "SUCCESS",
+    timeout: float = 30.0,
+    poll_interval: float = 0.5,
+) -> AsyncResult:
+    """
+    Wait for a Celery task to reach expected state.
+
+    Args:
+        task_id: Celery task ID
+        expected_state: Expected task state (SUCCESS, FAILURE, RETRY, etc.)
+        timeout: Maximum time to wait in seconds
+        poll_interval: Time between checks in seconds
+
+    Returns:
+        Celery AsyncResult when task reaches expected state
+
+    Raises:
+        TimeoutError: If task does not reach expected state within timeout
+    """
+    from app.adapters.inbound.workers.celery_app import celery_app
+
+    start_time = time.time()
+
+    while True:
+        # Check if we've exceeded timeout
+        if time.time() - start_time > timeout:
+            result = celery_app.AsyncResult(task_id)
+            raise TimeoutError(
+                f"Task {task_id} did not reach state '{expected_state}' within {timeout}s. "
+                f"Current state: {result.state}, Ready: {result.ready()}"
+            )
+
+        # Check task state
+        result = celery_app.AsyncResult(task_id)
+
+        if result.state == expected_state:
+            return result
+
+        # If task failed but we weren't expecting failure
+        if result.state == "FAILURE" and expected_state != "FAILURE":
+            raise RuntimeError(
+                f"Task {task_id} failed: {result.result}"
+            )
+
+        # Wait before next check
+        time.sleep(poll_interval)
+
+
+async def wait_for_celery_task_async(
+    task_id: str,
+    expected_state: str = "SUCCESS",
+    timeout: float = 30.0,
+    poll_interval: float = 0.5,
+) -> AsyncResult:
+    """
+    Async version of wait_for_celery_task.
+
+    Args:
+        task_id: Celery task ID
+        expected_state: Expected task state
+        timeout: Maximum time to wait in seconds
+        poll_interval: Time between checks in seconds
+
+    Returns:
+        Celery AsyncResult when task reaches expected state
+
+    Raises:
+        TimeoutError: If task does not reach expected state within timeout
+    """
+    from app.adapters.inbound.workers.celery_app import celery_app
+
+    start_time = asyncio.get_event_loop().time()
+
+    while True:
+        # Check if we've exceeded timeout
+        if asyncio.get_event_loop().time() - start_time > timeout:
+            result = celery_app.AsyncResult(task_id)
+            raise TimeoutError(
+                f"Task {task_id} did not reach state '{expected_state}' within {timeout}s. "
+                f"Current state: {result.state}, Ready: {result.ready()}"
+            )
+
+        # Check task state
+        result = celery_app.AsyncResult(task_id)
+
+        if result.state == expected_state:
+            return result
+
+        # If task failed but we weren't expecting failure
+        if result.state == "FAILURE" and expected_state != "FAILURE":
+            raise RuntimeError(
+                f"Task {task_id} failed: {result.result}"
+            )
+
+        # Wait before next check
+        await asyncio.sleep(poll_interval)
 
 
 async def wait_for_condition(
