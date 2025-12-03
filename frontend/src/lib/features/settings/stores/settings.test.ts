@@ -154,10 +154,17 @@ describe('settingsStore', () => {
 		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: {
-					thumbnailQuality: 90,
-					clipModel: 'ViT-L/14',
-					faceDetectionEnabled: true,
-					autoIndexNewPhotos: false
+					config_dir: '/config',
+					data_dir: '/data',
+					cache_dir: '/cache',
+					thumbnail_quality: 90,
+					clip_model: 'ViT-L/14',
+					face_detection_enabled: true,
+					auto_index_new_photos: false,
+					thumbnail_cache_hours: 24,
+					indexing_batch_size: 32,
+					indexing_parallel_workers: 4,
+					default_sync_interval_hours: 3600
 				}
 			});
 

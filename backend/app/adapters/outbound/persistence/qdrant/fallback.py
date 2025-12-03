@@ -8,6 +8,12 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.infrastructure.monitoring.circuit_breaker import (
+    fallback_queue_enqueued_total,
+    fallback_queue_length as fallback_queue_length_metric,
+    fallback_queue_requeued_total,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,6 +66,10 @@ class QdrantFallbackQueue:
             f"Queued {operation} for photo {photo_id}",
             extra={"queue_length": queue_len},
         )
+
+        # Record metrics
+        fallback_queue_enqueued_total.labels(operation_type=operation).inc()
+        fallback_queue_length_metric.set(queue_len)
 
     async def queue_length(self) -> int:
         """Get current queue length.
@@ -115,3 +125,8 @@ class QdrantFallbackQueue:
             f"Re-queued {task['operation']} (attempt {task['retry_count']})",
             extra={"retry_count": task["retry_count"]},
         )
+
+        # Record metrics
+        fallback_queue_requeued_total.labels(operation_type=task["operation"]).inc()
+        queue_len = await self.queue_length()
+        fallback_queue_length_metric.set(queue_len)

@@ -555,13 +555,15 @@ class TestQdrantVectorStoreErrorHandling:
         vector_store = QdrantVectorStore()
         photo_id = uuid4()
 
-        with pytest.raises(Exception) as exc:
-            await vector_store.store_photo_embedding(
-                photo_id=photo_id,
-                embedding=sample_embedding,
-            )
+        # With fallback queue strategy, exceptions are caught and logged
+        # without raising - operation succeeds even when circuit is open
+        await vector_store.store_photo_embedding(
+            photo_id=photo_id,
+            embedding=sample_embedding,
+        )
 
-        assert "Qdrant connection error" in str(exc.value)
+        # Verify upsert was attempted
+        mock_async_client.upsert.assert_called_once()
 
         # Clean up
         vs_module._async_client = None

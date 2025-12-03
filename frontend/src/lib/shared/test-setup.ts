@@ -4,6 +4,37 @@ import '@testing-library/svelte';
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
+/**
+ * Helper to create a proper mock Response object with all required properties
+ */
+function createMockResponse(options: {
+	ok: boolean;
+	status?: number;
+	statusText?: string;
+	headers?: Headers;
+	json?: () => Promise<unknown>;
+	text?: () => Promise<string>;
+}): Response {
+	return {
+		ok: options.ok,
+		status: options.status ?? (options.ok ? 200 : 500),
+		statusText: options.statusText ?? (options.ok ? 'OK' : 'Internal Server Error'),
+		headers: options.headers ?? new Headers({ 'content-type': 'application/json' }),
+		json: options.json ?? (async () => ({})),
+		text: options.text ?? (async () => ''),
+		redirected: false,
+		type: 'basic',
+		url: '',
+		clone: () => createMockResponse(options),
+		body: null,
+		bodyUsed: false,
+		arrayBuffer: async () => new ArrayBuffer(0),
+		blob: async () => new Blob(),
+		formData: async () => new FormData(),
+		bytes: async () => new Uint8Array()
+	} as Response;
+}
+
 // Configure jsdom for Svelte 5
 // This ensures proper DOM environment for Svelte component rendering
 if (typeof window !== 'undefined') {
@@ -51,8 +82,14 @@ if (typeof window !== 'undefined') {
 	}
 }
 
-// Mock fetch globally
-global.fetch = vi.fn();
+// Mock fetch globally with proper Response object factory
+global.fetch = vi.fn(async () =>
+	createMockResponse({
+		ok: true,
+		status: 200,
+		json: async () => ({ success: true, data: {} })
+	})
+);
 
 // Reset mocks between tests
 beforeEach(() => {

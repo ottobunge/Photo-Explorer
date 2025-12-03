@@ -47,27 +47,51 @@ class UploadStore {
 	 * Update the upload progress for a specific item
 	 */
 	updateProgress(id: string, progress: number): void {
-		this.items = this.items.map((item) =>
-			item.id === id ? { ...item, progress, status: 'uploading' } : item
-		);
+		const item = this.items.find((item) => item.id === id);
+		if (!item) return;
+
+		// Don't update if already completed or failed
+		if (item.status === 'completed' || item.status === 'failed') return;
+
+		// Update progress
+		item.progress = progress;
+
+		// Determine the appropriate status based on progress
+		if (progress > 0 && progress < 100) {
+			item.status = 'uploading';
+		} else if (progress === 100) {
+			item.status = 'completed';
+		}
+
+		// Trigger reactivity by reassigning the array
+		this.items = [...this.items];
 	}
 
 	/**
 	 * Mark an upload as completed
 	 */
 	setCompleted(id: string): void {
-		this.items = this.items.map((item) =>
-			item.id === id ? { ...item, progress: 100, status: 'completed' } : item
-		);
+		const item = this.items.find((item) => item.id === id);
+		if (item) {
+			item.progress = 100;
+			item.status = 'completed';
+			// Trigger reactivity
+			this.items = [...this.items];
+		}
 	}
 
 	/**
 	 * Mark an upload as failed
 	 */
 	setFailed(id: string, error: string): void {
-		this.items = this.items.map((item) =>
-			item.id === id ? { ...item, status: 'failed', error } : item
-		);
+		const item = this.items.find((item) => item.id === id);
+		if (item) {
+			// Preserve existing progress (don't reset to 0)
+			item.status = 'failed';
+			item.error = error;
+			// Trigger reactivity
+			this.items = [...this.items];
+		}
 	}
 
 	/**

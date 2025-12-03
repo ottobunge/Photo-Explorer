@@ -382,6 +382,10 @@ celery_app.conf.update(
             "task": "monitoring.monitor_db_pool",
             "schedule": MONITOR_DB_POOL_INTERVAL_SECONDS,
         },
+        "process-qdrant-fallback-queue": {
+            "task": "app.adapters.inbound.workers.tasks.qdrant_recovery.process_qdrant_fallback_queue",
+            "schedule": 300.0,  # Run every 5 minutes
+        },
     },
 )
 

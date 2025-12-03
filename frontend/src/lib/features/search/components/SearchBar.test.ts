@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SearchBar from './SearchBar.svelte';
@@ -331,17 +331,20 @@ describe('SearchBar', () => {
 			// Arrow down
 			await fireEvent.keyDown(input!, { key: 'ArrowDown' });
 			let highlighted = container.querySelector('[aria-selected="true"]');
-			expect(highlighted?.textContent).toContain('option 1');
+			expect(highlighted).toBeTruthy();
+			expect(highlighted!.textContent).toContain('option 1');
 
 			// Arrow down again
 			await fireEvent.keyDown(input!, { key: 'ArrowDown' });
 			highlighted = container.querySelector('[aria-selected="true"]');
-			expect(highlighted?.textContent).toContain('option 2');
+			expect(highlighted).toBeTruthy();
+			expect(highlighted!.textContent).toContain('option 2');
 
 			// Arrow up
 			await fireEvent.keyDown(input!, { key: 'ArrowUp' });
 			highlighted = container.querySelector('[aria-selected="true"]');
-			expect(highlighted?.textContent).toContain('option 1');
+			expect(highlighted).toBeTruthy();
+			expect(highlighted!.textContent).toContain('option 1');
 		});
 
 		it('selects suggestion with Enter key', async () => {

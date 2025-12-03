@@ -126,6 +126,49 @@ qdrant_operation_duration = Histogram(
     buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0],
 )
 
+# Fallback Queue Metrics
+
+# Gauge: Current size of Qdrant fallback queue
+fallback_queue_length = Gauge(
+    "qdrant_fallback_queue_length",
+    "Current number of operations in Qdrant fallback queue",
+)
+
+# Counter: Total operations queued to fallback
+fallback_queue_enqueued_total = Counter(
+    "qdrant_fallback_queue_enqueued_total",
+    "Total operations enqueued to Qdrant fallback queue",
+    ["operation_type"],
+)
+
+# Counter: Total operations successfully processed from fallback queue
+fallback_queue_processed_total = Counter(
+    "qdrant_fallback_queue_processed_total",
+    "Total operations successfully processed from Qdrant fallback queue",
+    ["operation_type"],
+)
+
+# Counter: Total operations that failed to process from fallback queue
+fallback_queue_failed_total = Counter(
+    "qdrant_fallback_queue_failed_total",
+    "Total operations that failed to process from Qdrant fallback queue",
+    ["operation_type"],
+)
+
+# Counter: Total operations requeued for retry
+fallback_queue_requeued_total = Counter(
+    "qdrant_fallback_queue_requeued_total",
+    "Total operations requeued for retry from Qdrant fallback queue",
+    ["operation_type"],
+)
+
+# Histogram: Recovery task execution time
+fallback_queue_recovery_duration = Histogram(
+    "qdrant_fallback_queue_recovery_duration_seconds",
+    "Time to process Qdrant fallback queue batch in seconds",
+    buckets=[0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0],
+)
+
 
 def get_correlation_id() -> str:
     """Get the current correlation ID from context."""

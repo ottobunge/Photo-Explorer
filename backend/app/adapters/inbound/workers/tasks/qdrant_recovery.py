@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from typing import Any
 from uuid import UUID
 
@@ -12,6 +13,12 @@ from app.adapters.outbound.persistence.qdrant.fallback import QdrantFallbackQueu
 from app.adapters.outbound.persistence.qdrant.vector_store import QdrantVectorStore
 from app.config import get_settings
 from app.domain.value_objects import Embedding
+from app.infrastructure.monitoring.circuit_breaker import (
+    fallback_queue_failed_total,
+    fallback_queue_length as fallback_queue_length_metric,
+    fallback_queue_processed_total,
+    fallback_queue_recovery_duration,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,12 +82,15 @@ async def _process_queue_async() -> dict[str, int]:
     """
     settings = get_settings()
     redis_client = await from_url(settings.redis_url, decode_responses=True)
+    start_time = time.time()
 
     try:
         queue = QdrantFallbackQueue(redis_client)
         vector_store = QdrantVectorStore()
 
         queue_length = await queue.queue_length()
+        fallback_queue_length_metric.set(queue_length)
+
         if queue_length == 0:
             logger.debug("No queued Qdrant operations to process")
             return {
@@ -109,10 +119,12 @@ async def _process_queue_async() -> dict[str, int]:
                     if task["operation"] == "store_photo_embedding":
                         await _process_photo_embedding(vector_store, task)
                         processed += 1
+                        fallback_queue_processed_total.labels(operation_type="store_photo_embedding").inc()
 
                     elif task["operation"] == "store_face_embedding":
                         await _process_face_embedding(vector_store, task)
                         processed += 1
+                        fallback_queue_processed_total.labels(operation_type="store_face_embedding").inc()
 
                     else:
                         logger.warning(
@@ -120,12 +132,14 @@ async def _process_queue_async() -> dict[str, int]:
                             extra={"operation": task["operation"]},
                         )
                         failed += 1
+                        fallback_queue_failed_total.labels(operation_type=task.get("operation", "unknown")).inc()
 
                 except Exception as e:
+                    operation_type = task.get("operation", "unknown")
                     logger.error(
                         f"Failed to process queued task: {e}",
                         extra={
-                            "operation": task.get("operation"),
+                            "operation": operation_type,
                             "retry_count": task.get("retry_count", 0),
                             "error": str(e),
                             "error_type": type(e).__name__,
@@ -133,6 +147,7 @@ async def _process_queue_async() -> dict[str, int]:
                         exc_info=True,
                     )
                     failed += 1
+                    fallback_queue_failed_total.labels(operation_type=operation_type).inc()
 
                     # Re-queue with retry count
                     if task.get("retry_count", 0) < MAX_RETRIES_PER_TASK:
@@ -147,6 +162,12 @@ async def _process_queue_async() -> dict[str, int]:
                 "requeued": requeued,
             },
         )
+
+        # Record final queue length and processing duration
+        final_queue_length = await queue.queue_length()
+        fallback_queue_length_metric.set(final_queue_length)
+        duration = time.time() - start_time
+        fallback_queue_recovery_duration.observe(duration)
 
         return {
             "processed": processed,

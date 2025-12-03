@@ -46,7 +46,7 @@ function createApiResponseSchema<T extends z.ZodTypeAny>(dataSchema: T): z.ZodOb
 /**
  * Type-safe API response wrapper
  */
-interface ApiResponse<T> {
+export interface ApiResponse<T> {
 	success: boolean;
 	data: T;
 	error?: {

@@ -1,24 +1,24 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { settingsStore } from '../stores/settings.svelte';
 	import type { HFModel, DownloadProgress } from '../types';
 
-	let searchQuery = '';
-	let searchResults: HFModel[] = [];
-	let searching = false;
-	let error: string | null = null;
+	let searchQuery = $state('');
+	let searchResults = $state<HFModel[]>([]);
+	let searching = $state(false);
+	let error = $state<string | null>(null);
 
 	// Model lookup modal
-	let showLookupModal = false;
-	let lookupModelId = '';
-	let lookupResult: HFModel | null = null;
-	let lookingUp = false;
+	let showLookupModal = $state(false);
+	let lookupModelId = $state('');
+	let lookupResult = $state<HFModel | null>(null);
+	let lookingUp = $state(false);
 
 	// Download tracking
-	let downloadingModels = new Map<string, DownloadProgress>();
+	let downloadingModels = $state(new Map<string, DownloadProgress>());
 
-	onMount(async (): Promise<void> => {
-		await Promise.all([
+	// Load models on mount using Svelte 5 $effect
+	$effect(() => {
+		void Promise.all([
 			settingsStore.loadActiveModels(),
 			settingsStore.loadDownloadedModels(),
 			settingsStore.loadRecommendedModels()
@@ -358,7 +358,7 @@
 <!-- Lookup Modal -->
 {#if showLookupModal}
 	<div class="modal-overlay" onclick={() => (showLookupModal = false)} onkeydown={(e) => e.key === 'Escape' && (showLookupModal = false)} role="button" tabindex="0">
-		<div class="modal" onclick|stopPropagation onkeydown|stopPropagation role="dialog" aria-modal="true" aria-labelledby="lookup-modal-title" tabindex="-1">
+		<div class="modal" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="lookup-modal-title" tabindex="-1">
 			<div class="modal-header">
 				<h3 id="lookup-modal-title">Lookup Model by ID</h3>
 				<button class="close-btn" onclick={() => (showLookupModal = false)}>×</button>

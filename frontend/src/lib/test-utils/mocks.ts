@@ -176,8 +176,15 @@ export function createDragEvent(
 	type: string,
 	files: File[] = []
 ): DragEvent {
+	// Create a FileList-like object without modifying the original array
+	const fileList = {
+		length: files.length,
+		item: (index: number) => files[index] || null,
+		...files.reduce((acc, file, idx) => ({ ...acc, [idx]: file }), {})
+	};
+
 	const dataTransfer = {
-		files,
+		files: fileList as unknown as FileList,
 		items: files.map(file => ({
 			kind: 'file',
 			type: file.type,
@@ -191,20 +198,21 @@ export function createDragEvent(
 		dropEffect: 'copy' as DataTransferDropEffect
 	};
 
+	// Create a basic Event and manually set properties for jsdom compatibility
 	const event = new Event(type, {
 		bubbles: true,
 		cancelable: true
-	}) as unknown as DragEvent;
+	}) as any;
 
-	// Properly attach dataTransfer to the event
-	Object.defineProperty(event, 'dataTransfer', {
-		value: dataTransfer,
-		writable: true,
-		enumerable: true,
-		configurable: true
-	});
+	// Add DragEvent-specific properties
+	event.dataTransfer = dataTransfer;
 
-	return event;
+	// Ensure preventDefault is available
+	if (!event.preventDefault) {
+		event.preventDefault = vi.fn();
+	}
+
+	return event as DragEvent;
 }
 
 /**

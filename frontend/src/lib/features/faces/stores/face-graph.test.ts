@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { faceGraphStore } from './face-graph.svelte';
 import * as apiClient from '$lib/api/client';
+import type { ApiResponse } from '$lib/api/client';
 import type { SocialGraph } from '../types';
 
 // Mock the API client
@@ -187,8 +188,7 @@ describe('faceGraphStore', () => {
 			expect(faceGraphStore.filteredPersonId).toBe('1');
 
 			// Verify API was called with correct params
-			const mockGet = getMockedClient().get;
-		expect(mockGet).toHaveBeenCalledWith(
+			expect(mockGet).toHaveBeenCalledWith(
 				'/faces/graph',
 				{ person_id: '1' }
 			);
@@ -222,8 +222,7 @@ describe('faceGraphStore', () => {
 			await faceGraphStore.filterByPerson('1');
 
 			expect(faceGraphStore.filteredPersonId).toBe('1');
-			const mockGet = getMockedClient().get;
-		expect(mockGet).toHaveBeenCalledWith(
+			expect(mockGet).toHaveBeenCalledWith(
 				'/faces/graph',
 				{ person_id: '1' }
 			);
@@ -233,7 +232,7 @@ describe('faceGraphStore', () => {
 	describe('clearFilter', () => {
 		it('should load unfiltered graph', async () => {
 			// First load a filtered graph
-			const mockGet = getMockedClient().get;
+			let mockGet = getMockedClient().get;
 		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: {
@@ -249,7 +248,7 @@ describe('faceGraphStore', () => {
 			await faceGraphStore.filterByPerson('1');
 
 			// Then clear the filter
-			const mockGet = getMockedClient().get;
+			mockGet = getMockedClient().get;
 		mockGet.mockResolvedValueOnce({
 				success: true,
 				data: {
@@ -265,8 +264,7 @@ describe('faceGraphStore', () => {
 			await faceGraphStore.clearFilter();
 
 			expect(faceGraphStore.filteredPersonId).toBeNull();
-			const mockGet = getMockedClient().get;
-		expect(mockGet).toHaveBeenLastCalledWith(
+			expect(mockGet).toHaveBeenLastCalledWith(
 				'/faces/graph',
 				{}
 			);

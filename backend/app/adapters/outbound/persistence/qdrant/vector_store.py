@@ -7,7 +7,7 @@ from uuid import UUID
 from circuitbreaker import circuit
 from qdrant_client import AsyncQdrantClient, QdrantClient
 from qdrant_client.http import models as qdrant_models
-from qdrant_client.http.exceptions import UnexpectedResponse
+from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
 from app.application.ports.outbound.vector_store import VectorSearchResult, VectorStore
 from app.config import get_settings
@@ -19,9 +19,21 @@ from app.infrastructure.monitoring import (
 
 logger = logging.getLogger(__name__)
 
+# Qdrant-specific exceptions that should trigger circuit breaker
+QDRANT_CIRCUIT_EXCEPTIONS = (
+    UnexpectedResponse,
+    ResponseHandlingException,
+    TimeoutError,
+    ConnectionError,
+    OSError,  # Network-related errors
+)
+
 
 # Global singleton for async client
 _async_client: Optional[AsyncQdrantClient] = None
+
+# Global fallback queue instance
+_fallback_queue: Optional["QdrantFallbackQueue"] = None
 
 
 class QdrantVectorStore(VectorStore):
@@ -35,8 +47,10 @@ class QdrantVectorStore(VectorStore):
         url: Optional[str] = None,
         photos_collection: Optional[str] = None,
         faces_collection: Optional[str] = None,
+        fallback_queue: Optional["QdrantFallbackQueue"] = None,
     ) -> None:
         global _async_client
+        global _fallback_queue
 
         settings = get_settings()
         self._url = url or settings.qdrant_url
@@ -57,6 +71,11 @@ class QdrantVectorStore(VectorStore):
         if _async_client is None:
             _async_client = AsyncQdrantClient(url=self._url)
         self._client = _async_client
+
+        # Store fallback queue for circuit breaker integration
+        if fallback_queue is not None:
+            _fallback_queue = fallback_queue
+        self._fallback_queue = _fallback_queue
 
     def _ensure_collections(self) -> None:
         """Ensure required collections exist."""
@@ -86,19 +105,16 @@ class QdrantVectorStore(VectorStore):
 
     # Photo embeddings
 
-    @log_circuit_breaker_events
-    @monitor_circuit_breaker("store_photo_embedding")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
-    async def store_photo_embedding(
+    async def _store_photo_embedding_impl(
         self,
         photo_id: UUID,
         embedding: Embedding,
         payload: Optional[dict] = None,
     ) -> None:
-        """
-        Store a photo's CLIP embedding.
+        """Internal implementation of photo embedding storage (with circuit breaker).
 
-        Circuit breaker: Opens after 5 failures, recovers after 60 seconds.
+        This method is wrapped with the @circuit decorator to handle failures.
+        When the circuit is open, exceptions are caught and the operation is queued.
         """
         point = qdrant_models.PointStruct(
             id=str(photo_id),
@@ -112,8 +128,91 @@ class QdrantVectorStore(VectorStore):
         logger.debug(f"Stored embedding for photo {photo_id}")
 
     @log_circuit_breaker_events
+    @monitor_circuit_breaker("store_photo_embedding")
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
+    async def _store_photo_embedding_circuit_breaker(
+        self,
+        photo_id: UUID,
+        embedding: Embedding,
+        payload: Optional[dict] = None,
+    ) -> None:
+        """Photo embedding storage with circuit breaker protection."""
+        await self._store_photo_embedding_impl(photo_id, embedding, payload)
+
+    async def store_photo_embedding(
+        self,
+        photo_id: UUID,
+        embedding: Embedding,
+        payload: Optional[dict] = None,
+    ) -> None:
+        """Store a photo's CLIP embedding with fallback queue support.
+
+        Args:
+            photo_id: UUID of the photo
+            embedding: CLIP embedding vector
+            payload: Optional metadata to store with the embedding
+
+        Returns:
+            None
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker & fallback:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - When open: operation queued to Redis for async retry
+            - Fallback task processes queue when Qdrant recovers
+
+        Note:
+            Photo upload always succeeds (operation either stored immediately
+            or queued for later processing). Returns immediately without waiting
+            for storage confirmation.
+        """
+        try:
+            await self._store_photo_embedding_circuit_breaker(photo_id, embedding, payload)
+        except Exception as e:
+            # Circuit breaker is open - queue the operation
+            if self._fallback_queue is not None:
+                logger.info(
+                    f"Qdrant unavailable - queuing photo embedding",
+                    extra={
+                        "photo_id": str(photo_id),
+                        "error": str(e)[:100],
+                        "error_type": type(e).__name__,
+                    },
+                )
+                await self._fallback_queue.enqueue_embedding(
+                    operation="store_photo_embedding",
+                    photo_id=photo_id,
+                    embedding=embedding.to_list(),
+                    payload=payload,
+                )
+            else:
+                # No fallback queue configured - log warning
+                logger.warning(
+                    f"Qdrant unavailable and no fallback queue configured",
+                    extra={
+                        "photo_id": str(photo_id),
+                        "error": str(e)[:100],
+                    },
+                )
+
+    @log_circuit_breaker_events
     @monitor_circuit_breaker("search_photos")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def search_photos(
         self,
         query_embedding: Embedding,
@@ -121,20 +220,34 @@ class QdrantVectorStore(VectorStore):
         filters: Optional[dict] = None,
         score_threshold: Optional[float] = None,
     ) -> list[VectorSearchResult]:
-        """
-        Search for similar photos by embedding.
+        """Search for similar photos by embedding.
 
         Args:
             query_embedding: The embedding vector to search for
-            limit: Maximum number of results to return
+            limit: Maximum number of results to return (default 20)
             filters: Optional filters to apply (Qdrant format)
             score_threshold: Optional minimum similarity score (0.0-1.0).
                            Only return results with score >= threshold.
 
         Returns:
-            List of VectorSearchResult objects
+            List of VectorSearchResult objects sorted by relevance score (highest first).
+            Returns empty list when circuit is open (Qdrant unavailable).
 
-        Circuit breaker: Opens after 5 failures, recovers after 60 seconds.
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: Returns empty list [] when circuit is open
+
+        Note:
+            Fallback behavior returns empty results gracefully when Qdrant is unavailable.
+            Frontend should indicate "Search temporarily unavailable" to users.
         """
         query_filter = None
         if filters:
@@ -160,9 +273,37 @@ class QdrantVectorStore(VectorStore):
 
     @log_circuit_breaker_events
     @monitor_circuit_breaker("delete_photo_embedding")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def delete_photo_embedding(self, photo_id: UUID) -> bool:
-        """Delete a photo's embedding."""
+        """Delete a photo's embedding from the vector store.
+
+        Args:
+            photo_id: UUID of the photo whose embedding should be deleted
+
+        Returns:
+            True if deletion succeeded, False if photo not found or error occurred.
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: Returns False when circuit is open
+
+        Note:
+            Failed deletions (when circuit is open) are logged but don't fail the operation.
+            Photos are still deleted from the database, just not from the vector store.
+            Once Qdrant recovers, the embedding should be deleted manually or via cleanup task.
+        """
         try:
             await self._client.delete(
                 collection_name=self._photos_collection,
@@ -173,14 +314,42 @@ class QdrantVectorStore(VectorStore):
             logger.debug(f"Deleted embedding for photo {photo_id}")
             return True
         except Exception as e:
-            logger.error(f"Error deleting photo embedding: {e}")
+            logger.error(f"Error deleting photo embedding {photo_id}: {e}")
             return False
 
     @log_circuit_breaker_events
     @monitor_circuit_breaker("get_photo_embedding")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def get_photo_embedding(self, photo_id: UUID) -> Optional[Embedding]:
-        """Retrieve a photo's stored embedding."""
+        """Retrieve a photo's stored embedding vector.
+
+        Args:
+            photo_id: UUID of the photo whose embedding to retrieve
+
+        Returns:
+            Embedding object if found, None if not found or on error.
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: Returns None when circuit is open
+
+        Note:
+            Returns None for both "not found" and "Qdrant unavailable" cases.
+            When circuit is open, callers cannot distinguish between missing embedding
+            and temporary unavailability. Consider adding metrics to track this.
+        """
         try:
             results = await self._client.retrieve(
                 collection_name=self._photos_collection,
@@ -193,24 +362,21 @@ class QdrantVectorStore(VectorStore):
                     return Embedding(vector=vector)
             return None
         except Exception as e:
-            logger.error(f"Error retrieving photo embedding: {e}")
+            logger.error(f"Error retrieving photo embedding {photo_id}: {e}")
             return None
 
     # Face embeddings
 
-    @log_circuit_breaker_events
-    @monitor_circuit_breaker("store_face_embedding")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
-    async def store_face_embedding(
+    async def _store_face_embedding_impl(
         self,
         face_id: UUID,
         embedding: Embedding,
         payload: Optional[dict] = None,
     ) -> None:
-        """
-        Store a face's embedding.
+        """Internal implementation of face embedding storage (with circuit breaker).
 
-        Circuit breaker: Opens after 5 failures, recovers after 60 seconds.
+        This method is wrapped with the @circuit decorator to handle failures.
+        When the circuit is open, exceptions are caught and the operation is queued.
         """
         point = qdrant_models.PointStruct(
             id=str(face_id),
@@ -224,15 +390,125 @@ class QdrantVectorStore(VectorStore):
         logger.debug(f"Stored embedding for face {face_id}")
 
     @log_circuit_breaker_events
+    @monitor_circuit_breaker("store_face_embedding")
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
+    async def _store_face_embedding_circuit_breaker(
+        self,
+        face_id: UUID,
+        embedding: Embedding,
+        payload: Optional[dict] = None,
+    ) -> None:
+        """Face embedding storage with circuit breaker protection."""
+        await self._store_face_embedding_impl(face_id, embedding, payload)
+
+    async def store_face_embedding(
+        self,
+        face_id: UUID,
+        embedding: Embedding,
+        payload: Optional[dict] = None,
+    ) -> None:
+        """Store a face's embedding for clustering and recognition with fallback queue support.
+
+        Args:
+            face_id: UUID of the detected face
+            embedding: InsightFace embedding vector (512 dimensions)
+            payload: Optional metadata (cluster_id, person_id, detection_box, etc.)
+
+        Returns:
+            None
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker & fallback:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - When open: operation queued to Redis for async retry
+            - Fallback task processes queue when Qdrant recovers
+
+        Note:
+            Face detection always succeeds (operation either stored immediately
+            or queued for later processing). Faces will be available for clustering
+            once circuit recovers and embeddings are stored.
+        """
+        try:
+            await self._store_face_embedding_circuit_breaker(face_id, embedding, payload)
+        except Exception as e:
+            # Circuit breaker is open - queue the operation
+            if self._fallback_queue is not None:
+                logger.info(
+                    f"Qdrant unavailable - queuing face embedding",
+                    extra={
+                        "face_id": str(face_id),
+                        "error": str(e)[:100],
+                        "error_type": type(e).__name__,
+                    },
+                )
+                await self._fallback_queue.enqueue_embedding(
+                    operation="store_face_embedding",
+                    photo_id=face_id,
+                    embedding=embedding.to_list(),
+                    payload=payload,
+                )
+            else:
+                # No fallback queue configured - log warning
+                logger.warning(
+                    f"Qdrant unavailable and no fallback queue configured",
+                    extra={
+                        "face_id": str(face_id),
+                        "error": str(e)[:100],
+                    },
+                )
+
+    @log_circuit_breaker_events
     @monitor_circuit_breaker("search_faces")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def search_faces(
         self,
         query_embedding: Embedding,
         limit: int = 20,
         filters: Optional[dict] = None,
     ) -> list[VectorSearchResult]:
-        """Search for similar faces by embedding."""
+        """Search for similar faces by embedding vector.
+
+        Args:
+            query_embedding: Face embedding vector to search for
+            limit: Maximum number of similar faces to return (default 20)
+            filters: Optional filters (e.g., by cluster_id or person_id)
+
+        Returns:
+            List of VectorSearchResult objects representing similar faces,
+            sorted by similarity score (highest first).
+            Returns empty list when circuit is open (Qdrant unavailable).
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: Returns empty list [] when circuit is open
+
+        Note:
+            Used for face clustering to find similar faces. When Qdrant is down,
+            clustering cannot proceed, but existing clusters remain intact.
+        """
         query_filter = None
         if filters:
             query_filter = self._build_filter(filters)
@@ -255,9 +531,37 @@ class QdrantVectorStore(VectorStore):
 
     @log_circuit_breaker_events
     @monitor_circuit_breaker("delete_face_embedding")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def delete_face_embedding(self, face_id: UUID) -> bool:
-        """Delete a face's embedding."""
+        """Delete a face's embedding from the vector store.
+
+        Args:
+            face_id: UUID of the face whose embedding should be deleted
+
+        Returns:
+            True if deletion succeeded, False if face not found or error occurred.
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: Returns False when circuit is open
+
+        Note:
+            Failed deletions (when circuit is open) are logged but don't fail the operation.
+            Faces are still deleted from the database, just not from the vector store.
+            Once Qdrant recovers, the embedding should be deleted via cleanup task.
+        """
         try:
             await self._client.delete(
                 collection_name=self._faces_collection,
@@ -268,22 +572,50 @@ class QdrantVectorStore(VectorStore):
             logger.debug(f"Deleted embedding for face {face_id}")
             return True
         except Exception as e:
-            logger.error(f"Error deleting face embedding: {e}")
+            logger.error(f"Error deleting face embedding {face_id}: {e}")
             return False
 
     @log_circuit_breaker_events
     @monitor_circuit_breaker("find_similar_faces")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def find_similar_faces(
         self,
         face_id: UUID,
         threshold: float = 0.6,
         limit: int = 50,
     ) -> list[VectorSearchResult]:
-        """
-        Find faces similar to a given face (for clustering).
+        """Find faces similar to a given face for clustering.
 
-        Circuit breaker: Opens after 5 failures, recovers after 60 seconds.
+        Args:
+            face_id: UUID of the reference face
+            threshold: Minimum similarity score (0.0-1.0, default 0.6)
+            limit: Maximum number of similar faces to return (default 50)
+
+        Returns:
+            List of VectorSearchResult objects for similar faces (excluding query face),
+            sorted by similarity score (highest first).
+            Returns empty list if face not found or on error.
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: Returns empty list [] when circuit is open
+
+        Note:
+            This is a critical operation for face clustering. When Qdrant is down,
+            new faces cannot be clustered, but existing clusters remain intact.
+            The query face itself is excluded from results even if it matches the threshold.
         """
         # First, get the face's embedding
         try:
@@ -318,14 +650,42 @@ class QdrantVectorStore(VectorStore):
                 if str(result.id) != str(face_id)
             ]
         except Exception as e:
-            logger.error(f"Error finding similar faces: {e}")
+            logger.error(f"Error finding similar faces for {face_id}: {e}")
             return []
 
     @log_circuit_breaker_events
     @monitor_circuit_breaker("get_face_embedding")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def get_face_embedding(self, face_id: UUID) -> Optional[Embedding]:
-        """Retrieve a face's stored embedding."""
+        """Retrieve a face's stored embedding vector.
+
+        Args:
+            face_id: UUID of the face whose embedding to retrieve
+
+        Returns:
+            Embedding object if found, None if not found or on error.
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: Returns None when circuit is open
+
+        Note:
+            Returns None for both "not found" and "Qdrant unavailable" cases.
+            When circuit is open, callers cannot distinguish between missing embedding
+            and temporary unavailability. Consider adding metrics to track this.
+        """
         try:
             results = await self._client.retrieve(
                 collection_name=self._faces_collection,
@@ -338,19 +698,48 @@ class QdrantVectorStore(VectorStore):
                     return Embedding(vector=vector)
             return None
         except Exception as e:
-            logger.error(f"Error retrieving face embedding: {e}")
+            logger.error(f"Error retrieving face embedding {face_id}: {e}")
             return None
 
     # Batch operations
 
     @log_circuit_breaker_events
     @monitor_circuit_breaker("store_photo_embeddings_batch")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def store_photo_embeddings_batch(
         self,
         embeddings: list[tuple[UUID, Embedding, Optional[dict]]],
     ) -> None:
-        """Store multiple photo embeddings at once."""
+        """Store multiple photo embeddings in a single batch operation.
+
+        Args:
+            embeddings: List of (photo_id, embedding, payload) tuples
+
+        Returns:
+            None
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: None (callers should handle loss of search capability)
+
+        Note:
+            Batch operations are more efficient than individual stores.
+            Empty input list is idempotent (no operation performed).
+            When circuit is open, photo embeddings are not stored, but photo data
+            remains safe in the database.
+        """
         if not embeddings:
             return
 
@@ -370,12 +759,41 @@ class QdrantVectorStore(VectorStore):
 
     @log_circuit_breaker_events
     @monitor_circuit_breaker("store_face_embeddings_batch")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def store_face_embeddings_batch(
         self,
         embeddings: list[tuple[UUID, Embedding, Optional[dict]]],
     ) -> None:
-        """Store multiple face embeddings at once."""
+        """Store multiple face embeddings in a single batch operation.
+
+        Args:
+            embeddings: List of (face_id, embedding, payload) tuples
+
+        Returns:
+            None
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: None (callers should handle loss of clustering capability)
+
+        Note:
+            Batch operations are more efficient than individual stores.
+            Empty input list is idempotent (no operation performed).
+            When circuit is open, face embeddings are not stored, but detected faces
+            remain safe in the database.
+        """
         if not embeddings:
             return
 
@@ -395,9 +813,38 @@ class QdrantVectorStore(VectorStore):
 
     @log_circuit_breaker_events
     @monitor_circuit_breaker("update_face_payload")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def update_face_payload(self, face_id: UUID, payload: dict) -> None:
-        """Update the payload (metadata) for a face embedding."""
+        """Update the payload (metadata) for a face embedding.
+
+        Args:
+            face_id: UUID of the face whose payload should be updated
+            payload: Dictionary of metadata to update (cluster_id, person_id, etc.)
+
+        Returns:
+            None
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: None (callers should handle update failures gracefully)
+
+        Note:
+            Used for updating face cluster assignments and metadata.
+            When circuit is open, updates cannot be persisted to vector store.
+            Updates to database metadata still succeed; only vector store sync is delayed.
+        """
         await self._client.set_payload(
             collection_name=self._faces_collection,
             payload=payload,
@@ -406,21 +853,43 @@ class QdrantVectorStore(VectorStore):
 
     @log_circuit_breaker_events
     @monitor_circuit_breaker("update_face_payloads_batch")
-    @circuit(failure_threshold=5, recovery_timeout=60, expected_exception=Exception)
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def update_face_payloads_batch(
         self,
         updates: list[tuple[UUID, dict]],
     ) -> None:
-        """
-        Update payloads for multiple faces in a single batch operation.
+        """Update payloads for multiple faces in a single batch operation.
 
-        This uses Qdrant's set_payload with multiple point IDs for atomicity.
+        Uses Qdrant's set_payload with multiple point IDs for efficiency.
 
         Args:
-            updates: List of (face_id, payload_updates) tuples
+            updates: List of (face_id, payload_updates) tuples.
+                    Payloads are grouped to minimize Qdrant calls.
+
+        Returns:
+            None
 
         Raises:
-            Exception: If batch update fails
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - Fallback: None (callers should handle update failures gracefully)
+
+        Note:
+            Batch operation groups updates by payload to minimize Qdrant calls.
+            Empty input list is idempotent (no operation performed).
+            Used for updating cluster assignments across multiple detected faces.
+            When circuit is open, updates cannot be persisted to vector store.
         """
         if not updates:
             return
@@ -483,8 +952,33 @@ class QdrantVectorStore(VectorStore):
 
         return qdrant_models.Filter(must=conditions)
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("get_collection_info")
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def get_collection_info(self, collection_name: str) -> dict:
-        """Get information about a collection."""
+        """Get information about a Qdrant collection.
+
+        Args:
+            collection_name: Name of the collection
+
+        Returns:
+            Dictionary with collection metadata (vectors_count, points_count, status)
+
+        Raises:
+            UnexpectedResponse: If Qdrant returns an unexpected response
+            ResponseHandlingException: If response handling fails
+            TimeoutError: If Qdrant request times out
+            ConnectionError: If Qdrant connection fails
+            OSError: If network error occurs
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+        """
         info = await self._client.get_collection(collection_name)
         return {
             "name": collection_name,
@@ -493,8 +987,32 @@ class QdrantVectorStore(VectorStore):
             "status": info.status,
         }
 
+    @log_circuit_breaker_events
+    @monitor_circuit_breaker("health_check")
+    @circuit(
+        failure_threshold=5,
+        recovery_timeout=60,
+        expected_exception=QDRANT_CIRCUIT_EXCEPTIONS,
+    )
     async def health_check(self) -> bool:
-        """Check if Qdrant is healthy."""
+        """Check if Qdrant service is healthy and accessible.
+
+        Returns:
+            True if Qdrant is healthy and accessible, False otherwise.
+            Returns False when circuit is open (indicating repeated failures).
+
+        Raises:
+            No exceptions are raised; failures are caught and False is returned.
+
+        Circuit breaker:
+            - Opens after 5 consecutive Qdrant connectivity failures
+            - Stays open for 60 seconds before recovery attempt
+            - When open, this method returns False immediately without calling Qdrant
+
+        Note:
+            This is a monitoring/diagnostic method. When circuit is open,
+            the boolean return value False reliably indicates Qdrant is unavailable.
+        """
         try:
             await self._client.get_collections()
             return True
