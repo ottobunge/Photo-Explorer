@@ -19,22 +19,22 @@
 	}
 
 	const {
-		icon = '📭',
-		title = 'No items found',
-		description = '',
+		icon,
+		title,
+		description,
 		class: className = '',
 		action
 	}: Props = $props();
 </script>
 
 <div class="empty-state {className}">
-	{#if icon}
+	{#if icon !== undefined && icon !== ''}
 		<div class="empty-icon">{icon}</div>
 	{/if}
-	{#if title}
+	{#if title !== undefined && title !== ''}
 		<h3 class="empty-title">{title}</h3>
 	{/if}
-	{#if description}
+	{#if description !== undefined && description !== ''}
 		<p class="empty-description">{description}</p>
 	{/if}
 	{#if action}
